@@ -1,101 +1,155 @@
-import Image from "next/image";
+'use client';
+
+import { useEffect, useRef, useState } from 'react';
+import * as d3 from 'd3';
+import { Button } from '@/components/ui/button';
+import { Legend } from '@/components/ui/legend';
+import { initializeGraph } from '@/lib/graphInitializer';
+
+// Move the JSON-LD data to a separate file
+import { jsonld } from '@/lib/example';
+import { NotesPanel } from '@/components/ui/notes-panel';
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  useEffect(() => {
+    if (!svgRef.current) return;
+
+    // Clear any existing SVG content
+    d3.select(svgRef.current).selectAll('*').remove();
+
+    // Initialize the visualization using the imported function
+    const cleanup = initializeGraph(
+      svgRef,
+      jsonld,
+      handleClosePanel,
+      setSelectedNodeId,
+      setSelectedNode,
+      setIsPanelOpen,
+      selectedNodeId
+    );
+
+    // Cleanup function
+    return () => {
+      if (cleanup) cleanup();
+      d3.select(svgRef.current).selectAll('*').remove();
+    };
+  }, []);
+
+  const handleLegendClick = (type: string) => {
+    setSelectedType(selectedType === type ? null : type);
+    
+    const svg = d3.select(svgRef.current);
+    
+    if (selectedType === type) {
+      // Reset all nodes and links to full opacity
+      svg.selectAll('.node')
+        .transition()
+        .duration(200)
+        .style('opacity', 1);
+      
+      svg.selectAll('.link')
+        .transition()
+        .duration(200)
+        .style('opacity', 1);
+    } else {
+      // Dim non-matching nodes and their links
+      svg.selectAll('.node')
+        .transition()
+        .duration(200)
+        .style('opacity', (d: any) => d.type === type ? 1 : 0.2);
+      
+      svg.selectAll('.link')
+        .transition()
+        .duration(200)
+        .style('opacity', (d: any) => {
+          const source = d.source as Node;
+          const target = d.target as Node;
+          return source.type === type || target.type === type ? 1 : 0.2;
+        });
+    }
+  };
+
+  const handleClosePanel = () => {
+    setIsPanelOpen(false);
+    setSelectedNodeId(null);
+    
+    // Remove pulse effect
+    d3.selectAll('.node').classed('node-pulse', false);
+    
+    // Restore opacity for all nodes
+    d3.select(svgRef.current)
+      .selectAll('.node')
+      .transition()
+      .duration(300)
+      .style('opacity', 1);
+    
+    // Restore opacity for all links and their labels
+    d3.select(svgRef.current)
+      .selectAll('.link, .link-label')
+      .transition()
+      .duration(300)
+      .style('opacity', 1);
+  };
+
+  // Add a cleanup effect for when the component unmounts
+  useEffect(() => {
+    return () => {
+      // Ensure we clean up any remaining styles
+      if (svgRef.current) {
+        d3.select(svgRef.current)
+          .selectAll('.node, .link, .link-label')
+          .style('opacity', 1);
+      }
+    };
+  }, []);
+
+  return (
+    <div className="relative w-screen h-screen overflow-hidden">
+      {/* Replace the Legend Card with the new Legend component */}
+      <Legend 
+        selectedType={selectedType} 
+        onLegendClick={handleLegendClick} 
+      />
+
+      {/* Controls */}
+      <div className="absolute bottom-4 left-4 z-10">
+        <div className="flex flex-col gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="w-8 h-8"
+            id="zoom-in"
           >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            +
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="w-8 h-8"
+            id="zoom-out"
           >
-            Read our docs
-          </a>
+            -
+          </Button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+      </div>
+
+      {/* SVG Container */}
+      <svg
+        ref={svgRef}
+        className="w-full h-full"
+      />
+
+      <NotesPanel 
+        isPanelOpen={isPanelOpen}
+        selectedNode={selectedNode}
+        onClose={handleClosePanel}
+      />
     </div>
   );
 }
