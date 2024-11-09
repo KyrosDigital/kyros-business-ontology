@@ -28,22 +28,24 @@ export function JsonLdTable({ data }: JsonLdTableProps) {
 
   return (
     <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-1/3">Property</TableHead>
-            <TableHead>Value</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {Object.entries(data).map(([key, value]) => (
-            <TableRow key={key}>
-              <TableCell className="font-medium">{key}</TableCell>
-              <TableCell>{renderValue(value)}</TableCell>
+      <div className="max-h-[calc(100vh-8rem)] overflow-y-auto">
+        <Table>
+          <TableHeader className="sticky top-0 bg-background z-10">
+            <TableRow>
+              <TableHead className="w-1/3">Property</TableHead>
+              <TableHead>Value</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {Object.entries(data).map(([key, value]) => (
+              <TableRow key={key}>
+                <TableCell className="font-medium">{key}</TableCell>
+                <TableCell>{renderValue(value)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }

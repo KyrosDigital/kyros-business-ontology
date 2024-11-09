@@ -154,7 +154,7 @@ export default function Home() {
           />
         </>
       ) : (
-        <div className="p-4 mt-16 max-w-6xl mx-auto">
+        <div className="p-4 mt-16 max-w-6xl mx-auto h-[calc(100vh-5rem)]">
           <JsonLdTable data={jsonld} />
         </div>
       )}
