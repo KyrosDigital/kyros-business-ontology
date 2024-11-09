@@ -9,6 +9,8 @@ import { initializeGraph } from '@/lib/graphInitializer';
 // Move the JSON-LD data to a separate file
 import { jsonld } from '@/lib/example';
 import { NotesPanel } from '@/components/ui/notes-panel';
+import { JsonLdTable } from '@/components/ui/json-ld-table';
+import { Switch } from "@/components/ui/switch";
 
 export default function Home() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -16,30 +18,32 @@ export default function Home() {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
 
   useEffect(() => {
-    if (!svgRef.current) return;
-
-    // Clear any existing SVG content
-    d3.select(svgRef.current).selectAll('*').remove();
-
-    // Initialize the visualization using the imported function
-    const cleanup = initializeGraph(
-      svgRef,
-      jsonld,
-      handleClosePanel,
-      setSelectedNodeId,
-      setSelectedNode,
-      setIsPanelOpen,
-      selectedNodeId
-    );
-
-    // Cleanup function
-    return () => {
-      if (cleanup) cleanup();
+    // Only initialize the graph if we're in graph view and the svg ref exists
+    if (viewMode === 'graph' && svgRef.current) {
+      // Clear any existing SVG content
       d3.select(svgRef.current).selectAll('*').remove();
-    };
-  }, []);
+
+      // Initialize the visualization using the imported function
+      const cleanup = initializeGraph(
+        svgRef,
+        jsonld,
+        handleClosePanel,
+        setSelectedNodeId,
+        setSelectedNode,
+        setIsPanelOpen,
+        selectedNodeId
+      );
+
+      // Cleanup function
+      return () => {
+        if (cleanup) cleanup();
+        d3.select(svgRef.current).selectAll('*').remove();
+      };
+    }
+  }, [viewMode]);
 
   const handleLegendClick = (type: string) => {
     setSelectedType(selectedType === type ? null : type);
@@ -111,39 +115,49 @@ export default function Home() {
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
-      {/* Replace the Legend Card with the new Legend component */}
       <Legend 
         selectedType={selectedType} 
-        onLegendClick={handleLegendClick} 
+        onLegendClick={handleLegendClick}
+        viewMode={viewMode}
+        onViewModeChange={(checked) => setViewMode(checked ? 'table' : 'graph')}
       />
 
-      {/* Controls */}
-      <div className="absolute bottom-4 left-4 z-10">
-        <div className="flex flex-col gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="w-8 h-8"
-            id="zoom-in"
-          >
-            +
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            className="w-8 h-8"
-            id="zoom-out"
-          >
-            -
-          </Button>
+      {/* View Container */}
+      {viewMode === 'graph' ? (
+        <>
+          {/* Controls */}
+          <div className="absolute bottom-4 left-4 z-10">
+            <div className="flex flex-col gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="w-8 h-8"
+                id="zoom-in"
+              >
+                +
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="w-8 h-8"
+                id="zoom-out"
+              >
+                -
+              </Button>
+            </div>
+          </div>
+
+          {/* SVG Container */}
+          <svg
+            ref={svgRef}
+            className="w-full h-full"
+          />
+        </>
+      ) : (
+        <div className="p-4 mt-16 max-w-6xl mx-auto">
+          <JsonLdTable data={jsonld} />
         </div>
-      </div>
-
-      {/* SVG Container */}
-      <svg
-        ref={svgRef}
-        className="w-full h-full"
-      />
+      )}
 
       <NotesPanel 
         isPanelOpen={isPanelOpen}
