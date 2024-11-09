@@ -11,13 +11,35 @@ export function initializeGraph(
   setIsPanelOpen: (isOpen: boolean) => void,
   selectedNodeId: string | null
 ) {
-
 	const width = window.innerWidth;
 	const height = window.innerHeight;
 	const svg = d3.select(svgRef.current);
 
 	// Clear any existing content
 	svg.selectAll('*').remove();
+
+	// Create zoom behavior first
+	const zoomBehavior = d3.zoom()
+		.scaleExtent([0.1, 4])
+		.on("zoom", (event) => {
+			container.attr("transform", event.transform);
+			
+			// Update node text position based on zoom level
+			node?.selectAll("text")
+				.attr("x", 12 / event.transform.k);
+		});
+
+	// Create container for zoom
+	const container = svg.append("g").attr("class", "zoom-container");
+
+	// Create background rect first
+	const background = container.append("rect")
+		.attr("width", width)
+		.attr("height", height)
+		.attr("fill", "transparent");
+
+	// Apply zoom behavior to svg
+	svg.call(zoomBehavior);
 
 	// Create color scale
 	const colorScale = d3.scaleOrdinal()
@@ -148,22 +170,30 @@ export function initializeGraph(
 
 	parseJsonLd(jsonld);
 
+	// Define drag event handlers
+	function dragstarted(event: any, d: any) {
+		if (!event.active) simulation.alphaTarget(0.3).restart();
+		d.fx = d.x;
+		d.fy = d.y;
+	}
+
+	function dragged(event: any, d: any) {
+		d.fx = event.x;
+		d.fy = event.y;
+	}
+
+	function dragended(event: any, d: any) {
+		if (!event.active) simulation.alphaTarget(0);
+		d.fx = null;
+		d.fy = null;
+	}
+
 	// Create simulation with adjusted forces
 	const simulation = d3.forceSimulation(nodes)
 		.force("link", d3.forceLink(links).id((d: any) => d.id).distance(200))
 		.force("charge", d3.forceManyBody().strength(-800))
 		.force("center", d3.forceCenter(width / 2, height / 2))
 		.force("collision", d3.forceCollide().radius(50));
-
-	// Create container for zoom
-	const container = svg.append("g").attr("class", "zoom-container");
-
-	// Add background rect
-	const background = container.append("rect")
-		.attr("width", width)
-		.attr("height", height)
-		.attr("fill", "transparent")
-		.style("cursor", "default");
 
 	// Create links with labels
 	const link = container.append("g")
@@ -198,24 +228,6 @@ export function initializeGraph(
 		.style("pointer-events", "none")
 		.style("fill", "#4b5563") // Gray-600
 		.text((d: any) => d.relationship);
-
-	// Add drag functions
-	function dragstarted(event: any, d: any) {
-		if (!event.active) simulation.alphaTarget(0.3).restart();
-		d.fx = d.x;
-		d.fy = d.y;
-	}
-
-	function dragged(event: any, d: any) {
-		d.fx = event.x;
-		d.fy = event.y;
-	}
-
-	function dragended(event: any, d: any) {
-		if (!event.active) simulation.alphaTarget(0);
-		d.fx = null;
-		d.fy = null;
-	}
 
 	// Create nodes with drag behavior
 	const node = container.append("g")
@@ -414,13 +426,13 @@ export function initializeGraph(
 	d3.select("#zoom-in").on("click", () => {
 		svg.transition()
 			.duration(750)
-			.call(zoom.scaleBy as any, 1.3);
+			.call(zoomBehavior.scaleBy, 1.3);
 	});
 
 	d3.select("#zoom-out").on("click", () => {
 		svg.transition()
 			.duration(750)
-			.call(zoom.scaleBy as any, 0.7);
+			.call(zoomBehavior.scaleBy, 0.7);
 	});
 
 	// Add this CSS to the SVG container for the pulse animation
@@ -467,7 +479,7 @@ export function initializeGraph(
 		svg.transition()
 			.duration(750)
 			.call(
-				zoom.transform as any,
+				zoomBehavior.transform as any,
 				d3.zoomIdentity
 					.translate(width / 2, height / 2)
 					.scale(k)
