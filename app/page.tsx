@@ -5,6 +5,7 @@ import * as d3 from 'd3';
 import { Button } from '@/components/ui/button';
 import { Legend } from '@/components/ui/legend';
 import { initializeGraph } from '@/lib/graphInitializer';
+import { Download } from "lucide-react";
 
 // Move the JSON-LD data to a separate file
 import { jsonld } from '@/lib/example';
@@ -29,22 +30,56 @@ function extractNodesFromJsonLd(jsonld: any): NodeData[] {
     });
   }
 
-  // Add departments
-  if (jsonld.hasDepartment) {
-    jsonld.hasDepartment.forEach((dept: any) => {
-      nodes.push({
-        id: dept['@id'],
-        name: dept.name,
-        type: 'Department',
-        description: dept.description,
-        version: dept.version,
-        versionDate: dept.versionDate,
-        hasNote: dept.hasNote
-      });
+  // Helper function to process departments and their nested structures
+  const processDepartment = (dept: any) => {
+    // Add the department itself
+    nodes.push({
+      id: dept['@id'],
+      name: dept.name,
+      type: 'Department',
+      description: dept.description,
+      version: dept.version,
+      versionDate: dept.versionDate,
+      hasNote: dept.hasNote
     });
+
+    // Process roles within department
+    if (dept.hasRole) {
+      dept.hasRole.forEach((role: any) => {
+        nodes.push({
+          id: role['@id'] || `role-${role.name}`,
+          name: role.name,
+          type: 'Role',
+          description: role.responsibilities,
+          hasNote: role.hasNote
+        });
+      });
+    }
+  };
+
+  // Add departments and their roles
+  if (jsonld.hasDepartment) {
+    jsonld.hasDepartment.forEach(processDepartment);
   }
 
-  // Add processes
+  // Process tasks within processes
+  const processTasks = (process: any) => {
+    if (process.workflow) {
+      process.workflow.forEach((task: any) => {
+        nodes.push({
+          id: task['@id'] || `task-${task.name}`,
+          name: task.name,
+          type: 'Task',
+          description: task.description,
+          version: task.version,
+          versionDate: task.versionDate,
+          hasNote: task.hasNote
+        });
+      });
+    }
+  };
+
+  // Add processes and their tasks
   if (jsonld.hasProcess) {
     jsonld.hasProcess.forEach((process: any) => {
       nodes.push({
@@ -56,6 +91,36 @@ function extractNodesFromJsonLd(jsonld: any): NodeData[] {
         versionDate: process.versionDate,
         hasNote: process.hasNote
       });
+      
+      // Process integrations within process
+      if (process.hasIntegration) {
+        process.hasIntegration.forEach((integration: any) => {
+          nodes.push({
+            id: integration['@id'] || `integration-${integration.name}`,
+            name: integration.name,
+            type: 'Integration',
+            description: integration.description,
+            version: integration.version,
+            versionDate: integration.versionDate,
+            hasNote: integration.hasNote
+          });
+        });
+      }
+
+      // Process data sources within process
+      if (process.hasDataSource) {
+        process.hasDataSource.forEach((dataSource: any) => {
+          nodes.push({
+            id: dataSource['@id'] || `datasource-${dataSource.name}`,
+            name: dataSource.name,
+            type: 'DataSource',
+            description: dataSource.description,
+            hasNote: dataSource.hasNote
+          });
+        });
+      }
+
+      processTasks(process);
     });
   }
 
@@ -222,6 +287,23 @@ export default function Home() {
     console.log('Create link:', sourceId, targetId, relationship);
   };
 
+  const handleDownloadJsonLd = () => {
+    // Create a blob from the JSON-LD data
+    const blob = new Blob([JSON.stringify(jsonld, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    
+    // Create a temporary link element and trigger the download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'data.jsonld';
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       <Legend 
@@ -252,6 +334,15 @@ export default function Home() {
                 id="zoom-out"
               >
                 -
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                className="w-8 h-8"
+                onClick={handleDownloadJsonLd}
+                title="Download JSON-LD"
+              >
+                <Download className="h-4 w-4" />
               </Button>
             </div>
           </div>
