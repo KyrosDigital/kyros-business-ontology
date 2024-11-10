@@ -1,13 +1,18 @@
 export interface Note {
   content: string;
-  author?: string;
-  dateCreated?: string;
+  author: string;
+  dateCreated: string;
 }
 
-export interface NodeData extends Node {
+export interface NodeData {
+  id: string;
+  name?: string;
+  type: string;
   description?: string;
-  notes?: Note[];
-  responsibilities?: string;
+  version?: string;
+  versionDate?: string;
+  hasNote?: Note[];
+  // ... any other fields you need
 }
 
 export interface Node {

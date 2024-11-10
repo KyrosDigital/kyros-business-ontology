@@ -10,7 +10,100 @@ import { initializeGraph } from '@/lib/graphInitializer';
 import { jsonld } from '@/lib/example';
 import { NotesPanel } from '@/components/ui/notes-panel';
 import { JsonLdTable } from '@/components/ui/json-ld-table';
-import { Switch } from "@/components/ui/switch";
+import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
+
+// Add this helper function at the top of the file, outside the component
+function extractNodesFromJsonLd(jsonld: any): NodeData[] {
+  const nodes: NodeData[] = [];
+
+  // Add the organization itself
+  if (jsonld['@type'] === 'Organization') {
+    nodes.push({
+      id: jsonld['@id'],
+      name: jsonld.name,
+      type: jsonld['@type'],
+      description: jsonld.description,
+      version: jsonld.version,
+      versionDate: jsonld.versionDate,
+      hasNote: jsonld.hasNote
+    });
+  }
+
+  // Add departments
+  if (jsonld.hasDepartment) {
+    jsonld.hasDepartment.forEach((dept: any) => {
+      nodes.push({
+        id: dept['@id'],
+        name: dept.name,
+        type: 'Department',
+        description: dept.description,
+        version: dept.version,
+        versionDate: dept.versionDate,
+        hasNote: dept.hasNote
+      });
+    });
+  }
+
+  // Add processes
+  if (jsonld.hasProcess) {
+    jsonld.hasProcess.forEach((process: any) => {
+      nodes.push({
+        id: process['@id'],
+        name: process.name,
+        type: 'Process',
+        description: process.description,
+        version: process.version,
+        versionDate: process.versionDate,
+        hasNote: process.hasNote
+      });
+    });
+  }
+
+  // Add AI Components
+  if (jsonld.hasAIComponent) {
+    jsonld.hasAIComponent.forEach((ai: any) => {
+      nodes.push({
+        id: ai['@id'],
+        name: ai.name,
+        type: 'AIComponent',
+        description: ai.description,
+        version: ai.version,
+        versionDate: ai.versionDate,
+        hasNote: ai.hasNote
+      });
+    });
+  }
+
+  // Add Analytics
+  if (jsonld.hasAnalytics) {
+    jsonld.hasAnalytics.forEach((analytics: any) => {
+      nodes.push({
+        id: analytics['@id'] || analytics.name,
+        name: analytics.name,
+        type: 'Analytics',
+        description: analytics.description,
+        hasNote: analytics.hasNote
+      });
+    });
+  }
+
+  // Add Software Tools
+  if (jsonld.hasSoftwareTool) {
+    jsonld.hasSoftwareTool.forEach((tool: any) => {
+      nodes.push({
+        id: tool['@id'] || tool.name,
+        name: tool.name,
+        type: 'SoftwareTool',
+        description: tool.description,
+        version: tool.version,
+        versionDate: tool.versionDate,
+        hasNote: tool.hasNote
+      });
+    });
+  }
+
+  return nodes;
+}
 
 export default function Home() {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -19,6 +112,13 @@ export default function Home() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
+  const [nodes, setNodes] = useState<NodeData[]>([]);
+
+  // Initialize nodes from JSON-LD data
+  useEffect(() => {
+    const extractedNodes = extractNodesFromJsonLd(jsonld);
+    setNodes(extractedNodes);
+  }, []); // Empty dependency array as we only need to do this once
 
   useEffect(() => {
     // Only initialize the graph if we're in graph view and the svg ref exists
@@ -46,37 +146,26 @@ export default function Home() {
   }, [viewMode]);
 
   const handleLegendClick = (type: string) => {
-    setSelectedType(selectedType === type ? null : type);
+    setSelectedType(type);
+    setIsPanelOpen(true);
+    setSelectedNode(null);
     
     const svg = d3.select(svgRef.current);
     
-    if (selectedType === type) {
-      // Reset all nodes and links to full opacity
-      svg.selectAll('.node')
-        .transition()
-        .duration(200)
-        .style('opacity', 1);
-      
-      svg.selectAll('.link')
-        .transition()
-        .duration(200)
-        .style('opacity', 1);
-    } else {
-      // Dim non-matching nodes and their links
-      svg.selectAll('.node')
-        .transition()
-        .duration(200)
-        .style('opacity', (d: any) => d.type === type ? 1 : 0.2);
-      
-      svg.selectAll('.link')
-        .transition()
-        .duration(200)
-        .style('opacity', (d: any) => {
-          const source = d.source as Node;
-          const target = d.target as Node;
-          return source.type === type || target.type === type ? 1 : 0.2;
-        });
-    }
+    // Dim non-matching nodes and their links
+    svg.selectAll('.node')
+      .transition()
+      .duration(200)
+      .style('opacity', (d: any) => d.type === type ? 1 : 0.2);
+    
+    svg.selectAll('.link')
+      .transition()
+      .duration(200)
+      .style('opacity', (d: any) => {
+        const source = d.source as Node;
+        const target = d.target as Node;
+        return source.type === type || target.type === type ? 1 : 0.2;
+      });
   };
 
   const handleClosePanel = () => {
@@ -112,6 +201,26 @@ export default function Home() {
       }
     };
   }, []);
+
+  const handleCreateNode = (nodeData: Partial<NodeData>) => {
+    // Implement node creation logic
+    console.log('Create node:', nodeData);
+  };
+
+  const handleUpdateNode = (nodeId: string, nodeData: Partial<NodeData>) => {
+    // Implement node update logic
+    console.log('Update node:', nodeId, nodeData);
+  };
+
+  const handleDeleteNode = (nodeId: string) => {
+    // Implement node deletion logic
+    console.log('Delete node:', nodeId);
+  };
+
+  const handleCreateLink = (sourceId: string, targetId: string, relationship: string) => {
+    // Implement link creation logic
+    console.log('Create link:', sourceId, targetId, relationship);
+  };
 
   return (
     <div className="relative w-screen h-screen overflow-hidden">
@@ -159,8 +268,20 @@ export default function Home() {
         </div>
       )}
 
+      <NodesCategoryPanel 
+        isPanelOpen={isPanelOpen && !selectedNode}
+        selectedNode={selectedNode}
+        selectedType={selectedType}
+        nodes={nodes}
+        onClose={handleClosePanel}
+        onCreateNode={handleCreateNode}
+        onUpdateNode={handleUpdateNode}
+        onDeleteNode={handleDeleteNode}
+        onCreateLink={handleCreateLink}
+      />
+
       <NotesPanel 
-        isPanelOpen={isPanelOpen}
+        isPanelOpen={isPanelOpen && !!selectedNode}
         selectedNode={selectedNode}
         onClose={handleClosePanel}
       />
