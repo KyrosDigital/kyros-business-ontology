@@ -1,15 +1,16 @@
 export const jsonld = {
 	"@context": {
-		"@vocab": "https://schema.org/",
-		"version": "schema:version",
-		"versionDate": "schema:dateModified",
-		"previousVersion": "schema:predecessorOf",
+		"@vocab": "https://example.com/ontology/",
+		"org": "https://example.com/ontology/",
+		"version": "org:version",
+		"versionDate": "org:dateModified",
+		"previousVersion": "org:predecessorOf",
 		"hasDepartment": {
-			"@id": "schema:Department",
+			"@id": "org:Department",
 			"@container": "@set"
 		},
 		"hasRole": {
-			"@id": "schema:Role",
+			"@id": "org:Role",
 			"@container": "@set"
 		},
 		"hasEmployee": {
@@ -89,39 +90,39 @@ export const jsonld = {
 	"hasDepartment": [
 		{
 			"@type": "Department",
-			"@id": "https://example.com/department/hr",
+			"@id": "https://example.com/department/hr/v2",
 			"name": "Human Resources",
 			"description": "Oversees employee recruitment, benefits, and compliance.",
 			"version": "2.0.0",
 			"versionDate": "2024-03-15",
-			"previousVersion": "https://example.com/department/sales/v1",
+			"previousVersion": "https://example.com/department/hr/v1"
 		},
 		{
 			"@type": "Department",
-			"@id": "https://example.com/department/finance",
+			"@id": "https://example.com/department/finance/v2",
 			"name": "Finance",
 			"description": "Manages financial planning, accounting, and budgeting.",
 			"version": "2.0.0",
 			"versionDate": "2024-03-15",
-			"previousVersion": "https://example.com/department/sales/v1",
+			"previousVersion": "https://example.com/department/finance/v1"
 		},
 		{
 			"@type": "Department",
-			"@id": "https://example.com/department/it",
+			"@id": "https://example.com/department/it/v2",
 			"name": "Information Technology",
 			"description": "Provides technical support and manages IT infrastructure.",
 			"version": "2.0.0",
 			"versionDate": "2024-03-15",
-			"previousVersion": "https://example.com/department/sales/v1",
+			"previousVersion": "https://example.com/department/it/v1"
 		},
 		{
 			"@type": "Department",
-			"@id": "https://example.com/department/operations",
+			"@id": "https://example.com/department/operations/v2",
 			"name": "Operations",
 			"description": "Ensures efficient business processes and logistics.",
 			"version": "2.0.0",
 			"versionDate": "2024-03-15",
-			"previousVersion": "https://example.com/department/sales/v1",
+			"previousVersion": "https://example.com/department/operations/v1"
 		},
 		{
 			"@type": "Department",
@@ -134,11 +135,17 @@ export const jsonld = {
 			"hasRole": [
 				{
 					"@type": "Role",
+					"@id": "https://example.com/role/sales-manager/v1",
+					"version": "1.0.0",
+					"versionDate": "2024-03-20",
 					"name": "Sales Manager",
 					"responsibilities": "Oversees sales strategy and manages the sales team."
 				},
 				{
 					"@type": "Role",
+					"@id": "https://example.com/role/sales-associate/v1",
+					"version": "1.0.0",
+					"versionDate": "2024-03-20",
 					"name": "Sales Associate",
 					"responsibilities": "Engages with customers and supports sales activities."
 				}
@@ -155,6 +162,9 @@ export const jsonld = {
 							"description": "Contact the lead within 24 hours of their inquiry.",
 							"responsibleRole": {
 								"@type": "Role",
+								"@id": "https://example.com/role/sales-associate/v1",
+								"version": "1.0.0",
+								"versionDate": "2024-03-20",
 								"name": "Sales Associate"
 							},
 							"taskStatus": "https://schema.org/ActiveActionStatus"
@@ -191,6 +201,9 @@ export const jsonld = {
 			"hasRole": [
 				{
 					"@type": "Role",
+					"@id": "https://example.com/role/marketing-manager/v1",
+					"version": "1.0.0",
+					"versionDate": "2024-03-20",
 					"name": "Marketing Manager",
 					"responsibilities": "Develops marketing strategies and oversees the marketing team."
 				}
@@ -215,6 +228,9 @@ export const jsonld = {
 					"name": "Log Customer Inquiry",
 					"responsibleRole": {
 						"@type": "Role",
+						"@id": "https://example.com/role/customer-support-agent/v1",
+						"version": "1.0.0",
+						"versionDate": "2024-03-20",
 						"name": "Customer Support Agent"
 					}
 				}
@@ -237,6 +253,9 @@ export const jsonld = {
 			"hasDataSource": [
 				{
 					"@type": "DataSource",
+					"@id": "https://example.com/datasource/customer-db/v1",
+					"version": "1.0.0",
+					"versionDate": "2024-03-20",
 					"name": "Customer Database",
 					"description": "Stores customer data for support and sales use."
 				}
@@ -258,6 +277,9 @@ export const jsonld = {
 			},
 			"usesDataSource": {
 				"@type": "DataSource",
+				"@id": "https://example.com/datasource/customer-db/v1",
+				"version": "1.0.0",
+				"versionDate": "2024-03-20",
 				"name": "Customer Database"
 			},
 			"softwareTool": {
@@ -269,15 +291,21 @@ export const jsonld = {
 	"hasAnalytics": [
 		{
 			"@type": "Analytics",
+			"@id": "https://example.com/analytics/sales-performance/v1",
+			"version": "1.0.0",
+			"versionDate": "2024-03-20",
 			"name": "Sales Performance Analytics",
 			"description": "Analyzes sales team performance metrics and KPIs.",
 			"relatedDepartment": {
 				"@type": "Department",
-				"name": "Sales"
+				"@id": "https://example.com/department/sales/v2"
 			},
 			"dataSource": [
 				{
 					"@type": "DataSource",
+					"@id": "https://example.com/datasource/sales-db/v1",
+					"version": "1.0.0",
+					"versionDate": "2024-03-20",
 					"name": "Sales Database"
 				}
 			]
@@ -300,11 +328,14 @@ export const jsonld = {
 		},
 		{
 			"@type": "SoftwareTool",
+			"@id": "https://example.com/tool/hubspot/v2024.1",
+			"version": "2024.1.0",
+			"versionDate": "2024-03-01",
 			"name": "HubSpot",
 			"description": "Marketing automation tool used by the Marketing department.",
 			"relatedDepartment": {
 				"@type": "Department",
-				"name": "Marketing"
+				"@id": "https://example.com/department/marketing/v1"
 			}
 		}
 	]

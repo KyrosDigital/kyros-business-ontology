@@ -29,6 +29,7 @@ export function NodesCategoryPanel({
   // Filter nodes by selected type
   const categoryNodes = nodes.filter(node => node.type === selectedType);
 
+	console.log(categoryNodes)
   return (
     <div
       className={`fixed top-0 right-0 w-96 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${

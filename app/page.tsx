@@ -51,6 +51,8 @@ function extractNodesFromJsonLd(jsonld: any): NodeData[] {
           name: role.name,
           type: 'Role',
           description: role.responsibilities,
+          version: role.version,
+          versionDate: role.versionDate,
           hasNote: role.hasNote
         });
       });
@@ -115,6 +117,8 @@ function extractNodesFromJsonLd(jsonld: any): NodeData[] {
             name: dataSource.name,
             type: 'DataSource',
             description: dataSource.description,
+            version: dataSource.version,
+            versionDate: dataSource.versionDate,
             hasNote: dataSource.hasNote
           });
         });
@@ -147,6 +151,8 @@ function extractNodesFromJsonLd(jsonld: any): NodeData[] {
         name: analytics.name,
         type: 'Analytics',
         description: analytics.description,
+        version: analytics.version,
+        versionDate: analytics.versionDate,
         hasNote: analytics.hasNote
       });
     });

@@ -12,6 +12,7 @@ export interface NodeData {
   version?: string;
   versionDate?: string;
   hasNote?: Note[];
+  responsibilities?: string;
   // ... any other fields you need
 }
 
