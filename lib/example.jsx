@@ -49,10 +49,6 @@ export const jsonld = {
 			"@id": "schema:Comment",
 			"@container": "@set"
 		},
-		"relatedNotes": {
-			"@id": "schema:Comment",
-			"@container": "@set"
-		},
 		"author": "schema:author",
 		"dateCreated": "schema:dateCreated",
 		"content": "schema:text"
@@ -164,6 +160,17 @@ export const jsonld = {
 					"versionDate": "2024-03-20",
 					"name": "Sales Associate",
 					"responsibilities": "Engages with customers and supports sales activities."
+				},
+				{
+					"@type": "Role",
+					"@id": "role_9i8h7g6f-5e4d-3c2b-1a0e-9f8g7h6i5j4k",
+					"version": "1.0.0",
+					"versionDate": "2024-03-20",
+					"name": "Customer Support Agent",
+					"responsibilities": "Handles customer inquiries and support tickets.",
+					"assignedProcess": {
+						"@id": "proc_7g6f5e4d-3c2b-1a0b-9d8e-7f6g5h4i3j2k"
+					}
 				}
 			],
 			"hasProcess": [
@@ -186,7 +193,7 @@ export const jsonld = {
 							"taskStatus": "https://schema.org/ActiveActionStatus"
 						}
 					],
-					"relatedNotes": [
+					"hasNote": [
 						{
 							"@type": "Comment",
 							"@id": "note_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p",
@@ -212,11 +219,7 @@ export const jsonld = {
 							"versionDate": "2024-03-20",
 							"name": "Log Customer Inquiry",
 							"responsibleRole": {
-								"@type": "Role",
-								"@id": "role_9i8h7g6f-5e4d-3c2b-1a0e-9f8g7h6i5j4k",
-								"version": "1.0.0",
-								"versionDate": "2024-03-20",
-								"name": "Customer Support Agent"
+								"@id": "role_9i8h7g6f-5e4d-3c2b-1a0e-9f8g7h6i5j4k"
 							}
 						}
 					],
@@ -245,15 +248,6 @@ export const jsonld = {
 							"description": "Stores customer data for support and sales use."
 						}
 					]
-				}
-			],
-			"hasNote": [
-				{
-					"@type": "Comment",
-					"@id": "note_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p",
-					"content": "Department restructured to improve lead conversion workflow",
-					"author": "Jane Smith",
-					"dateCreated": "2024-03-15"
 				}
 			],
 			"hasAnalytics": [
