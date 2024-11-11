@@ -385,7 +385,7 @@ export default function Home() {
       />
 
       {/* Add AiChat component */}
-      <AiChat />
+      <AiChat jsonld={jsonld} />
     </div>
   );
 }

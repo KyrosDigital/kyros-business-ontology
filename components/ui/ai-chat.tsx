@@ -12,7 +12,11 @@ interface ChatMessage {
   content: string
 }
 
-export function AiChat() {
+interface AiChatProps {
+  jsonld: any
+}
+
+export function AiChat({ jsonld }: AiChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [isOpen, setIsOpen] = useState(false)
@@ -28,7 +32,7 @@ export function AiChat() {
     setInput("")
 
     try {
-      const response = await sendMessage(input, messages)
+      const response = await sendMessage(input, messages, jsonld)
       setMessages(prev => [...prev, { role: "assistant", content: response }])
     } catch (error) {
       console.error('Failed to get response:', error)
