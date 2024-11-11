@@ -7,9 +7,10 @@ export function initializeGraph(
   jsonld: any,
   handleClosePanel: () => void,
   setSelectedNodeId: (id: string | null) => void,
-  setSelectedNode: (node: any) => void,
+  setSelectedNode: (node: NodeData | null) => void,
   setIsPanelOpen: (isOpen: boolean) => void,
-  selectedNodeId: string | null
+  selectedNodeId: string | null,
+  existingNodes: NodeData[] = []
 ) {
 	const width = window.innerWidth;
 	const height = window.innerHeight;
@@ -46,47 +47,57 @@ export function initializeGraph(
 		.domain(["Organization", "Department", "Role", "Process", "Task", "Integration", "DataSource", "AIComponent", "Analytics", "SoftwareTool"])
 		.range(["#69b3a2", "#ffcc00", "#ff6600", "#0066cc", "#cc0066", "#9900cc", "#00cc99", "#ff3333", "#3333ff", "#ff99cc"]);
 
-	// Parse JSON-LD data
-	const nodes: NodeData[] = [];
+	// Create local arrays for D3 visualization
+	const visualNodes: NodeData[] = [];
 	const links: Link[] = [];
 	const nodeMap = new Map();
 
 	function parseJsonLd(data: any, parent = null) {
-		const nodeId = data.name || data['@type'] || "Unknown";
+		const nodeId = data['@id'] || data.name || data['@type'] || "Unknown";
 		let currentNode;
 
 		if (nodeMap.has(nodeId)) {
 			currentNode = nodeMap.get(nodeId);
 		} else {
-			// Collect all notes for this node
-			const notes: Note[] = [];
+			// Find the node in existingNodes if available
+			const existingNode = existingNodes?.find(n => n.id === nodeId);
+			
+			if (existingNode) {
+				currentNode = existingNode;
+			} else {
+				// Create new node if not found
+				const notes: Note[] = [];
 
-			// Add direct notes
-			if (data.hasNote) {
-				notes.push(...data.hasNote.map((note: any) => ({
-					content: note.content,
-					author: note.author,
-					dateCreated: note.dateCreated
-				})));
+				if (data.hasNote) {
+					notes.push(...data.hasNote.map((note: any) => ({
+						content: note.content,
+						author: note.author,
+						dateCreated: note.dateCreated
+					})));
+				}
+
+				if (data.relatedNotes) {
+					notes.push(...data.relatedNotes.map((note: any) => ({
+						content: note.content,
+						author: note.author,
+						dateCreated: note.dateCreated
+					})));
+				}
+
+				currentNode = {
+					id: nodeId,
+					name: data.name,
+					type: data['@type'] || "Unknown",
+					description: data.description,
+					responsibilities: data.responsibilities,
+					version: data.version,
+					versionDate: data.versionDate,
+					notes: notes.length > 0 ? notes : undefined,
+					children: []
+				};
 			}
-
-			// Add related notes
-			if (data.relatedNotes) {
-				notes.push(...data.relatedNotes.map((note: any) => ({
-					content: note.content,
-					author: note.author,
-					dateCreated: note.dateCreated
-				})));
-			}
-
-			currentNode = {
-				id: nodeId,
-				type: data['@type'] || "Unknown",
-				description: data.description,
-				responsibilities: data.responsibilities,
-				notes: notes.length > 0 ? notes : undefined
-			};
-			nodes.push(currentNode);
+			
+			visualNodes.push(currentNode);
 			nodeMap.set(nodeId, currentNode);
 		}
 
@@ -99,15 +110,15 @@ export function initializeGraph(
 		}
 
 		if (data.hasDepartment) {
-			data.hasDepartment.forEach(department => parseJsonLd(department, currentNode));
+			data.hasDepartment.forEach((dept: any) => parseJsonLd(dept, currentNode));
 		}
 
 		if (data.hasRole) {
-			data.hasRole.forEach(role => parseJsonLd(role, currentNode));
+			data.hasRole.forEach((role: any) => parseJsonLd(role, currentNode));
 		}
 
 		if (data.hasProcess) {
-			data.hasProcess.forEach(process => parseJsonLd(process, currentNode));
+			data.hasProcess.forEach((process: any) => parseJsonLd(process, currentNode));
 		}
 
 		if (data.workflow) {
@@ -165,9 +176,11 @@ export function initializeGraph(
 		if (data.responsibleRole) {
 			parseJsonLd(data.responsibleRole, currentNode);
 		}
+
+		return currentNode;
 	}
 
-
+	// Initialize the graph with the JSON-LD data
 	parseJsonLd(jsonld);
 
 	// Define drag event handlers
@@ -189,7 +202,7 @@ export function initializeGraph(
 	}
 
 	// Create simulation with adjusted forces
-	const simulation = d3.forceSimulation(nodes)
+	const simulation = d3.forceSimulation(visualNodes)
 		.force("link", d3.forceLink(links).id((d: any) => d.id).distance(200))
 		.force("charge", d3.forceManyBody().strength(-800))
 		.force("center", d3.forceCenter(width / 2, height / 2))
@@ -232,7 +245,7 @@ export function initializeGraph(
 	// Create nodes with drag behavior
 	const node = container.append("g")
 		.selectAll("g")
-		.data(nodes)
+		.data(visualNodes)
 		.enter().append("g")
 		.attr("class", "node")
 		.call(d3.drag()
@@ -365,29 +378,33 @@ export function initializeGraph(
 		.on("click", (event, d: any) => {
 			event.stopPropagation();
 
-			d3.selectAll('.node').classed('node-pulse', false);
-			const clickedNode = d3.select(event.currentTarget.parentNode);
-			clickedNode.classed('node-pulse', true);
-
-			// Dim nodes
-			svg.selectAll('.node')
-				.transition()
-				.duration(300)
-				.style('opacity', (n: any) => n.id === d.id ? 1 : 0.2);
-
-			// Dim links and their labels
-			svg.selectAll('.link')
-				.transition()
-				.duration(300)
-				.style('opacity', (l: any) => {
-					const source = typeof l.source === 'object' ? l.source.id : l.source;
-					const target = typeof l.target === 'object' ? l.target.id : l.target;
-					return source === d.id || target === d.id ? 1 : 0.1;
-				});
-
-			setSelectedNodeId(d.id);
-			setSelectedNode(d);
-			setIsPanelOpen(true);
+			// Find the complete node data from existingNodes or visualNodes
+			const nodeData = existingNodes?.find(n => n.id === d.id) || visualNodes.find(n => n.id === d.id);
+			
+			if (nodeData) {
+				setSelectedNodeId(nodeData.id);
+				setSelectedNode(nodeData);
+				setIsPanelOpen(true);
+				
+				// Add pulse effect to clicked node
+				d3.selectAll('.node').classed('node-pulse', false);
+				d3.select(event.currentTarget).classed('node-pulse', true);
+				
+				// Dim other nodes and their links
+				svg.selectAll('.node')
+					.transition()
+					.duration(200)
+					.style('opacity', (n: any) => n.id === nodeData.id ? 1 : 0.2);
+				
+				svg.selectAll('.link')
+					.transition()
+					.duration(200)
+					.style('opacity', (l: any) => {
+						const source = l.source.id || l.source;
+						const target = l.target.id || l.target;
+						return source === nodeData.id || target === nodeData.id ? 1 : 0.2;
+					});
+			}
 		});
 
 	// Also stop propagation on the node group
@@ -405,7 +422,7 @@ export function initializeGraph(
 		.attr("text-anchor", "middle") // Center the text horizontally
 		.attr("x", 0) // Center relative to the circle
 		.attr("y", 25) // Position below the circle (10px radius + 15px spacing)
-		.text((d: any) => d.id)
+		.text((d: any) => d.name || d.id)
 		.style("font-size", "12px")
 		.style("pointer-events", "none")
 		.each(function () {

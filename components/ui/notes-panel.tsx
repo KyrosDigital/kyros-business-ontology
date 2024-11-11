@@ -19,7 +19,7 @@ export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelPro
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">
-            {selectedNode?.id || 'Node Details'}
+            {selectedNode?.name || selectedNode?.id || 'Node Details'}
           </h2>
           <Button
             variant="ghost"
@@ -73,6 +73,46 @@ export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelPro
             <div>
               <h3 className="text-sm font-medium text-gray-500">Notes</h3>
               <p className="mt-1 text-gray-700">No notes available for this node.</p>
+            </div>
+          )}
+
+          {selectedNode?.children && selectedNode.children.length > 0 ? (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500 mb-3">Child Nodes</h3>
+              <div className="space-y-4">
+                {selectedNode.children.map((child: any, index: number) => (
+                  <Card key={index} className="p-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium text-gray-700">{child.name || child.id}</p>
+                        {child.type && (
+                          <span className="text-xs text-gray-500">
+                            {child.type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {child.description && (
+                      <p className="mt-2 text-sm text-gray-600">
+                        {child.description}
+                      </p>
+                    )}
+                    {child.version && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        Version: {child.version}
+                        {child.versionDate && 
+                          ` (${new Date(child.versionDate).toLocaleDateString()})`
+                        }
+                      </div>
+                    )}
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Child Nodes</h3>
+              <p className="mt-1 text-gray-700">No child nodes available.</p>
             </div>
           )}
         </div>

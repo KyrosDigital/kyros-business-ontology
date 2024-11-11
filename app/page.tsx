@@ -17,161 +17,159 @@ import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
 // Add this helper function at the top of the file, outside the component
 function extractNodesFromJsonLd(jsonld: any): NodeData[] {
   const nodes: NodeData[] = [];
+  const nodeMap = new Map(); // To help with linking children to parents
 
   // Add the organization itself
   if (jsonld['@type'] === 'Organization') {
-    nodes.push({
+    const orgNode = {
       id: jsonld['@id'],
       name: jsonld.name,
       type: jsonld['@type'],
       description: jsonld.description,
       version: jsonld.version,
       versionDate: jsonld.versionDate,
-      hasNote: jsonld.hasNote
-    });
+      hasNote: jsonld.hasNote,
+      children: []
+    };
+    nodes.push(orgNode);
+    nodeMap.set(orgNode.id, orgNode);
   }
 
   // Helper function to process departments and their nested structures
   const processDepartment = (dept: any) => {
-    // Add the department itself
-    nodes.push({
+    const deptNode = {
       id: dept['@id'],
       name: dept.name,
       type: 'Department',
       description: dept.description,
       version: dept.version,
       versionDate: dept.versionDate,
-      hasNote: dept.hasNote
-    });
+      hasNote: dept.hasNote,
+      children: []
+    };
 
     // Process roles within department
     if (dept.hasRole) {
-      dept.hasRole.forEach((role: any) => {
-        nodes.push({
-          id: role['@id'] || `role-${role.name}`,
-          name: role.name,
-          type: 'Role',
-          description: role.responsibilities,
-          version: role.version,
-          versionDate: role.versionDate,
-          hasNote: role.hasNote
-        });
-      });
+      deptNode.children = dept.hasRole.map((role: any) => ({
+        id: role['@id'] || `role-${role.name}`,
+        name: role.name,
+        type: 'Role',
+        description: role.responsibilities,
+        version: role.version,
+        versionDate: role.versionDate,
+        hasNote: role.hasNote,
+        children: []
+      }));
+      // Add roles to nodes array as well
+      nodes.push(...deptNode.children);
+      deptNode.children.forEach(child => nodeMap.set(child.id, child));
     }
+
+    nodes.push(deptNode);
+    nodeMap.set(deptNode.id, deptNode);
   };
 
-  // Add departments and their roles
+  // Process processes and their children
+  const processProcess = (process: any) => {
+    const processNode = {
+      id: process['@id'],
+      name: process.name,
+      type: 'Process',
+      description: process.description,
+      version: process.version,
+      versionDate: process.versionDate,
+      hasNote: process.hasNote,
+      children: []
+    };
+
+    // Add tasks as children
+    if (process.workflow) {
+      const taskNodes = process.workflow.map((task: any) => ({
+        id: task['@id'] || `task-${task.name}`,
+        name: task.name,
+        type: 'Task',
+        description: task.description,
+        version: task.version,
+        versionDate: task.versionDate,
+        hasNote: task.hasNote,
+        children: []
+      }));
+      processNode.children.push(...taskNodes);
+      nodes.push(...taskNodes);
+      taskNodes.forEach(child => nodeMap.set(child.id, child));
+    }
+
+    // Add integrations as children
+    if (process.hasIntegration) {
+      const integrationNodes = process.hasIntegration.map((integration: any) => ({
+        id: integration['@id'] || `integration-${integration.name}`,
+        name: integration.name,
+        type: 'Integration',
+        description: integration.description,
+        version: integration.version,
+        versionDate: integration.versionDate,
+        hasNote: integration.hasNote,
+        children: []
+      }));
+      processNode.children.push(...integrationNodes);
+      nodes.push(...integrationNodes);
+      integrationNodes.forEach(child => nodeMap.set(child.id, child));
+    }
+
+    // Add data sources as children
+    if (process.hasDataSource) {
+      const dataSourceNodes = process.hasDataSource.map((dataSource: any) => ({
+        id: dataSource['@id'] || `datasource-${dataSource.name}`,
+        name: dataSource.name,
+        type: 'DataSource',
+        description: dataSource.description,
+        version: dataSource.version,
+        versionDate: dataSource.versionDate,
+        hasNote: dataSource.hasNote,
+        children: []
+      }));
+      processNode.children.push(...dataSourceNodes);
+      nodes.push(...dataSourceNodes);
+      dataSourceNodes.forEach(child => nodeMap.set(child.id, child));
+    }
+
+    nodes.push(processNode);
+    nodeMap.set(processNode.id, processNode);
+  };
+
+  // Process departments and processes
   if (jsonld.hasDepartment) {
     jsonld.hasDepartment.forEach(processDepartment);
   }
+  if (jsonld.hasProcess) {
+    jsonld.hasProcess.forEach(processProcess);
+  }
 
-  // Process tasks within processes
-  const processTasks = (process: any) => {
-    if (process.workflow) {
-      process.workflow.forEach((task: any) => {
-        nodes.push({
-          id: task['@id'] || `task-${task.name}`,
-          name: task.name,
-          type: 'Task',
-          description: task.description,
-          version: task.version,
-          versionDate: task.versionDate,
-          hasNote: task.hasNote
-        });
-      });
-    }
+  // Add other components with empty children arrays
+  const processOtherComponent = (component: any, type: string) => {
+    const node = {
+      id: component['@id'] || `${type}-${component.name}`,
+      name: component.name,
+      type: type,
+      description: component.description,
+      version: component.version,
+      versionDate: component.versionDate,
+      hasNote: component.hasNote,
+      children: []
+    };
+    nodes.push(node);
+    nodeMap.set(node.id, node);
   };
 
-  // Add processes and their tasks
-  if (jsonld.hasProcess) {
-    jsonld.hasProcess.forEach((process: any) => {
-      nodes.push({
-        id: process['@id'],
-        name: process.name,
-        type: 'Process',
-        description: process.description,
-        version: process.version,
-        versionDate: process.versionDate,
-        hasNote: process.hasNote
-      });
-      
-      // Process integrations within process
-      if (process.hasIntegration) {
-        process.hasIntegration.forEach((integration: any) => {
-          nodes.push({
-            id: integration['@id'] || `integration-${integration.name}`,
-            name: integration.name,
-            type: 'Integration',
-            description: integration.description,
-            version: integration.version,
-            versionDate: integration.versionDate,
-            hasNote: integration.hasNote
-          });
-        });
-      }
-
-      // Process data sources within process
-      if (process.hasDataSource) {
-        process.hasDataSource.forEach((dataSource: any) => {
-          nodes.push({
-            id: dataSource['@id'] || `datasource-${dataSource.name}`,
-            name: dataSource.name,
-            type: 'DataSource',
-            description: dataSource.description,
-            version: dataSource.version,
-            versionDate: dataSource.versionDate,
-            hasNote: dataSource.hasNote
-          });
-        });
-      }
-
-      processTasks(process);
-    });
-  }
-
-  // Add AI Components
+  // Process other components
   if (jsonld.hasAIComponent) {
-    jsonld.hasAIComponent.forEach((ai: any) => {
-      nodes.push({
-        id: ai['@id'],
-        name: ai.name,
-        type: 'AIComponent',
-        description: ai.description,
-        version: ai.version,
-        versionDate: ai.versionDate,
-        hasNote: ai.hasNote
-      });
-    });
+    jsonld.hasAIComponent.forEach(ai => processOtherComponent(ai, 'AIComponent'));
   }
-
-  // Add Analytics
   if (jsonld.hasAnalytics) {
-    jsonld.hasAnalytics.forEach((analytics: any) => {
-      nodes.push({
-        id: analytics['@id'] || analytics.name,
-        name: analytics.name,
-        type: 'Analytics',
-        description: analytics.description,
-        version: analytics.version,
-        versionDate: analytics.versionDate,
-        hasNote: analytics.hasNote
-      });
-    });
+    jsonld.hasAnalytics.forEach(analytics => processOtherComponent(analytics, 'Analytics'));
   }
-
-  // Add Software Tools
   if (jsonld.hasSoftwareTool) {
-    jsonld.hasSoftwareTool.forEach((tool: any) => {
-      nodes.push({
-        id: tool['@id'] || tool.name,
-        name: tool.name,
-        type: 'SoftwareTool',
-        description: tool.description,
-        version: tool.version,
-        versionDate: tool.versionDate,
-        hasNote: tool.hasNote
-      });
-    });
+    jsonld.hasSoftwareTool.forEach(tool => processOtherComponent(tool, 'SoftwareTool'));
   }
 
   return nodes;

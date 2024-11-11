@@ -108,6 +108,25 @@ export function NodesCategoryPanel({
                           </ul>
                         </div>
                       )}
+
+                      {/* Add child nodes section */}
+                      {node.children?.length > 0 && (
+                        <div className="mt-2 text-sm">
+                          <p className="font-medium">Child Nodes:</p>
+                          <ul className="list-disc list-inside text-gray-600">
+                            {node.children.map((childNode, index) => (
+                              <li key={index} className="ml-2">
+                                {childNode.name || childNode.id}
+                                {childNode.type && (
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    - {childNode.type}
+                                  </span>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action buttons */}
