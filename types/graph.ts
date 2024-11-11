@@ -9,10 +9,7 @@ export interface NodeData {
   name: string;
   type: string;
   description?: string;
-  version?: string;
-  versionDate?: Date;
-  notes?: Note[];
-  children: NodeData[];
+  children?: NodeData[];
 }
 
 export interface Link {

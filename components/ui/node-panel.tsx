@@ -1,16 +1,27 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { X } from "lucide-react";
+import { X, Plus } from "lucide-react";
 import { Note } from '@/types/graph';
 import * as d3 from 'd3';
+import { useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
-interface NotesPanelProps {
+interface NodePanelProps {
   isPanelOpen: boolean;
   selectedNode: any;
   onClose: () => void;
+  onCreateNode: (nodeData: Partial<NodeData>) => void;
 }
 
-export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelProps) {
+interface CreateFormData {
+  name: string;
+  description?: string;
+  version?: string;
+  versionDate?: string;
+}
+
+export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: NodePanelProps) {
   const getDirectChildren = () => {
     if (!selectedNode) return [];
     
@@ -117,6 +128,78 @@ export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelPro
     svg.selectAll('.link').transition().duration(200).style('opacity', 1);
   };
 
+  const [isCreating, setIsCreating] = useState(false);
+  const [formData, setFormData] = useState<CreateFormData>({
+    name: '',
+    description: '',
+    version: '',
+    versionDate: new Date().toISOString().split('T')[0]
+  });
+
+  const getChildTypeForParent = (parentType: string) => {
+    switch (parentType) {
+      case 'Organization':
+        return 'Department';
+      case 'Department':
+        return ['Role', 'Process', 'Software Tool', 'Analytics', 'AI Component'];
+      case 'Process':
+        return ['Task', 'Integration', 'Data Source'];
+      case 'Role':
+        return ['Task'];
+      default:
+        return [];
+    }
+  };
+
+  const needsVersioning = (type: string) => {
+    return ['Role', 'Process', 'Task', 'Integration', 'SoftwareTool', 'DataSource', 'Analytics', 'AIComponent'].includes(type);
+  };
+
+  const handleCreateChild = async () => {
+    if (!selectedNode?.id || !formData.name) return;
+
+    try {
+      // Log the request body for debugging
+      const requestBody = {
+        parentId: selectedNode.id,
+        parentType: selectedNode.type,
+        name: formData.name,
+        description: formData.description,
+        ...(needsVersioning(selectedNode.type) && {
+          version: formData.version,
+          versionDate: formData.versionDate
+        })
+      };
+      console.log('Creating child node with:', requestBody);
+
+      const response = await fetch('/api/v1/ontology/create-child', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create child node');
+      }
+
+      const newNode = await response.json();
+      onCreateNode(newNode);
+      setIsCreating(false);
+      setFormData({
+        name: '',
+        description: '',
+        version: '',
+        versionDate: new Date().toISOString().split('T')[0]
+      });
+    } catch (error) {
+      console.error('Error creating child node:', error);
+      // You might want to add error handling UI here, like a toast notification
+    }
+  };
+
   return (
     <div
       className={`fixed top-0 right-0 w-96 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
@@ -184,7 +267,85 @@ export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelPro
           )}
 
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Child Nodes</h3>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium text-gray-500">Child Nodes</h3>
+              {selectedNode && !isCreating && (
+                <Button
+                  size="sm"
+                  onClick={() => setIsCreating(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Child
+                </Button>
+              )}
+            </div>
+            
+            {isCreating && selectedNode && (
+              <div className="mt-4 space-y-4">
+                {selectedNode.type === 'Department' && (
+                  <select 
+                    className="w-full p-2 border rounded"
+                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                  >
+                    <option value="">Select Type</option>
+                    {getChildTypeForParent(selectedNode.type).map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                )}
+
+                <Input
+                  placeholder="Name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                />
+
+                <Textarea
+                  placeholder="Description"
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                />
+
+                {needsVersioning(selectedNode.type) && (
+                  <>
+                    <Input
+                      placeholder="Version"
+                      value={formData.version}
+                      onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                    />
+                    <Input
+                      type="date"
+                      value={formData.versionDate}
+                      onChange={(e) => setFormData(prev => ({ ...prev, versionDate: e.target.value }))}
+                    />
+                  </>
+                )}
+
+                <div className="flex space-x-2">
+                  <Button 
+                    onClick={handleCreateChild}
+                    disabled={!formData.name || (needsVersioning(selectedNode.type) && !formData.version)}
+                  >
+                    Create
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => {
+                      setIsCreating(false);
+                      setFormData({
+                        name: '',
+                        description: '',
+                        version: '',
+                        versionDate: new Date().toISOString().split('T')[0]
+                      });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {getDirectChildren().length > 0 ? (
               <div className="space-y-4 mt-3">
                 {getDirectChildren().map((child: any, index: number) => (

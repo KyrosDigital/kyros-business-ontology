@@ -9,7 +9,7 @@ import { Download } from "lucide-react";
 import { AiChat } from '@/components/ui/ai-chat';
 
 // Move the JSON-LD data to a separate file
-import { NotesPanel } from '@/components/ui/notes-panel';
+import { NodePanel } from '@/components/ui/node-panel';
 import { OntologyTable } from "@/components/ui/ontology-table"
 import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
 
@@ -228,9 +228,17 @@ export default function Home() {
     };
   }, []);
 
-  const handleCreateNode = (nodeData: Partial<NodeData>) => {
-    // Implement node creation logic
-    console.log('Create node:', nodeData);
+  const handleCreateNode = async (nodeData: Partial<NodeData>) => {
+    try {
+      // Refresh the data after creating a new node
+      const response = await fetch('/api/v1/ontology');
+      const data = await response.json();
+      setDbData(data);
+      const extractedNodes = extractNodesFromDatabase(data);
+      setNodes(extractedNodes);
+    } catch (error) {
+      console.error('Error refreshing ontology data:', error);
+    }
   };
 
   const handleUpdateNode = (nodeId: string, nodeData: Partial<NodeData>) => {
@@ -329,10 +337,11 @@ export default function Home() {
         onCreateLink={handleCreateLink}
       />
 
-      <NotesPanel 
+      <NodePanel 
         isPanelOpen={isPanelOpen && !!selectedNode}
         selectedNode={selectedNode}
         onClose={handleClosePanel}
+        onCreateNode={handleCreateNode}
       />
 
       {/* Add AiChat component */}
