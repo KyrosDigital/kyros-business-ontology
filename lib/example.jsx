@@ -62,7 +62,7 @@ export const jsonld = {
 	"version": "1.0.0",
 	"versionDate": "2024-03-20",
 	"previousVersion": "https://example.com/organization/v0.9",
-	"name": "Example Business Inc.",
+	"name": "Kyros Digital LLC",
 	"url": "https://example.com",
 	"description": "A business demonstrating an ontology for organizational structure, roles, workflows, integrations, data sources, AI/ML, analytics, and tools.",
 	"address": {
@@ -122,7 +122,23 @@ export const jsonld = {
 			"description": "Ensures efficient business processes and logistics.",
 			"version": "2.0.0",
 			"versionDate": "2024-03-15",
-			"previousVersion": "https://example.com/department/operations/v1"
+			"previousVersion": "https://example.com/department/operations/v1",
+			"hasSoftwareTool": [
+				{
+					"@type": "SoftwareTool",
+					"@id": "tool_5o4n3m2l-1k0j-9i8h-7g6f-5l4m3n2o1p0q",
+					"version": "2024.1.0",
+					"versionDate": "2024-03-01",
+					"previousVersion": "https://example.com/tool/salesforce/v2023.4",
+					"name": "Salesforce",
+					"apiVersion": "v58.0",
+					"description": "CRM tool used for managing customer relationships and sales data.",
+					"relatedIntegration": {
+						"@type": "Integration",
+						"name": "CRM System"
+					}
+				}
+			]
 		},
 		{
 			"@type": "Department",
@@ -179,6 +195,56 @@ export const jsonld = {
 							"dateCreated": "2024-03-15"
 						}
 					]
+				},
+				{
+					"@type": "Process",
+					"@id": "proc_7g6f5e4d-3c2b-1a0b-9d8e-7f6g5h4i3j2k",
+					"version": "3.1.2",
+					"versionDate": "2024-03-18",
+					"previousVersion": "https://example.com/process/customer-support/v2",
+					"name": "Customer Support Process",
+					"description": "A process to manage customer inquiries and issues.",
+					"workflow": [
+						{
+							"@type": "Task",
+							"@id": "task_8h7g6f5e-4d3c-2b1a-0e9d-8f7g6h5i4j3k",
+							"version": "1.0.0",
+							"versionDate": "2024-03-20",
+							"name": "Log Customer Inquiry",
+							"responsibleRole": {
+								"@type": "Role",
+								"@id": "role_9i8h7g6f-5e4d-3c2b-1a0e-9f8g7h6i5j4k",
+								"version": "1.0.0",
+								"versionDate": "2024-03-20",
+								"name": "Customer Support Agent"
+							}
+						}
+					],
+					"hasIntegration": [
+						{
+							"@type": "Integration",
+							"@id": "intg_0j9i8h7g-6f5e-4d3c-2b1a-0g9h8i7j6k5l",
+							"version": "2.1.0",
+							"versionDate": "2024-03-10",
+							"previousVersion": "https://example.com/integration/crm/v1",
+							"name": "CRM System",
+							"description": "Manages customer information and interactions.",
+							"integratesWith": {
+								"@type": "SoftwareTool",
+								"name": "Salesforce"
+							}
+						}
+					],
+					"hasDataSource": [
+						{
+							"@type": "DataSource",
+							"@id": "ds_1k0j9i8h-7g6f-5e4d-3c2b-1h0i9j8k7l6m",
+							"version": "1.0.0",
+							"versionDate": "2024-03-20",
+							"name": "Customer Database",
+							"description": "Stores customer data for support and sales use."
+						}
+					]
 				}
 			],
 			"hasNote": [
@@ -188,6 +254,55 @@ export const jsonld = {
 					"content": "Department restructured to improve lead conversion workflow",
 					"author": "Jane Smith",
 					"dateCreated": "2024-03-15"
+				}
+			],
+			"hasAnalytics": [
+				{
+					"@type": "Analytics",
+					"@id": "anly_3m2l1k0j-9i8h-7g6f-5e4d-3j2k1l0m9n8o",
+					"version": "1.0.0",
+					"versionDate": "2024-03-20",
+					"name": "Sales Performance Analytics",
+					"description": "Analyzes sales team performance metrics and KPIs.",
+					"relatedDepartment": {
+						"@type": "Department",
+						"@id": "dept_4d7c6b5a-3e2d-1f0e-9a8b-7c6d5e4f3a2b"
+					},
+					"dataSource": [
+						{
+							"@type": "DataSource",
+							"@id": "ds_4n3m2l1k-0j9i-8h7g-6f5e-4k3l2m1n0o9p",
+							"version": "1.0.0",
+							"versionDate": "2024-03-20",
+							"name": "Sales Database"
+						}
+					]
+				}
+			],
+			"hasAIComponent": [
+				{
+					"@type": "AIComponent",
+					"@id": "ai_2l1k0j9i-8h7g-6f5e-4d3c-2i1j0k9l8m7n",
+					"version": "1.2.3",
+					"versionDate": "2024-03-19",
+					"modelVersion": "gpt-4-0125-preview",
+					"name": "Customer Sentiment Analysis",
+					"description": "Analyzes customer communications to detect sentiment and flag issues.",
+					"relatedProcess": {
+						"@type": "Process",
+						"name": "Customer Support Process"
+					},
+					"usesDataSource": {
+						"@type": "DataSource",
+						"@id": "ds_1k0j9i8h-7g6f-5e4d-3c2b-1h0i9j8k7l6m",
+						"version": "1.0.0",
+						"versionDate": "2024-03-20",
+						"name": "Customer Database"
+					},
+					"softwareTool": {
+						"@type": "SoftwareTool",
+						"name": "OpenAI API"
+					}
 				}
 			]
 		},
@@ -208,136 +323,21 @@ export const jsonld = {
 					"name": "Marketing Manager",
 					"responsibilities": "Develops marketing strategies and oversees the marketing team."
 				}
-			]
-		}
-	],
-	"hasProcess": [
-		{
-			"@type": "Process",
-			"@id": "proc_7g6f5e4d-3c2b-1a0b-9d8e-7f6g5h4i3j2k",
-			"version": "3.1.2",
-			"versionDate": "2024-03-18",
-			"previousVersion": "https://example.com/process/customer-support/v2",
-			"name": "Customer Support Process",
-			"description": "A process to manage customer inquiries and issues.",
-			"workflow": [
+			],
+			"hasSoftwareTool": [
 				{
-					"@type": "Task",
-					"@id": "task_8h7g6f5e-4d3c-2b1a-0e9d-8f7g6h5i4j3k",
-					"version": "1.0.0",
-					"versionDate": "2024-03-20",
-					"name": "Log Customer Inquiry",
-					"responsibleRole": {
-						"@type": "Role",
-						"@id": "role_9i8h7g6f-5e4d-3c2b-1a0e-9f8g7h6i5j4k",
-						"version": "1.0.0",
-						"versionDate": "2024-03-20",
-						"name": "Customer Support Agent"
+					"@type": "SoftwareTool",
+					"@id": "tool_6p5o4n3m-2l1k-0j9i-8h7g-6m5n4o3p2q1r",
+					"version": "2024.1.0",
+					"versionDate": "2024-03-01",
+					"name": "HubSpot",
+					"description": "Marketing automation tool used by the Marketing department.",
+					"relatedDepartment": {
+						"@type": "Department",
+						"@id": "dept_5e4d3c2b-1a9b-8c7d-6e5f-4a3b2c1d0e9f"
 					}
 				}
-			],
-			"hasIntegration": [
-				{
-					"@type": "Integration",
-					"@id": "intg_0j9i8h7g-6f5e-4d3c-2b1a-0g9h8i7j6k5l",
-					"version": "2.1.0",
-					"versionDate": "2024-03-10",
-					"previousVersion": "https://example.com/integration/crm/v1",
-					"name": "CRM System",
-					"description": "Manages customer information and interactions.",
-					"integratesWith": {
-						"@type": "SoftwareTool",
-						"name": "Salesforce"
-					}
-				}
-			],
-			"hasDataSource": [
-				{
-					"@type": "DataSource",
-					"@id": "ds_1k0j9i8h-7g6f-5e4d-3c2b-1h0i9j8k7l6m",
-					"version": "1.0.0",
-					"versionDate": "2024-03-20",
-					"name": "Customer Database",
-					"description": "Stores customer data for support and sales use."
-				}
 			]
-		}
-	],
-	"hasAIComponent": [
-		{
-			"@type": "AIComponent",
-			"@id": "ai_2l1k0j9i-8h7g-6f5e-4d3c-2i1j0k9l8m7n",
-			"version": "1.2.3",
-			"versionDate": "2024-03-19",
-			"modelVersion": "gpt-4-0125-preview",
-			"name": "Customer Sentiment Analysis",
-			"description": "Analyzes customer communications to detect sentiment and flag issues.",
-			"relatedProcess": {
-				"@type": "Process",
-				"name": "Customer Support Process"
-			},
-			"usesDataSource": {
-				"@type": "DataSource",
-				"@id": "ds_1k0j9i8h-7g6f-5e4d-3c2b-1h0i9j8k7l6m",
-				"version": "1.0.0",
-				"versionDate": "2024-03-20",
-				"name": "Customer Database"
-			},
-			"softwareTool": {
-				"@type": "SoftwareTool",
-				"name": "OpenAI API"
-			}
-		}
-	],
-	"hasAnalytics": [
-		{
-			"@type": "Analytics",
-			"@id": "anly_3m2l1k0j-9i8h-7g6f-5e4d-3j2k1l0m9n8o",
-			"version": "1.0.0",
-			"versionDate": "2024-03-20",
-			"name": "Sales Performance Analytics",
-			"description": "Analyzes sales team performance metrics and KPIs.",
-			"relatedDepartment": {
-				"@type": "Department",
-				"@id": "dept_4d7c6b5a-3e2d-1f0e-9a8b-7c6d5e4f3a2b"
-			},
-			"dataSource": [
-				{
-					"@type": "DataSource",
-					"@id": "ds_4n3m2l1k-0j9i-8h7g-6f5e-4k3l2m1n0o9p",
-					"version": "1.0.0",
-					"versionDate": "2024-03-20",
-					"name": "Sales Database"
-				}
-			]
-		}
-	],
-	"hasSoftwareTool": [
-		{
-			"@type": "SoftwareTool",
-			"@id": "tool_5o4n3m2l-1k0j-9i8h-7g6f-5l4m3n2o1p0q",
-			"version": "2024.1.0",
-			"versionDate": "2024-03-01",
-			"previousVersion": "https://example.com/tool/salesforce/v2023.4",
-			"name": "Salesforce",
-			"apiVersion": "v58.0",
-			"description": "CRM tool used for managing customer relationships and sales data.",
-			"relatedIntegration": {
-				"@type": "Integration",
-				"name": "CRM System"
-			}
-		},
-		{
-			"@type": "SoftwareTool",
-			"@id": "tool_6p5o4n3m-2l1k-0j9i-8h7g-6m5n4o3p2q1r",
-			"version": "2024.1.0",
-			"versionDate": "2024-03-01",
-			"name": "HubSpot",
-			"description": "Marketing automation tool used by the Marketing department.",
-			"relatedDepartment": {
-				"@type": "Department",
-				"@id": "dept_5e4d3c2b-1a9b-8c7d-6e5f-4a3b2c1d0e9f"
-			}
 		}
 	]
 };

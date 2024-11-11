@@ -67,6 +67,7 @@ export function initializeGraph(
 			} else {
 				// Create new node if not found
 				const notes: Note[] = [];
+				const children: NodeData[] = [];
 
 				if (data.hasNote) {
 					notes.push(...data.hasNote.map((note: any) => ({
@@ -93,7 +94,7 @@ export function initializeGraph(
 					version: data.version,
 					versionDate: data.versionDate,
 					notes: notes.length > 0 ? notes : undefined,
-					children: []
+					children
 				};
 			}
 			
@@ -101,81 +102,60 @@ export function initializeGraph(
 			nodeMap.set(nodeId, currentNode);
 		}
 
-		if (parent) {
-			links.push({
-				source: parent.id,
-				target: currentNode.id,
-				relationship: getRelationshipType(data['@type'])
-			});
+		if (parent && parent.children) {
+			parent.children.push(currentNode);
 		}
 
-		if (data.hasDepartment) {
-			data.hasDepartment.forEach((dept: any) => parseJsonLd(dept, currentNode));
-		}
+		const childRelationships = [
+			{ key: 'hasDepartment', type: 'Department' },
+			{ key: 'hasRole', type: 'Role' },
+			{ key: 'hasProcess', type: 'Process' },
+			{ key: 'workflow', type: 'Task' },
+			{ key: 'hasIntegration', type: 'Integration' },
+			{ key: 'hasDataSource', type: 'DataSource' },
+			{ key: 'hasAIComponent', type: 'AIComponent' },
+			{ key: 'hasAnalytics', type: 'Analytics' },
+			{ key: 'hasSoftwareTool', type: 'SoftwareTool' }
+		];
 
-		if (data.hasRole) {
-			data.hasRole.forEach((role: any) => parseJsonLd(role, currentNode));
-		}
+		childRelationships.forEach(({ key, type }) => {
+			if (data[key]) {
+				const children = Array.isArray(data[key]) ? data[key] : [data[key]];
+				children.forEach((child: any) => {
+					const childNode = parseJsonLd(child, currentNode);
+					if (childNode) {
+						links.push({
+							source: currentNode.id,
+							target: childNode.id,
+							relationship: getRelationshipType(type)
+						});
+					}
+				});
+			}
+		});
 
-		if (data.hasProcess) {
-			data.hasProcess.forEach((process: any) => parseJsonLd(process, currentNode));
-		}
+		const singleRelationships = [
+			'relatedProcess',
+			'usesDataSource',
+			'softwareTool',
+			'relatedDepartment',
+			'relatedIntegration',
+			'relatedRole',
+			'responsibleRole'
+		];
 
-		if (data.workflow) {
-			data.workflow.forEach(task => parseJsonLd(task, currentNode));
-		}
-
-		if (data.hasIntegration) {
-			data.hasIntegration.forEach(integration => parseJsonLd(integration, currentNode));
-		}
-
-		if (data.hasDataSource) {
-			data.hasDataSource.forEach(dataSource => parseJsonLd(dataSource, currentNode));
-		}
-
-		if (data.hasAIComponent) {
-			data.hasAIComponent.forEach(aiComponent => parseJsonLd(aiComponent, currentNode));
-		}
-
-		if (data.hasAnalytics) {
-			data.hasAnalytics.forEach(analytics => parseJsonLd(analytics, currentNode));
-		}
-
-		if (data.hasSoftwareTool) {
-			data.hasSoftwareTool.forEach(softwareTool => parseJsonLd(softwareTool, currentNode));
-		}
-
-		if (data.relatedProcess) {
-			parseJsonLd(data.relatedProcess, currentNode);
-		}
-
-		if (data.usesDataSource) {
-			parseJsonLd(data.usesDataSource, currentNode);
-		}
-
-		if (data.softwareTool) {
-			parseJsonLd(data.softwareTool, currentNode);
-		}
-
-		if (data.relatedDepartment) {
-			parseJsonLd(data.relatedDepartment, currentNode);
-		}
-
-		if (data.dataSource) {
-			data.dataSource.forEach(source => parseJsonLd(source, currentNode));
-		}
-
-		if (data.relatedIntegration) {
-			parseJsonLd(data.relatedIntegration, currentNode);
-		}
-
-		if (data.relatedRole) {
-			parseJsonLd(data.relatedRole, currentNode);
-		}
-
-		if (data.responsibleRole) {
-			parseJsonLd(data.responsibleRole, currentNode);
-		}
+		singleRelationships.forEach(key => {
+			if (data[key]) {
+				const childNode = parseJsonLd(data[key], currentNode);
+				if (childNode) {
+					links.push({
+						source: currentNode.id,
+						target: childNode.id,
+						relationship: getRelationshipType(data[key]['@type'])
+					});
+				}
+			}
+		});
 
 		return currentNode;
 	}
