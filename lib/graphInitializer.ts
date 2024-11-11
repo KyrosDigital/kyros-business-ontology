@@ -82,7 +82,7 @@ export function initializeGraph(
 				links.push({
 					source: orgNode.id,
 					target: deptNode.id,
-					relationship: 'hasDepartment'
+					relationship: 'has Department'
 				});
 
 				// Process roles
@@ -103,7 +103,7 @@ export function initializeGraph(
 						links.push({
 							source: deptNode.id,
 							target: roleNode.id,
-							relationship: 'hasRole'
+							relationship: 'has Role'
 						});
 					});
 				}
@@ -126,7 +126,7 @@ export function initializeGraph(
 						links.push({
 							source: deptNode.id,
 							target: processNode.id,
-							relationship: 'hasProcess'
+							relationship: 'has Process'
 						});
 
 						// Process tasks
@@ -179,7 +179,7 @@ export function initializeGraph(
 								links.push({
 									source: processNode.id,
 									target: integrationNode.id,
-									relationship: 'hasIntegration'
+									relationship: 'has Integration'
 								});
 
 								// Link integration to software tool if exists
@@ -187,7 +187,7 @@ export function initializeGraph(
 									links.push({
 										source: integrationNode.id,
 										target: integration.softwareTool.id,
-										relationship: 'usesSoftwareTool'
+										relationship: 'uses Software Tool'
 									});
 								}
 							});
@@ -211,7 +211,7 @@ export function initializeGraph(
 								links.push({
 									source: processNode.id,
 									target: dsNode.id,
-									relationship: 'usesDataSource'
+									relationship: 'uses Data Source'
 								});
 							});
 						}
@@ -337,9 +337,13 @@ export function initializeGraph(
 
 	// Add click handler to SVG (not background)
 	svg.on("click", (event) => {
-		// Ignore if the click is on a node or link
 		if (event.target === svg.node() || event.target === background.node()) {
 			handleClosePanel();
+			// Remove pulse effect from all nodes
+			d3.selectAll('.node').classed('node-pulse', false);
+			// Reset opacity for all nodes and links
+			svg.selectAll('.node').transition().duration(200).style('opacity', 1);
+			svg.selectAll('.link').transition().duration(200).style('opacity', 1);
 		}
 	});
 
@@ -427,9 +431,10 @@ export function initializeGraph(
 				setSelectedNode(nodeData);
 				setIsPanelOpen(true);
 				
-				// Add pulse effect to clicked node
+				// Remove pulse from all nodes first
 				d3.selectAll('.node').classed('node-pulse', false);
-				d3.select(event.currentTarget).classed('node-pulse', true);
+				// Add pulse to clicked node
+				d3.select(event.currentTarget.parentNode).classed('node-pulse', true);
 				
 				// Dim other nodes and their links
 				svg.selectAll('.node')

@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X } from "lucide-react";
 import { Note } from '@/types/graph';
+import * as d3 from 'd3';
 
 interface NotesPanelProps {
   isPanelOpen: boolean;
@@ -10,6 +11,16 @@ interface NotesPanelProps {
 }
 
 export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelProps) {
+  const handleClose = () => {
+    onClose();
+    // Remove pulse effect from all nodes when panel is closed
+    const svg = d3.select('svg');
+    svg.selectAll('.node').classed('node-pulse', false);
+    // Reset opacity for all nodes and links
+    svg.selectAll('.node').transition().duration(200).style('opacity', 1);
+    svg.selectAll('.link').transition().duration(200).style('opacity', 1);
+  };
+
   return (
     <div
       className={`fixed top-0 right-0 w-96 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
@@ -24,7 +35,7 @@ export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelPro
           <Button
             variant="ghost"
             size="icon"
-            onClick={onClose}
+            onClick={handleClose}
           >
             <X className="h-4 w-4" />
           </Button>
