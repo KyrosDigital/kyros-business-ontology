@@ -5,20 +5,56 @@ const anthropic = new Anthropic({
 	dangerouslyAllowBrowser: true // TODO: make this entire interaction server side only. 
 });
 
+function cleanJsonLd(obj: any): any {
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanJsonLd(item));
+  }
+  
+  if (typeof obj === 'object' && obj !== null) {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      // Skip these fields
+      if (['version', 'versionDate', 'previousVersion', 'author', 'dateCreated', '@id'].includes(key)) {
+        continue;
+      }
+      cleaned[key] = cleanJsonLd(value);
+    }
+    return cleaned;
+  }
+  
+  return obj;
+}
+
 export async function sendMessage(
   message: string, 
   previousMessages: { role: string, content: string }[], 
   jsonld: any
 ) {
   try {
-    // Minify the JSON-LD by removing unnecessary whitespace
-    const minifiedJsonld = JSON.stringify(jsonld);
+    const cleanedJsonld = cleanJsonLd(jsonld);
+    const minifiedJsonld = JSON.stringify(cleanedJsonld);
     
-    // Create a system message with the JSON-LD context
     const systemMessage = {
       role: 'assistant',
-      content: `You are an AI assistant with access to the following JSON-LD data about this page: ${minifiedJsonld}. 
-                Use this context to provide more informed answers when relevant.`
+      content: `You are an AI assistant helping users understand their business structure and processes. You have access to a detailed business ontology that describes:
+- Organizational structure and departments
+- Roles and responsibilities
+- Business processes and workflows
+- Integrations and software tools
+- Data sources and analytics
+- AI components and their uses
+
+The full ontology data is here: ${minifiedJsonld}
+
+Please format your responses using markdown:
+- Use headers (##) for main sections
+- Use bullet points for lists
+- Use **bold** for emphasis
+- Use \`code blocks\` for technical terms
+- Use > for important quotes or callouts
+- Break up long responses into clear sections
+
+Use this information to provide specific, contextual answers about the organization's structure, processes, and systems.`
     };
 
     const response = await anthropic.messages.create({
