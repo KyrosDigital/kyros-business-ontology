@@ -423,34 +423,77 @@ export function initializeGraph(
 		.on("click", (event, d: any) => {
 			event.stopPropagation();
 
-			// Find the complete node data from existingNodes or visualNodes
-			const nodeData = existingNodes?.find(n => n.id === d.id) || visualNodes.find(n => n.id === d.id);
-			
-			if (nodeData) {
-				setSelectedNodeId(nodeData.id);
-				setSelectedNode(nodeData);
-				setIsPanelOpen(true);
-				
-				// Remove pulse from all nodes first
-				d3.selectAll('.node').classed('node-pulse', false);
-				// Add pulse to clicked node
-				d3.select(event.currentTarget.parentNode).classed('node-pulse', true);
-				
-				// Dim other nodes and their links
-				svg.selectAll('.node')
-					.transition()
-					.duration(200)
-					.style('opacity', (n: any) => n.id === nodeData.id ? 1 : 0.2);
-				
-				svg.selectAll('.link')
-					.transition()
-					.duration(200)
-					.style('opacity', (l: any) => {
-						const source = l.source.id || l.source;
-						const target = l.target.id || l.target;
-						return source === nodeData.id || target === nodeData.id ? 1 : 0.2;
-					});
+			// Find the complete node data from the database
+			let nodeData = {...d}; // Start with the visual node data
+
+			// Add relationship data based on node type
+			switch (d.type) {
+				case 'Organization':
+					nodeData = {
+						...nodeData,
+						departments: dbData.departments
+					};
+					break;
+				case 'Department':
+					const dept = dbData.departments?.find((dept: any) => dept.id === d.id);
+					if (dept) {
+						nodeData = {
+							...nodeData,
+							roles: dept.roles,
+							processes: dept.processes,
+							tools: dept.tools,
+							analytics: dept.analytics,
+							aiComponents: dept.aiComponents
+						};
+					}
+					break;
+				case 'Process':
+					const process = dbData.departments?.flatMap((dept: any) => dept.processes || [])
+						.find((proc: any) => proc.id === d.id);
+					if (process) {
+						nodeData = {
+							...nodeData,
+							workflow: process.workflow,
+							integrations: process.integrations,
+							dataSources: process.dataSources
+						};
+					}
+					break;
+				case 'Role':
+					const role = dbData.departments?.flatMap((dept: any) => dept.roles || [])
+						.find((r: any) => r.id === d.id);
+					if (role) {
+						nodeData = {
+							...nodeData,
+							tasks: role.tasks
+						};
+					}
+					break;
 			}
+
+			setSelectedNodeId(nodeData.id);
+			setSelectedNode(nodeData);
+			setIsPanelOpen(true);
+			
+			// Remove pulse from all nodes first
+			d3.selectAll('.node').classed('node-pulse', false);
+			// Add pulse to clicked node
+			d3.select(event.currentTarget.parentNode).classed('node-pulse', true);
+			
+			// Dim other nodes and their links
+			svg.selectAll('.node')
+				.transition()
+				.duration(200)
+				.style('opacity', (n: any) => n.id === nodeData.id ? 1 : 0.2);
+			
+			svg.selectAll('.link')
+				.transition()
+				.duration(200)
+				.style('opacity', (l: any) => {
+					const source = l.source.id || l.source;
+					const target = l.target.id || l.target;
+					return source === nodeData.id || target === nodeData.id ? 1 : 0.2;
+				});
 		});
 
 	// Also stop propagation on the node group

@@ -11,6 +11,102 @@ interface NotesPanelProps {
 }
 
 export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelProps) {
+  const getDirectChildren = () => {
+    if (!selectedNode) return [];
+    
+    const children = [];
+    
+    // Handle different node types and their relationships based on schema
+    switch (selectedNode.type) {
+      case 'Organization':
+        if (selectedNode.departments) {
+          children.push(...selectedNode.departments.map((dept: any) => ({
+            name: dept.name,
+            type: 'Department',
+            description: dept.description
+          })));
+        }
+        break;
+        
+      case 'Department':
+        // Departments can have roles, processes, tools, analytics, and AI components
+        if (selectedNode.roles) {
+          children.push(...selectedNode.roles.map((role: any) => ({
+            name: role.name,
+            type: 'Role',
+            description: role.responsibilities
+          })));
+        }
+        if (selectedNode.processes) {
+          children.push(...selectedNode.processes.map((process: any) => ({
+            name: process.name,
+            type: 'Process',
+            description: process.description
+          })));
+        }
+        if (selectedNode.tools) {
+          children.push(...selectedNode.tools.map((tool: any) => ({
+            name: tool.name,
+            type: 'Software Tool',
+            description: tool.description
+          })));
+        }
+        if (selectedNode.analytics) {
+          children.push(...selectedNode.analytics.map((analytic: any) => ({
+            name: analytic.name,
+            type: 'Analytics',
+            description: analytic.description
+          })));
+        }
+        if (selectedNode.aiComponents) {
+          children.push(...selectedNode.aiComponents.map((ai: any) => ({
+            name: ai.name,
+            type: 'AI Component',
+            description: ai.description
+          })));
+        }
+        break;
+        
+      case 'Process':
+        // Processes can have tasks, integrations, and data sources
+        if (selectedNode.workflow) {
+          children.push(...selectedNode.workflow.map((task: any) => ({
+            name: task.name,
+            type: 'Task',
+            description: task.description
+          })));
+        }
+        if (selectedNode.integrations) {
+          children.push(...selectedNode.integrations.map((integration: any) => ({
+            name: integration.name,
+            type: 'Integration',
+            description: integration.description
+          })));
+        }
+        if (selectedNode.dataSources) {
+          children.push(...selectedNode.dataSources.map((ds: any) => ({
+            name: ds.name,
+            type: 'Data Source',
+            description: ds.description
+          })));
+        }
+        break;
+        
+      case 'Role':
+        // Roles can have tasks
+        if (selectedNode.tasks) {
+          children.push(...selectedNode.tasks.map((task: any) => ({
+            name: task.name,
+            type: 'Task',
+            description: task.description
+          })));
+        }
+        break;
+    }
+    
+    return children;
+  };
+
   const handleClose = () => {
     onClose();
     // Remove pulse effect from all nodes when panel is closed
@@ -87,20 +183,18 @@ export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelPro
             </div>
           )}
 
-          {selectedNode?.children && selectedNode.children.length > 0 ? (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Child Nodes</h3>
-              <div className="space-y-4">
-                {selectedNode.children.map((child: any, index: number) => (
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Child Nodes</h3>
+            {getDirectChildren().length > 0 ? (
+              <div className="space-y-4 mt-3">
+                {getDirectChildren().map((child: any, index: number) => (
                   <Card key={index} className="p-3">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium text-gray-700">{child.name || child.id}</p>
-                        {child.type && (
-                          <span className="text-xs text-gray-500">
-                            {child.type}
-                          </span>
-                        )}
+                        <p className="font-medium text-gray-700">{child.name}</p>
+                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                          {child.type}
+                        </span>
                       </div>
                     </div>
                     {child.description && (
@@ -108,24 +202,13 @@ export function NotesPanel({ isPanelOpen, selectedNode, onClose }: NotesPanelPro
                         {child.description}
                       </p>
                     )}
-                    {child.version && (
-                      <div className="mt-2 text-xs text-gray-500">
-                        Version: {child.version}
-                        {child.versionDate && 
-                          ` (${new Date(child.versionDate).toLocaleDateString()})`
-                        }
-                      </div>
-                    )}
                   </Card>
                 ))}
               </div>
-            </div>
-          ) : (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Child Nodes</h3>
+            ) : (
               <p className="mt-1 text-gray-700">No child nodes available.</p>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
     </div>
