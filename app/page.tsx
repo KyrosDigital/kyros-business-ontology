@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Legend } from '@/components/ui/legend';
 import { initializeGraph } from '@/lib/graphInitializer';
 import { Download } from "lucide-react";
+import { AiChat } from '@/components/ui/ai-chat';
 
 // Move the JSON-LD data to a separate file
 import { jsonld } from '@/lib/example';
@@ -382,6 +383,9 @@ export default function Home() {
         selectedNode={selectedNode}
         onClose={handleClosePanel}
       />
+
+      {/* Add AiChat component */}
+      <AiChat />
     </div>
   );
 }
