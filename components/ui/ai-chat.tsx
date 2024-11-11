@@ -7,10 +7,10 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { sendMessage } from "@/lib/claude"
 import { X } from "lucide-react"
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
 interface ChatMessage {
   role: "user" | "assistant"
@@ -18,10 +18,10 @@ interface ChatMessage {
 }
 
 interface AiChatProps {
-  jsonld: any
+  ontologyData: any
 }
 
-export function AiChat({ jsonld }: AiChatProps) {
+export function AiChat({ ontologyData }: AiChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [isOpen, setIsOpen] = useState(false)
@@ -37,7 +37,7 @@ export function AiChat({ jsonld }: AiChatProps) {
     setInput("")
 
     try {
-      const response = await sendMessage(input, messages, jsonld)
+      const response = await sendMessage(input, messages, ontologyData)
       setMessages(prev => [...prev, { role: "assistant", content: response }])
     } catch (error) {
       console.error('Failed to get response:', error)
@@ -48,6 +48,36 @@ export function AiChat({ jsonld }: AiChatProps) {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const markdownComponents = {
+    code({node, inline, className, children, ...props}) {
+      const match = /language-(\w+)/.exec(className || '')
+      return !inline && match ? (
+        <SyntaxHighlighter
+          style={vscDarkPlus}
+          language={match[1]}
+          PreTag="div"
+          {...props}
+        >
+          {String(children).replace(/\n$/, '')}
+        </SyntaxHighlighter>
+      ) : (
+        <code className="bg-muted px-1 py-0.5 rounded" {...props}>
+          {children}
+        </code>
+      )
+    },
+    p: ({children}) => <p className="mb-4">{children}</p>,
+    h2: ({children}) => <h2 className="text-xl font-bold mt-6 mb-4">{children}</h2>,
+    h3: ({children}) => <h3 className="text-lg font-semibold mt-4 mb-2">{children}</h3>,
+    ul: ({children}) => <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>,
+    ol: ({children}) => <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>,
+    blockquote: ({children}) => (
+      <blockquote className="border-l-4 border-primary pl-4 italic my-4">
+        {children}
+      </blockquote>
+    ),
   }
 
   return (
@@ -69,52 +99,14 @@ export function AiChat({ jsonld }: AiChatProps) {
               {messages.map((msg, index) => (
                 <div
                   key={index}
-                  className={`p-4 ${
-                    msg.role === 'user' ? 'bg-muted' : 'bg-background'
-                  }`}
+                  className={`p-4 ${msg.role === 'user' ? 'bg-muted' : 'bg-background'}`}
                 >
                   <div className="font-semibold mb-2">
                     {msg.role === 'user' ? 'You' : 'AI Assistant'}
                   </div>
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
-                    components={{
-                      code({node, inline, className, children, ...props}) {
-                        const match = /language-(\w+)/.exec(className || '');
-                        return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={vscDarkPlus}
-                            language={match[1]}
-                            PreTag="div"
-                            {...props}
-                          >
-                            {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
-                        ) : (
-                          <code className="bg-muted px-1 py-0.5 rounded" {...props}>
-                            {children}
-                          </code>
-                        );
-                      },
-                      p: ({children}) => <p className="mb-4">{children}</p>,
-                      h2: ({children}) => (
-                        <h2 className="text-xl font-bold mt-6 mb-4">{children}</h2>
-                      ),
-                      h3: ({children}) => (
-                        <h3 className="text-lg font-semibold mt-4 mb-2">{children}</h3>
-                      ),
-                      ul: ({children}) => (
-                        <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>
-                      ),
-                      ol: ({children}) => (
-                        <ul className="list-decimal pl-6 mb-4 space-y-2">{children}</ul>
-                      ),
-                      blockquote: ({children}) => (
-                        <blockquote className="border-l-4 border-primary pl-4 italic my-4">
-                          {children}
-                        </blockquote>
-                      ),
-                    }}
+                    components={markdownComponents}
                   >
                     {msg.content}
                   </ReactMarkdown>

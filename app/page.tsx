@@ -9,167 +9,111 @@ import { Download } from "lucide-react";
 import { AiChat } from '@/components/ui/ai-chat';
 
 // Move the JSON-LD data to a separate file
-import { jsonld } from '@/lib/example';
 import { NotesPanel } from '@/components/ui/notes-panel';
-import { JsonLdTable } from '@/components/ui/json-ld-table';
+import { OntologyTable } from "@/components/ui/ontology-table"
 import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
 
 // Add this helper function at the top of the file, outside the component
-function extractNodesFromJsonLd(jsonld: any): NodeData[] {
+function extractNodesFromDatabase(data: any): NodeData[] {
   const nodes: NodeData[] = [];
-  const nodeMap = new Map(); // To help with linking children to parents
+  const nodeMap = new Map();
 
-  // Add the organization itself
-  if (jsonld['@type'] === 'Organization') {
+  // Add the organization
+  if (data) {
     const orgNode = {
-      id: jsonld['@id'],
-      name: jsonld.name,
-      type: jsonld['@type'],
-      description: jsonld.description,
-      version: jsonld.version,
-      versionDate: jsonld.versionDate,
-      hasNote: jsonld.hasNote,
+      id: data.id,
+      name: data.name,
+      type: 'Organization',
+      description: data.description,
       children: []
     };
     nodes.push(orgNode);
     nodeMap.set(orgNode.id, orgNode);
   }
 
-  // Helper function to process departments and their nested structures
-  const processDepartment = (dept: any) => {
-    const deptNode = {
-      id: dept['@id'],
-      name: dept.name,
-      type: 'Department',
-      description: dept.description,
-      version: dept.version,
-      versionDate: dept.versionDate,
-      hasNote: dept.hasNote,
-      children: []
-    };
-
-    // Process roles within department
-    if (dept.hasRole) {
-      deptNode.children = dept.hasRole.map((role: any) => ({
-        id: role['@id'] || `role-${role.name}`,
-        name: role.name,
-        type: 'Role',
-        description: role.responsibilities,
-        version: role.version,
-        versionDate: role.versionDate,
-        hasNote: role.hasNote,
+  // Process departments and their children
+  if (data?.departments) {
+    data.departments.forEach((dept: any) => {
+      const deptNode = {
+        id: dept.id,
+        name: dept.name,
+        type: 'Department',
+        description: dept.description,
         children: []
-      }));
-      // Add roles to nodes array as well
-      nodes.push(...deptNode.children);
-      deptNode.children.forEach(child => nodeMap.set(child.id, child));
-    }
+      };
 
-    nodes.push(deptNode);
-    nodeMap.set(deptNode.id, deptNode);
-  };
+      // Process roles
+      if (dept.roles) {
+        const roleNodes = dept.roles.map((role: any) => ({
+          id: role.id,
+          name: role.name,
+          type: 'Role',
+          description: role.responsibilities,
+          children: []
+        }));
+        deptNode.children.push(...roleNodes);
+        nodes.push(...roleNodes);
+        roleNodes.forEach(node => nodeMap.set(node.id, node));
+      }
 
-  // Process processes and their children
-  const processProcess = (process: any) => {
-    const processNode = {
-      id: process['@id'],
-      name: process.name,
-      type: 'Process',
-      description: process.description,
-      version: process.version,
-      versionDate: process.versionDate,
-      hasNote: process.hasNote,
-      children: []
-    };
+      // Process processes and their children
+      if (dept.processes) {
+        dept.processes.forEach((process: any) => {
+          const processNode = {
+            id: process.id,
+            name: process.name,
+            type: 'Process',
+            description: process.description,
+            children: []
+          };
 
-    // Add tasks as children
-    if (process.workflow) {
-      const taskNodes = process.workflow.map((task: any) => ({
-        id: task['@id'] || `task-${task.name}`,
-        name: task.name,
-        type: 'Task',
-        description: task.description,
-        version: task.version,
-        versionDate: task.versionDate,
-        hasNote: task.hasNote,
-        children: []
-      }));
-      processNode.children.push(...taskNodes);
-      nodes.push(...taskNodes);
-      taskNodes.forEach(child => nodeMap.set(child.id, child));
-    }
+          // Add tasks
+          if (process.workflow) {
+            const taskNodes = process.workflow.map((task: any) => ({
+              id: task.id,
+              name: task.name,
+              type: 'Task',
+              description: task.description,
+              children: []
+            }));
+            processNode.children.push(...taskNodes);
+            nodes.push(...taskNodes);
+          }
 
-    // Add integrations as children
-    if (process.hasIntegration) {
-      const integrationNodes = process.hasIntegration.map((integration: any) => ({
-        id: integration['@id'] || `integration-${integration.name}`,
-        name: integration.name,
-        type: 'Integration',
-        description: integration.description,
-        version: integration.version,
-        versionDate: integration.versionDate,
-        hasNote: integration.hasNote,
-        children: []
-      }));
-      processNode.children.push(...integrationNodes);
-      nodes.push(...integrationNodes);
-      integrationNodes.forEach(child => nodeMap.set(child.id, child));
-    }
+          // Add integrations
+          if (process.integrations) {
+            const integrationNodes = process.integrations.map((integration: any) => ({
+              id: integration.id,
+              name: integration.name,
+              type: 'Integration',
+              description: integration.description,
+              children: []
+            }));
+            processNode.children.push(...integrationNodes);
+            nodes.push(...integrationNodes);
+          }
 
-    // Add data sources as children
-    if (process.hasDataSource) {
-      const dataSourceNodes = process.hasDataSource.map((dataSource: any) => ({
-        id: dataSource['@id'] || `datasource-${dataSource.name}`,
-        name: dataSource.name,
-        type: 'DataSource',
-        description: dataSource.description,
-        version: dataSource.version,
-        versionDate: dataSource.versionDate,
-        hasNote: dataSource.hasNote,
-        children: []
-      }));
-      processNode.children.push(...dataSourceNodes);
-      nodes.push(...dataSourceNodes);
-      dataSourceNodes.forEach(child => nodeMap.set(child.id, child));
-    }
+          // Add data sources
+          if (process.dataSources) {
+            const dataSourceNodes = process.dataSources.map((ds: any) => ({
+              id: ds.id,
+              name: ds.name,
+              type: 'DataSource',
+              description: ds.description,
+              children: []
+            }));
+            processNode.children.push(...dataSourceNodes);
+            nodes.push(...dataSourceNodes);
+          }
 
-    nodes.push(processNode);
-    nodeMap.set(processNode.id, processNode);
-  };
+          nodes.push(processNode);
+          nodeMap.set(processNode.id, processNode);
+        });
+      }
 
-  // Process departments and processes
-  if (jsonld.hasDepartment) {
-    jsonld.hasDepartment.forEach(processDepartment);
-  }
-  if (jsonld.hasProcess) {
-    jsonld.hasProcess.forEach(processProcess);
-  }
-
-  // Add other components with empty children arrays
-  const processOtherComponent = (component: any, type: string) => {
-    const node = {
-      id: component['@id'] || `${type}-${component.name}`,
-      name: component.name,
-      type: type,
-      description: component.description,
-      version: component.version,
-      versionDate: component.versionDate,
-      hasNote: component.hasNote,
-      children: []
-    };
-    nodes.push(node);
-    nodeMap.set(node.id, node);
-  };
-
-  // Process other components
-  if (jsonld.hasAIComponent) {
-    jsonld.hasAIComponent.forEach(ai => processOtherComponent(ai, 'AIComponent'));
-  }
-  if (jsonld.hasAnalytics) {
-    jsonld.hasAnalytics.forEach(analytics => processOtherComponent(analytics, 'Analytics'));
-  }
-  if (jsonld.hasSoftwareTool) {
-    jsonld.hasSoftwareTool.forEach(tool => processOtherComponent(tool, 'SoftwareTool'));
+      nodes.push(deptNode);
+      nodeMap.set(deptNode.id, deptNode);
+    });
   }
 
   return nodes;
@@ -183,23 +127,35 @@ export default function Home() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   const [nodes, setNodes] = useState<NodeData[]>([]);
+  const [dbData, setDbData] = useState<any>(null);
 
-  // Initialize nodes from JSON-LD data
+  // Add new useEffect to fetch data from API
   useEffect(() => {
-    const extractedNodes = extractNodesFromJsonLd(jsonld);
-    setNodes(extractedNodes);
-  }, []); // Empty dependency array as we only need to do this once
+    const fetchOntologyData = async () => {
+      try {
+        const response = await fetch('/api/v1/ontology');
+        const data = await response.json();
+        setDbData(data);
+        const extractedNodes = extractNodesFromDatabase(data);
+        setNodes(extractedNodes);
+      } catch (error) {
+        console.error('Error fetching ontology data:', error);
+      }
+    };
+
+    fetchOntologyData();
+  }, []);
 
   useEffect(() => {
     // Only initialize the graph if we're in graph view and the svg ref exists
-    if (viewMode === 'graph' && svgRef.current) {
+    if (viewMode === 'graph' && svgRef.current && dbData) {
       // Clear any existing SVG content
       d3.select(svgRef.current).selectAll('*').remove();
 
       // Initialize the visualization using the imported function
       const cleanup = initializeGraph(
         svgRef,
-        jsonld,
+        dbData,
         handleClosePanel,
         setSelectedNodeId,
         setSelectedNode,
@@ -213,7 +169,7 @@ export default function Home() {
         d3.select(svgRef.current).selectAll('*').remove();
       };
     }
-  }, [viewMode]);
+  }, [viewMode, dbData]);
 
   const handleLegendClick = (type: string) => {
     setSelectedType(type);
@@ -292,19 +248,16 @@ export default function Home() {
     console.log('Create link:', sourceId, targetId, relationship);
   };
 
-  const handleDownloadJsonLd = () => {
-    // Create a blob from the JSON-LD data
-    const blob = new Blob([JSON.stringify(jsonld, null, 2)], { type: 'application/json' });
+  const handleDownloadOntology = () => {
+    const blob = new Blob([JSON.stringify(dbData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
-    // Create a temporary link element and trigger the download
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'data.jsonld';
+    link.download = 'ontology-data.json';
     document.body.appendChild(link);
     link.click();
     
-    // Clean up
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   };
@@ -344,8 +297,8 @@ export default function Home() {
                 variant="outline"
                 size="icon"
                 className="w-8 h-8"
-                onClick={handleDownloadJsonLd}
-                title="Download JSON-LD"
+                onClick={handleDownloadOntology}
+                title="Download Ontology Data"
               >
                 <Download className="h-4 w-4" />
               </Button>
@@ -360,7 +313,7 @@ export default function Home() {
         </>
       ) : (
         <div className="p-4 mt-16 ml-72 h-[calc(100vh-5rem)] w-[calc(100vw-20rem)]">
-          <JsonLdTable data={jsonld} />
+          <OntologyTable data={dbData} />
         </div>
       )}
 
@@ -383,7 +336,7 @@ export default function Home() {
       />
 
       {/* Add AiChat component */}
-      <AiChat jsonld={jsonld} />
+      <AiChat ontologyData={dbData} />
     </div>
   );
 }

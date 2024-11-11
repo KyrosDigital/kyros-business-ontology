@@ -1,10 +1,9 @@
 import * as d3 from 'd3';
-import { getRelationshipType } from './utils';
-import { NodeData, Link, Note } from '@/types/graph';
+import { NodeData, Link } from '@/types/graph';
 
 export function initializeGraph(
   svgRef: React.RefObject<SVGSVGElement>,
-  jsonld: any,
+  dbData: any,
   handleClosePanel: () => void,
   setSelectedNodeId: (id: string | null) => void,
   setSelectedNode: (node: NodeData | null) => void,
@@ -52,116 +51,178 @@ export function initializeGraph(
 	const links: Link[] = [];
 	const nodeMap = new Map();
 
-	function parseJsonLd(data: any, parent = null) {
-		const nodeId = data['@id'] || data.name || data['@type'] || "Unknown";
-		let currentNode;
+	function processDbData(data: any) {
+		if (!data) return;
 
-		if (nodeMap.has(nodeId)) {
-			currentNode = nodeMap.get(nodeId);
-		} else {
-			// Find the node in existingNodes if available
-			const existingNode = existingNodes?.find(n => n.id === nodeId);
-			
-			if (existingNode) {
-				currentNode = existingNode;
-			} else {
-				// Create new node if not found
-				const notes: Note[] = [];
-				const children: NodeData[] = [];
+		// Add organization node
+		const orgNode: NodeData = {
+			id: data.id,
+			name: data.name,
+			type: 'Organization',
+			description: data.description,
+			children: []
+		};
+		visualNodes.push(orgNode);
+		nodeMap.set(orgNode.id, orgNode);
 
-				if (data.hasNote) {
-					notes.push(...data.hasNote.map((note: any) => ({
-						content: note.content,
-						author: note.author,
-						dateCreated: note.dateCreated
-					})));
-				}
-
-				if (data.relatedNotes) {
-					notes.push(...data.relatedNotes.map((note: any) => ({
-						content: note.content,
-						author: note.author,
-						dateCreated: note.dateCreated
-					})));
-				}
-
-				currentNode = {
-					id: nodeId,
-					name: data.name,
-					type: data['@type'] || "Unknown",
-					description: data.description,
-					responsibilities: data.responsibilities,
-					version: data.version,
-					versionDate: data.versionDate,
-					notes: notes.length > 0 ? notes : undefined,
-					children
+		// Process departments
+		if (data.departments) {
+			data.departments.forEach((dept: any) => {
+				const deptNode: NodeData = {
+					id: dept.id,
+					name: dept.name,
+					type: 'Department',
+					description: dept.description,
+					children: []
 				};
-			}
-			
-			visualNodes.push(currentNode);
-			nodeMap.set(nodeId, currentNode);
-		}
+				visualNodes.push(deptNode);
+				nodeMap.set(deptNode.id, deptNode);
 
-		if (parent && parent.children) {
-			parent.children.push(currentNode);
-		}
-
-		const childRelationships = [
-			{ key: 'hasDepartment', type: 'Department' },
-			{ key: 'hasRole', type: 'Role' },
-			{ key: 'hasProcess', type: 'Process' },
-			{ key: 'workflow', type: 'Task' },
-			{ key: 'hasIntegration', type: 'Integration' },
-			{ key: 'hasDataSource', type: 'DataSource' },
-			{ key: 'hasAIComponent', type: 'AIComponent' },
-			{ key: 'hasAnalytics', type: 'Analytics' },
-			{ key: 'hasSoftwareTool', type: 'SoftwareTool' }
-		];
-
-		childRelationships.forEach(({ key, type }) => {
-			if (data[key]) {
-				const children = Array.isArray(data[key]) ? data[key] : [data[key]];
-				children.forEach((child: any) => {
-					const childNode = parseJsonLd(child, currentNode);
-					if (childNode) {
-						links.push({
-							source: currentNode.id,
-							target: childNode.id,
-							relationship: getRelationshipType(type)
-						});
-					}
+				// Create link from org to department
+				links.push({
+					source: orgNode.id,
+					target: deptNode.id,
+					relationship: 'hasDepartment'
 				});
-			}
-		});
 
-		const singleRelationships = [
-			'relatedProcess',
-			'usesDataSource',
-			'softwareTool',
-			'relatedDepartment',
-			'relatedIntegration',
-			'relatedRole',
-			'responsibleRole'
-		];
+				// Process roles
+				if (dept.roles) {
+					dept.roles.forEach((role: any) => {
+						const roleNode: NodeData = {
+							id: role.id,
+							name: role.name,
+							type: 'Role',
+							description: role.responsibilities,
+							version: role.version,
+							versionDate: role.versionDate,
+							children: []
+						};
+						visualNodes.push(roleNode);
+						nodeMap.set(roleNode.id, roleNode);
 
-		singleRelationships.forEach(key => {
-			if (data[key]) {
-				const childNode = parseJsonLd(data[key], currentNode);
-				if (childNode) {
-					links.push({
-						source: currentNode.id,
-						target: childNode.id,
-						relationship: getRelationshipType(data[key]['@type'])
+						links.push({
+							source: deptNode.id,
+							target: roleNode.id,
+							relationship: 'hasRole'
+						});
 					});
 				}
-			}
-		});
 
-		return currentNode;
+				// Process processes
+				if (dept.processes) {
+					dept.processes.forEach((process: any) => {
+						const processNode: NodeData = {
+							id: process.id,
+							name: process.name,
+							type: 'Process',
+							description: process.description,
+							version: process.version,
+							versionDate: process.versionDate,
+							children: []
+						};
+						visualNodes.push(processNode);
+						nodeMap.set(processNode.id, processNode);
+
+						links.push({
+							source: deptNode.id,
+							target: processNode.id,
+							relationship: 'hasProcess'
+						});
+
+						// Process tasks
+						if (process.workflow) {
+							process.workflow.forEach((task: any) => {
+								const taskNode: NodeData = {
+									id: task.id,
+									name: task.name,
+									type: 'Task',
+									description: task.description,
+									version: task.version,
+									versionDate: task.versionDate,
+									children: []
+								};
+								visualNodes.push(taskNode);
+								nodeMap.set(taskNode.id, taskNode);
+
+								links.push({
+									source: processNode.id,
+									target: taskNode.id,
+									relationship: 'workflow'
+								});
+
+								// Link task to responsible role if exists
+								if (task.responsibleRole) {
+									links.push({
+										source: taskNode.id,
+										target: task.responsibleRole.id,
+										relationship: 'responsibleRole'
+									});
+								}
+							});
+						}
+
+						// Process integrations
+						if (process.integrations) {
+							process.integrations.forEach((integration: any) => {
+								const integrationNode: NodeData = {
+									id: integration.id,
+									name: integration.name,
+									type: 'Integration',
+									description: integration.description,
+									version: integration.version,
+									versionDate: integration.versionDate,
+									children: []
+								};
+								visualNodes.push(integrationNode);
+								nodeMap.set(integrationNode.id, integrationNode);
+
+								links.push({
+									source: processNode.id,
+									target: integrationNode.id,
+									relationship: 'hasIntegration'
+								});
+
+								// Link integration to software tool if exists
+								if (integration.softwareTool) {
+									links.push({
+										source: integrationNode.id,
+										target: integration.softwareTool.id,
+										relationship: 'usesSoftwareTool'
+									});
+								}
+							});
+						}
+
+						// Process data sources
+						if (process.dataSources) {
+							process.dataSources.forEach((ds: any) => {
+								const dsNode: NodeData = {
+									id: ds.id,
+									name: ds.name,
+									type: 'DataSource',
+									description: ds.description,
+									version: ds.version,
+									versionDate: ds.versionDate,
+									children: []
+								};
+								visualNodes.push(dsNode);
+								nodeMap.set(dsNode.id, dsNode);
+
+								links.push({
+									source: processNode.id,
+									target: dsNode.id,
+									relationship: 'usesDataSource'
+								});
+							});
+						}
+					});
+				}
+			});
+		}
 	}
 
-	// Initialize the graph with the JSON-LD data
-	parseJsonLd(jsonld);
+	// Initialize the graph with the database data
+	processDbData(dbData);
 
 	// Define drag event handlers
 	function dragstarted(event: any, d: any) {
