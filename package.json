@@ -3,14 +3,16 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "docker-compose up -d && dotenv -e .env -- npx prisma migrate dev && npx prisma generate && dotenv -e .env -- next dev",
+    "clean-dev": "dotenv -e .env -- npx prisma migrate reset && docker-compose up -d && dotenv -e .env -- npx prisma migrate dev && npx prisma generate && dotenv -e .env -- next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "server": "json-server --watch db.json --port 3001"
+    "prisma-studio": "npx prisma studio"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@prisma/client": "5.22.0",
     "@radix-ui/react-scroll-area": "^1.2.0",
     "@radix-ui/react-slot": "^1.1.0",
     "@radix-ui/react-switch": "^1.1.1",
@@ -28,16 +30,24 @@
     "react-syntax-highlighter": "^15.6.1",
     "remark-gfm": "^4.0.0",
     "tailwind-merge": "^2.5.4",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "dotenv": "^16.4.5",
+    "dotenv-cli": "^7.4.2",
     "eslint": "^8",
     "eslint-config-next": "14.2.16",
     "postcss": "^8",
+    "prisma": "^5.22.0",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.19.2",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
   }
 }

@@ -1,0 +1,284 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id            String       @id @default(uuid())
+  name          String
+  url           String?
+  description   String?
+  
+  // Address fields
+  streetAddress String?
+  city         String?      @map("address_locality")
+  state        String?      @map("address_region")
+  postalCode   String?
+  country      String?      @map("address_country")
+  
+  // Contact fields
+  phone        String?
+  contactType  String?
+
+  // Relationships
+  departments  Department[]
+  notes       Note[]
+
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  @@map("organizations")
+}
+
+model Department {
+  id            String       @id @default(uuid())
+  name          String
+  description   String?
+  
+  // Relationships
+  organization  Organization @relation(fields: [orgId], references: [id])
+  orgId         String       @map("organization_id")
+  roles         Role[]
+  processes     Process[]
+  tools         SoftwareTool[]
+  analytics     Analytics[]
+  aiComponents  AIComponent[]
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // Add notes relationship
+  notes        Note[]
+
+  @@map("departments")
+}
+
+model Note {
+  id          String       @id @default(uuid())
+  content     String
+  author      String
+  dateCreated DateTime
+  
+  // Relationships - all optional
+  organization Organization? @relation(fields: [orgId], references: [id])
+  orgId        String?      @map("organization_id")
+  department   Department?  @relation(fields: [deptId], references: [id])
+  deptId       String?     @map("department_id")
+  role         Role?       @relation(fields: [roleId], references: [id])
+  roleId       String?     @map("role_id")
+  process      Process?    @relation(fields: [processId], references: [id])
+  processId    String?     @map("process_id")
+  task         Task?       @relation(fields: [taskId], references: [id])
+  taskId       String?     @map("task_id")
+  integration  Integration? @relation(fields: [integrationId], references: [id])
+  integrationId String?    @map("integration_id")
+  softwareTool SoftwareTool? @relation(fields: [toolId], references: [id])
+  toolId       String?     @map("tool_id")
+  dataSource   DataSource? @relation(fields: [dataSourceId], references: [id])
+  dataSourceId String?     @map("data_source_id")
+  analytics    Analytics?  @relation(fields: [analyticsId], references: [id])
+  analyticsId  String?     @map("analytics_id")
+  aiComponent  AIComponent? @relation(fields: [aiComponentId], references: [id])
+  aiComponentId String?    @map("ai_component_id")
+
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("notes")
+}
+
+model Role {
+  id              String       @id @default(uuid())
+  version         String
+  versionDate     DateTime
+  name            String
+  responsibilities String?
+  
+  // Relationships
+  department      Department   @relation(fields: [deptId], references: [id])
+  deptId          String      @map("department_id")
+  assignedProcess Process?    @relation(fields: [processId], references: [id])
+  processId       String?     @map("process_id")
+  tasks           Task[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Add notes relationship
+  notes         Note[]
+
+  @@map("roles")
+}
+
+model Process {
+  id            String       @id @default(uuid())
+  version       String
+  versionDate   DateTime
+  prevVersion   String?     @map("previous_version")
+  name          String
+  description   String?
+  
+  // Relationships
+  department    Department   @relation(fields: [deptId], references: [id])
+  deptId        String      @map("department_id")
+  workflow      Task[]
+  roles         Role[]
+  integrations  Integration[]
+  dataSources   DataSource[]
+  notes         Note[]
+  aiComponents  AIComponent[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("processes")
+}
+
+model Task {
+  id            String       @id @default(uuid())
+  version       String
+  versionDate   DateTime
+  name          String
+  description   String?
+  taskStatus    String?
+  
+  // Relationships
+  process       Process     @relation(fields: [processId], references: [id])
+  processId     String      @map("process_id")
+  responsibleRole Role?     @relation(fields: [roleId], references: [id])
+  roleId        String?     @map("role_id")
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Add notes relationship
+  notes         Note[]
+
+  @@map("tasks")
+}
+
+model Integration {
+  id            String       @id @default(uuid())
+  version       String
+  versionDate   DateTime
+  prevVersion   String?     @map("previous_version")
+  name          String
+  description   String?
+  
+  // Relationships
+  process       Process     @relation(fields: [processId], references: [id])
+  processId     String      @map("process_id")
+  softwareTool  SoftwareTool? @relation(fields: [toolId], references: [id])
+  toolId        String?     @map("tool_id")
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Add notes relationship
+  notes         Note[]
+
+  @@map("integrations")
+}
+
+model SoftwareTool {
+  id            String       @id @default(uuid())
+  version       String
+  versionDate   DateTime
+  prevVersion   String?     @map("previous_version")
+  name          String
+  description   String?
+  apiVersion    String?
+  
+  // Relationships
+  department    Department   @relation(fields: [deptId], references: [id])
+  deptId        String      @map("department_id")
+  integrations  Integration[]
+  aiComponents  AIComponent[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Add notes relationship
+  notes         Note[]
+
+  @@map("software_tools")
+}
+
+model DataSource {
+  id            String       @id @default(uuid())
+  version       String
+  versionDate   DateTime
+  name          String
+  description   String?
+  
+  // Relationships
+  processes     Process[]
+  analytics     Analytics[]
+  aiComponents  AIComponent[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Add notes relationship
+  notes         Note[]
+
+  @@map("data_sources")
+}
+
+model Analytics {
+  id            String       @id @default(uuid())
+  version       String
+  versionDate   DateTime
+  name          String
+  description   String?
+  
+  // Relationships
+  department    Department   @relation(fields: [deptId], references: [id])
+  deptId        String      @map("department_id")
+  dataSources   DataSource[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Add notes relationship
+  notes         Note[]
+
+  @@map("analytics")
+}
+
+model AIComponent {
+  id            String       @id @default(uuid())
+  version       String
+  versionDate   DateTime
+  modelVersion  String?
+  name          String
+  description   String?
+  
+  // Relationships
+  department    Department   @relation(fields: [deptId], references: [id])
+  deptId        String      @map("department_id")
+  process       Process?    @relation(fields: [processId], references: [id])
+  processId     String?     @map("process_id")
+  dataSource    DataSource? @relation(fields: [dataSourceId], references: [id])
+  dataSourceId  String?     @map("data_source_id")
+  softwareTool  SoftwareTool? @relation(fields: [toolId], references: [id])
+  toolId        String?     @map("tool_id")
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Add notes relationship
+  notes         Note[]
+
+  @@map("ai_components")
+}
