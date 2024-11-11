@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X, Plus, Edit, Trash2, Link as LinkIcon } from "lucide-react";
-import { Note, NodeData } from '@/types/graph';
+import { NodeData } from '@/types/graph';
 
 interface NodesCategoryProps {
   isPanelOpen: boolean;
@@ -29,7 +29,6 @@ export function NodesCategoryPanel({
   // Filter nodes by selected type
   const categoryNodes = nodes.filter(node => node.type === selectedType);
 
-	console.log(categoryNodes)
   return (
     <div
       className={`fixed top-0 right-0 w-96 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
