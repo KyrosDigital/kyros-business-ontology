@@ -49,15 +49,11 @@ async function main() {
 					create: [
 						{
 							id: "role_8a7b6c5d-4e3f-2a1b-9c8d-7e6f5a4b3c2d",
-							version: "1.0.0",
-							versionDate: new Date("2024-03-20"),
 							name: "Sales Manager",
 							responsibilities: "Oversees sales strategy and manages the sales team."
 						},
 						{
 							id: "role_9b8a7c6d-5e4f-3b2a-1c9d-8f7e6g5h4i3j",
-							version: "1.0.0",
-							versionDate: new Date("2024-03-20"),
 							name: "Sales Associate",
 							responsibilities: "Engages with customers and supports sales activities."
 						}
@@ -66,9 +62,6 @@ async function main() {
 				processes: {
 					create: {
 						id: "proc_7g6f5e4d-3c2b-1a0b-9d8e-7f6g5h4i3j2k",
-						version: "3.1.2",
-						versionDate: new Date("2024-03-18"),
-						prevVersion: "https://example.com/process/customer-support/v2",
 						name: "Customer Support Process",
 						description: "A process to manage customer inquiries and issues.",
 					}
@@ -76,9 +69,6 @@ async function main() {
 				aiComponents: {
 					create: {
 						id: "ai_2l1k0j9i-8h7g-6f5e-4d3c-2i1j0k9l8m7n",
-						version: "1.2.3",
-						versionDate: new Date("2024-03-19"),
-						modelVersion: "gpt-4-0125-preview",
 						name: "Customer Sentiment Analysis",
 						description: "Analyzes customer communications to detect sentiment and flag issues."
 					}

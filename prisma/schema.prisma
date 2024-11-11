@@ -99,8 +99,6 @@ model Note {
 
 model Role {
   id              String       @id @default(uuid())
-  version         String
-  versionDate     DateTime
   name            String
   responsibilities String?
   
@@ -110,21 +108,16 @@ model Role {
   assignedProcess Process?    @relation(fields: [processId], references: [id])
   processId       String?     @map("process_id")
   tasks           Task[]
+  notes           Note[]
 
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
-
-  // Add notes relationship
-  notes         Note[]
 
   @@map("roles")
 }
 
 model Process {
   id            String       @id @default(uuid())
-  version       String
-  versionDate   DateTime
-  prevVersion   String?     @map("previous_version")
   name          String
   description   String?
   
@@ -146,8 +139,6 @@ model Process {
 
 model Task {
   id            String       @id @default(uuid())
-  version       String
-  versionDate   DateTime
   name          String
   description   String?
   taskStatus    String?
@@ -169,9 +160,6 @@ model Task {
 
 model Integration {
   id            String       @id @default(uuid())
-  version       String
-  versionDate   DateTime
-  prevVersion   String?     @map("previous_version")
   name          String
   description   String?
   
@@ -192,9 +180,6 @@ model Integration {
 
 model SoftwareTool {
   id            String       @id @default(uuid())
-  version       String
-  versionDate   DateTime
-  prevVersion   String?     @map("previous_version")
   name          String
   description   String?
   apiVersion    String?
@@ -216,8 +201,6 @@ model SoftwareTool {
 
 model DataSource {
   id            String       @id @default(uuid())
-  version       String
-  versionDate   DateTime
   name          String
   description   String?
   
@@ -237,8 +220,6 @@ model DataSource {
 
 model Analytics {
   id            String       @id @default(uuid())
-  version       String
-  versionDate   DateTime
   name          String
   description   String?
   
@@ -258,9 +239,6 @@ model Analytics {
 
 model AIComponent {
   id            String       @id @default(uuid())
-  version       String
-  versionDate   DateTime
-  modelVersion  String?
   name          String
   description   String?
   

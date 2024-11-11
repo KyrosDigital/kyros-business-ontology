@@ -17,8 +17,7 @@ interface NodePanelProps {
 interface CreateFormData {
   name: string;
   description?: string;
-  version?: string;
-  versionDate?: string;
+  type?: string;
 }
 
 export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: NodePanelProps) {
@@ -132,14 +131,13 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
   const [formData, setFormData] = useState<CreateFormData>({
     name: '',
     description: '',
-    version: '',
-    versionDate: new Date().toISOString().split('T')[0]
+    type: ''
   });
 
-  const getChildTypeForParent = (parentType: string) => {
+  const getChildTypeForParent = (parentType: string): string[] => {
     switch (parentType) {
       case 'Organization':
-        return 'Department';
+        return ['Department'];
       case 'Department':
         return ['Role', 'Process', 'Software Tool', 'Analytics', 'AI Component'];
       case 'Process':
@@ -151,32 +149,21 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
     }
   };
 
-  const needsVersioning = (type: string) => {
-    return ['Role', 'Process', 'Task', 'Integration', 'SoftwareTool', 'DataSource', 'Analytics', 'AIComponent'].includes(type);
-  };
-
   const handleCreateChild = async () => {
     if (!selectedNode?.id || !formData.name) return;
 
     try {
-      // Log the request body for debugging
       const requestBody = {
         parentId: selectedNode.id,
         parentType: selectedNode.type,
+        type: formData.type || getChildTypeForParent(selectedNode.type)[0],
         name: formData.name,
-        description: formData.description,
-        ...(needsVersioning(selectedNode.type) && {
-          version: formData.version,
-          versionDate: formData.versionDate
-        })
+        description: formData.description
       };
-      console.log('Creating child node with:', requestBody);
 
       const response = await fetch('/api/v1/ontology/create-child', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       });
 
@@ -188,16 +175,18 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
       const newNode = await response.json();
       onCreateNode(newNode);
       setIsCreating(false);
-      setFormData({
-        name: '',
-        description: '',
-        version: '',
-        versionDate: new Date().toISOString().split('T')[0]
-      });
+      resetForm();
     } catch (error) {
       console.error('Error creating child node:', error);
-      // You might want to add error handling UI here, like a toast notification
     }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      type: ''
+    });
   };
 
   return (
@@ -306,25 +295,10 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
                   onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 />
 
-                {needsVersioning(selectedNode.type) && (
-                  <>
-                    <Input
-                      placeholder="Version"
-                      value={formData.version}
-                      onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
-                    />
-                    <Input
-                      type="date"
-                      value={formData.versionDate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, versionDate: e.target.value }))}
-                    />
-                  </>
-                )}
-
                 <div className="flex space-x-2">
                   <Button 
                     onClick={handleCreateChild}
-                    disabled={!formData.name || (needsVersioning(selectedNode.type) && !formData.version)}
+                    disabled={!formData.name}
                   >
                     Create
                   </Button>
@@ -332,12 +306,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
                     variant="outline" 
                     onClick={() => {
                       setIsCreating(false);
-                      setFormData({
-                        name: '',
-                        description: '',
-                        version: '',
-                        versionDate: new Date().toISOString().split('T')[0]
-                      });
+                      resetForm();
                     }}
                   >
                     Cancel
