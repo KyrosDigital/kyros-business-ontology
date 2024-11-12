@@ -1,34 +1,26 @@
-import { NextResponse } from 'next/server'
-import * as ontologyService from '@/services/ontology'
+import { NextResponse } from 'next/server';
+import { createChildNode } from '@/services/ontology';
+import { NodeType } from '@prisma/client';
 
-export async function POST(req: Request) {
+export async function POST(request: Request) {
 	try {
-		const body = await req.json()
-		const { parentId, parentType, type, name, description, apiVersion, responsibilities, taskStatus } = body
+		const { parentId, nodeData } = await request.json();
 
-		if (!name || !type) {
-			return NextResponse.json(
-				{ error: 'Missing required fields' },
-				{ status: 400 }
-			)
-		}
+		// Ensure the type is a valid NodeType enum value
+		const validatedNodeData = {
+			...nodeData,
+			type: NodeType[nodeData.type as keyof typeof NodeType]
+		};
 
-		const newNode = await ontologyService.createNode(type, {
-			name,
-			description,
-			parentId,
-			parentType,
-			apiVersion,
-			responsibilities,
-			taskStatus
-		})
+		// Create the child node with relationship in one operation
+		const newNode = await createChildNode(parentId, validatedNodeData);
 
-		return NextResponse.json(newNode, { status: 201 })
+		return NextResponse.json(newNode);
 	} catch (error) {
-		console.error('Error creating node:', error)
+		console.error('Error in create-child:', error);
 		return NextResponse.json(
-			{ error: error instanceof Error ? error.message : 'Internal server error' },
+			{ error: 'Failed to create child node' },
 			{ status: 500 }
-		)
+		);
 	}
 }

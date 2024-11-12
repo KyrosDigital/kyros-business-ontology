@@ -154,18 +154,49 @@ export default function Home() {
 
   const handleCreateNode = async (nodeData: Partial<NodeData>) => {
     try {
-      const response = await fetch('/api/v1/ontology/nodes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nodeData),
-      });
-      
-      if (!response.ok) throw new Error('Failed to create node');
-      
-      // Refresh data
-      const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
-      setOntologyData(updatedData);
-      setNodes(updatedData);
+      if (selectedNode?.id) {
+        const response = await fetch('/api/v1/ontology/create-child', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            parentId: selectedNode.id,
+            nodeData: nodeData,
+          }),
+        });
+        
+        if (!response.ok) throw new Error('Failed to create node');
+        
+        // Refresh data
+        const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
+        const transformedData = {
+          nodes: updatedData.map((node: any) => ({
+            id: node.id,
+            type: node.type,
+            name: node.name,
+            description: node.description,
+            metadata: node.metadata,
+            fromRelations: node.fromRelations,
+            toRelations: node.toRelations,
+            notes: node.notes
+          })),
+          relationships: updatedData.flatMap((node: any) => [
+            ...node.fromRelations.map((rel: any) => ({
+              id: rel.id,
+              source: node,
+              target: rel.toNode,
+              relationType: rel.relationType
+            })),
+            ...node.toRelations.map((rel: any) => ({
+              id: rel.id,
+              source: rel.fromNode,
+              target: node,
+              relationType: rel.relationType
+            }))
+          ])
+        };
+        setOntologyData(transformedData);
+        setNodes(transformedData.nodes);
+      }
     } catch (error) {
       console.error('Error creating node:', error);
     }
@@ -209,7 +240,7 @@ export default function Home() {
 
   const handleCreateRelationship = async (sourceId: string, targetId: string, relationType: string) => {
     try {
-      const response = await fetch('/api/v1/ontology/relationships', {
+      const response = await fetch('/api/v1/ontology/connect-nodes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -224,7 +255,7 @@ export default function Home() {
       // Refresh data
       const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
       setOntologyData(updatedData);
-      setNodes(updatedData);
+      setNodes(updatedData.nodes);
     } catch (error) {
       console.error('Error creating relationship:', error);
     }

@@ -38,10 +38,13 @@ const defaultIncludes = {
 
 // Core Node Operations
 export async function createNode(data: CreateNodeData) {
+  // Remove relationship fields from node creation
+  const { fromRelations, toRelations, ...nodeData } = data;
+  
   return prisma.node.create({
-    data,
+    data: nodeData,
     include: defaultIncludes
-  })
+  });
 }
 
 export async function getNode(nodeId: string) {
@@ -203,4 +206,59 @@ export async function updateNodeMetadata(nodeId: string, metadata: Record<string
     data: { metadata },
     include: defaultIncludes
   })
+}
+
+// Add new function to create child node with relationship
+export async function createChildNode(parentId: string, data: CreateNodeData) {
+  if (!parentId) {
+    throw new Error('Parent ID is required');
+  }
+
+  return prisma.$transaction(async (tx) => {
+    // First create the child node
+    const childNode = await tx.node.create({
+      data: {
+        type: data.type,
+        name: data.name,
+        description: data.description,
+        metadata: data.metadata,
+      }
+    });
+
+    // Then create the relationship
+    await tx.nodeRelationship.create({
+      data: {
+        fromNodeId: parentId,
+        toNodeId: childNode.id,
+        relationType: 'PARENT_CHILD'
+      }
+    });
+
+    // Return the child node with all relationships included
+    return tx.node.findUnique({
+      where: { id: childNode.id },
+      include: defaultIncludes
+    });
+  });
+}
+
+// Add new function to connect nodes with a specific relationship type
+export async function connectNodes(
+  sourceId: string,
+  sourceType: string,
+  targetId: string,
+  targetType: string
+) {
+  // Create the relationship
+  return prisma.nodeRelationship.create({
+    data: {
+      fromNodeId: sourceId,
+      toNodeId: targetId,
+      relationType: `${sourceType}_${targetType}`
+    },
+    include: {
+      fromNode: true,
+      toNode: true
+    }
+  });
 }

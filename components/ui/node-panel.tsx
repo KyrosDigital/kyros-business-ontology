@@ -6,6 +6,7 @@ import * as d3 from 'd3';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { NodeType } from '@prisma/client';
 
 interface NodePanelProps {
   isPanelOpen: boolean;
@@ -17,7 +18,7 @@ interface NodePanelProps {
 interface CreateFormData {
   name: string;
   description?: string;
-  type?: string;
+  type: NodeType | '';
 }
 
 export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: NodePanelProps) {
@@ -74,30 +75,27 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
     type: ''
   });
 
-  const getChildTypeForParent = (parentType: string): string[] => {
-    // All nodes can potentially connect to any other node type
+  const getChildTypeForParent = (parentType: string): NodeType[] => {
     return [
-      'Organization',
-      'Department',
-      'Role',
-      'Process',
-      'Task',
-      'Integration',
-      'SoftwareTool',
-      'DataSource',
-      'Analytics',
-      'AIComponent'
+      NodeType.ORGANIZATION,
+      NodeType.DEPARTMENT,
+      NodeType.ROLE,
+      NodeType.PROCESS,
+      NodeType.TASK,
+      NodeType.INTEGRATION,
+      NodeType.SOFTWARE_TOOL,
+      NodeType.DATA_SOURCE,
+      NodeType.ANALYTICS,
+      NodeType.AI_COMPONENT
     ];
   };
 
   const handleCreateChild = async () => {
-    if (!selectedNode?.id || !formData.name) return;
+    if (!selectedNode?.id || !formData.name || !formData.type) return;
 
     try {
-      const requestBody = {
-        parentId: selectedNode.id,
-        parentType: selectedNode.type,
-        type: formData.type || getChildTypeForParent(selectedNode.type)[0],
+      const nodeData = {
+        type: formData.type,
         name: formData.name,
         description: formData.description
       };
@@ -105,7 +103,10 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
       const response = await fetch('/api/v1/ontology/create-child', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          parentId: selectedNode.id,
+          nodeData: nodeData,
+        }),
       });
 
       if (!response.ok) {
@@ -215,7 +216,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
                 <select 
                   className="w-full p-2 border rounded"
                   value={formData.type}
-                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as NodeType }))}
                   required
                 >
                   <option value="">Select Type</option>
