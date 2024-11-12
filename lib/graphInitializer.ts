@@ -74,14 +74,21 @@ export const initializeGraph = (
   const simulation = d3.forceSimulation<Node>(nodes)
     .force("link", d3.forceLink<Node, Link>(links)
       .id(d => d.id)
-      .distance(200))
-    .force("charge", d3.forceManyBody().strength(-1000))
+      .distance(250))
+    .force("charge", d3.forceManyBody()
+      .strength(-2000)
+      .distanceMin(100)
+      .distanceMax(500))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collision", d3.forceCollide().radius(75));
+    .force("collision", d3.forceCollide()
+      .radius(100)
+      .strength(1))
+    .force("x", d3.forceX(width / 2).strength(0.1))
+    .force("y", d3.forceY(height / 2).strength(0.1));
 
   // Let the simulation settle initially
-  simulation.tick(300); // Run several ticks immediately
-  simulation.alphaTarget(0).alpha(0.1);
+  simulation.tick(300);
+  simulation.alphaTarget(0).alpha(0.3);
 
   // Drag functions
   function dragstarted(event: any, d: any) {

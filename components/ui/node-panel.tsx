@@ -21,6 +21,14 @@ interface CreateFormData {
   type: NodeType | '';
 }
 
+// Add this helper function at the top of the file, outside the component
+const formatNodeType = (type: NodeType): string => {
+  // Convert SNAKE_CASE to Title Case
+  return type.split('_')
+    .map(word => word.charAt(0) + word.toLowerCase().slice(1))
+    .join(' ');
+};
+
 export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: NodePanelProps) {
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
@@ -154,7 +162,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
         <div className="space-y-6">
           <div>
             <h3 className="text-sm font-medium text-gray-500">Type</h3>
-            <p className="mt-1">{selectedNode?.type}</p>
+            <p className="mt-1">{selectedNode?.type && formatNodeType(selectedNode.type)}</p>
           </div>
 
           {selectedNode?.description && (
@@ -267,7 +275,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
                         <p className="font-medium text-gray-700">{node.name}</p>
                         <div className="flex gap-2 mt-1">
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                            {node.type}
+                            {formatNodeType(node.type)}
                           </span>
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             {node.direction === 'incoming' ? '← ' : '→ '}
