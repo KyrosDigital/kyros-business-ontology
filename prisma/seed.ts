@@ -204,21 +204,21 @@ async function main() {
 			data: {
 				fromNodeId: departments[0].id, // Engineering
 				toNodeId: roles[0].id, // Senior Software Engineer
-				relationType: "HAS_ROLE"
+				relationType: "HAS ROLE"
 			}
 		}),
 		prisma.nodeRelationship.create({
 			data: {
 				fromNodeId: departments[0].id, // Engineering
 				toNodeId: roles[1].id, // DevOps Engineer
-				relationType: "HAS_ROLE"
+					relationType: "HAS ROLE"
 			}
 		}),
 		prisma.nodeRelationship.create({
 			data: {
 				fromNodeId: departments[1].id, // Product
 				toNodeId: roles[2].id, // Product Manager
-				relationType: "HAS_ROLE"
+				relationType: "HAS ROLE"
 			}
 		}),
 		// Tools relationships

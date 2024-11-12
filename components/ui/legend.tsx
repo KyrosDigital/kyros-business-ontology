@@ -17,7 +17,7 @@ type NodeTypeConfig = {
 
 // Export the color mapping
 export const NODE_COLORS = {
-  [NodeType.ORGANIZATION]: '#69b3a2',
+  [NodeType.ORGANIZATION]: '#000000',
   [NodeType.DEPARTMENT]: '#ffcc00',
   [NodeType.ROLE]: '#ff6600',
   [NodeType.PROCESS]: '#0066cc',
