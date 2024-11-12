@@ -7,137 +7,67 @@ import { Legend } from '@/components/ui/legend';
 import { initializeGraph } from '@/lib/graphInitializer';
 import { Download } from "lucide-react";
 import { AiChat } from '@/components/ui/ai-chat';
-
-// Move the JSON-LD data to a separate file
 import { NodePanel } from '@/components/ui/node-panel';
 import { OntologyTable } from "@/components/ui/ontology-table"
 import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
+import { NodeType } from '@prisma/client';
 
-// Add this helper function at the top of the file, outside the component
-function extractNodesFromDatabase(data: any): NodeData[] {
-  const nodes: NodeData[] = [];
-  const nodeMap = new Map();
-
-  // Add the organization
-  if (data) {
-    const orgNode = {
-      id: data.id,
-      name: data.name,
-      type: 'Organization',
-      description: data.description,
-      children: []
-    };
-    nodes.push(orgNode);
-    nodeMap.set(orgNode.id, orgNode);
-  }
-
-  // Process departments and their children
-  if (data?.departments) {
-    data.departments.forEach((dept: any) => {
-      const deptNode = {
-        id: dept.id,
-        name: dept.name,
-        type: 'Department',
-        description: dept.description,
-        children: []
-      };
-
-      // Process roles
-      if (dept.roles) {
-        const roleNodes = dept.roles.map((role: any) => ({
-          id: role.id,
-          name: role.name,
-          type: 'Role',
-          description: role.responsibilities,
-          children: []
-        }));
-        deptNode.children.push(...roleNodes);
-        nodes.push(...roleNodes);
-        roleNodes.forEach(node => nodeMap.set(node.id, node));
-      }
-
-      // Process processes and their children
-      if (dept.processes) {
-        dept.processes.forEach((process: any) => {
-          const processNode = {
-            id: process.id,
-            name: process.name,
-            type: 'Process',
-            description: process.description,
-            children: []
-          };
-
-          // Add tasks
-          if (process.workflow) {
-            const taskNodes = process.workflow.map((task: any) => ({
-              id: task.id,
-              name: task.name,
-              type: 'Task',
-              description: task.description,
-              children: []
-            }));
-            processNode.children.push(...taskNodes);
-            nodes.push(...taskNodes);
-          }
-
-          // Add integrations
-          if (process.integrations) {
-            const integrationNodes = process.integrations.map((integration: any) => ({
-              id: integration.id,
-              name: integration.name,
-              type: 'Integration',
-              description: integration.description,
-              children: []
-            }));
-            processNode.children.push(...integrationNodes);
-            nodes.push(...integrationNodes);
-          }
-
-          // Add data sources
-          if (process.dataSources) {
-            const dataSourceNodes = process.dataSources.map((ds: any) => ({
-              id: ds.id,
-              name: ds.name,
-              type: 'DataSource',
-              description: ds.description,
-              children: []
-            }));
-            processNode.children.push(...dataSourceNodes);
-            nodes.push(...dataSourceNodes);
-          }
-
-          nodes.push(processNode);
-          nodeMap.set(processNode.id, processNode);
-        });
-      }
-
-      nodes.push(deptNode);
-      nodeMap.set(deptNode.id, deptNode);
-    });
-  }
-
-  return nodes;
+// Types
+type NodeData = {
+  id: string;
+  type: NodeType;
+  name: string;
+  description?: string;
+  metadata?: Record<string, any>;
 }
 
 export default function Home() {
   const svgRef = useRef<SVGSVGElement>(null);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [selectedType, setSelectedType] = useState<NodeType | null>(null);
+  const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   const [nodes, setNodes] = useState<NodeData[]>([]);
-  const [dbData, setDbData] = useState<any>(null);
+  const [ontologyData, setOntologyData] = useState<any>(null);
 
-  // Add new useEffect to fetch data from API
+  // Fetch ontology data
   useEffect(() => {
     const fetchOntologyData = async () => {
       try {
         const response = await fetch('/api/v1/ontology');
         const data = await response.json();
-        setDbData(data);
-        const extractedNodes = extractNodesFromDatabase(data);
-        setNodes(extractedNodes);
+        
+        // Transform the data to match the expected format
+        const transformedData = {
+          nodes: data.map((node: any) => ({
+            id: node.id,
+            type: node.type,
+            name: node.name,
+            description: node.description,
+            metadata: node.metadata,
+            fromRelations: node.fromRelations,
+            toRelations: node.toRelations,
+            notes: node.notes
+          })),
+          relationships: data.flatMap((node: any) => [
+            ...node.fromRelations.map((rel: any) => ({
+              id: rel.id,
+              source: node,
+              target: rel.toNode,
+              relationType: rel.relationType
+            })),
+            ...node.toRelations.map((rel: any) => ({
+              id: rel.id,
+              source: rel.fromNode,
+              target: node,
+              relationType: rel.relationType
+            }))
+          ])
+        };
+
+        setOntologyData(transformedData);
+        setNodes(transformedData.nodes);
       } catch (error) {
         console.error('Error fetching ontology data:', error);
       }
@@ -146,16 +76,18 @@ export default function Home() {
     fetchOntologyData();
   }, []);
 
+  // Initialize or update graph
   useEffect(() => {
-    // Only initialize the graph if we're in graph view and the svg ref exists
-    if (viewMode === 'graph' && svgRef.current && dbData) {
-      // Clear any existing SVG content
+    if (viewMode === 'graph' && svgRef.current && ontologyData) {
+      // Clear existing SVG content
       d3.select(svgRef.current).selectAll('*').remove();
 
-      // Initialize the visualization using the imported function
+      // Initialize the visualization
       const cleanup = initializeGraph(
         svgRef,
-        dbData,
+        window.innerWidth,
+        window.innerHeight,
+        ontologyData,
         handleClosePanel,
         setSelectedNodeId,
         setSelectedNode,
@@ -163,33 +95,33 @@ export default function Home() {
         selectedNodeId
       );
 
-      // Cleanup function
       return () => {
         if (cleanup) cleanup();
         d3.select(svgRef.current).selectAll('*').remove();
       };
     }
-  }, [viewMode, dbData]);
+  }, [viewMode, ontologyData, selectedNodeId]);
 
-  const handleLegendClick = (type: string) => {
+  const handleLegendClick = (type: NodeType) => {
     setSelectedType(type);
     setIsPanelOpen(true);
     setSelectedNode(null);
     
     const svg = d3.select(svgRef.current);
     
-    // Dim non-matching nodes and their links
+    // Update node visibility
     svg.selectAll('.node')
       .transition()
       .duration(200)
       .style('opacity', (d: any) => d.type === type ? 1 : 0.2);
     
+    // Update relationship visibility
     svg.selectAll('.link')
       .transition()
       .duration(200)
       .style('opacity', (d: any) => {
-        const source = d.source as Node;
-        const target = d.target as Node;
+        const source = d.source as NodeData;
+        const target = d.target as NodeData;
         return source.type === type || target.type === type ? 1 : 0.2;
       });
   };
@@ -201,25 +133,17 @@ export default function Home() {
     // Remove pulse effect
     d3.selectAll('.node').classed('node-pulse', false);
     
-    // Restore opacity for all nodes
+    // Restore all nodes visibility
     d3.select(svgRef.current)
-      .selectAll('.node')
-      .transition()
-      .duration(300)
-      .style('opacity', 1);
-    
-    // Restore opacity for all links and their labels
-    d3.select(svgRef.current)
-      .selectAll('.link, .link-label')
+      .selectAll('.node, .link, .link-label')
       .transition()
       .duration(300)
       .style('opacity', 1);
   };
 
-  // Add a cleanup effect for when the component unmounts
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      // Ensure we clean up any remaining styles
       if (svgRef.current) {
         d3.select(svgRef.current)
           .selectAll('.node, .link, .link-label')
@@ -230,34 +154,84 @@ export default function Home() {
 
   const handleCreateNode = async (nodeData: Partial<NodeData>) => {
     try {
-      // Refresh the data after creating a new node
-      const response = await fetch('/api/v1/ontology');
-      const data = await response.json();
-      setDbData(data);
-      const extractedNodes = extractNodesFromDatabase(data);
-      setNodes(extractedNodes);
+      const response = await fetch('/api/v1/ontology/nodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nodeData),
+      });
+      
+      if (!response.ok) throw new Error('Failed to create node');
+      
+      // Refresh data
+      const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
+      setOntologyData(updatedData);
+      setNodes(updatedData);
     } catch (error) {
-      console.error('Error refreshing ontology data:', error);
+      console.error('Error creating node:', error);
     }
   };
 
-  const handleUpdateNode = (nodeId: string, nodeData: Partial<NodeData>) => {
-    // Implement node update logic
-    console.log('Update node:', nodeId, nodeData);
+  const handleUpdateNode = async (nodeId: string, nodeData: Partial<NodeData>) => {
+    try {
+      const response = await fetch(`/api/v1/ontology/nodes/${nodeId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(nodeData),
+      });
+      
+      if (!response.ok) throw new Error('Failed to update node');
+      
+      // Refresh data
+      const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
+      setOntologyData(updatedData);
+      setNodes(updatedData);
+    } catch (error) {
+      console.error('Error updating node:', error);
+    }
   };
 
-  const handleDeleteNode = (nodeId: string) => {
-    // Implement node deletion logic
-    console.log('Delete node:', nodeId);
+  const handleDeleteNode = async (nodeId: string) => {
+    try {
+      const response = await fetch(`/api/v1/ontology/nodes/${nodeId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete node');
+      
+      // Refresh data
+      const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
+      setOntologyData(updatedData);
+      setNodes(updatedData);
+    } catch (error) {
+      console.error('Error deleting node:', error);
+    }
   };
 
-  const handleCreateLink = (sourceId: string, targetId: string, relationship: string) => {
-    // Implement link creation logic
-    console.log('Create link:', sourceId, targetId, relationship);
+  const handleCreateRelationship = async (sourceId: string, targetId: string, relationType: string) => {
+    try {
+      const response = await fetch('/api/v1/ontology/relationships', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fromNodeId: sourceId,
+          toNodeId: targetId,
+          relationType,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to create relationship');
+      
+      // Refresh data
+      const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
+      setOntologyData(updatedData);
+      setNodes(updatedData);
+    } catch (error) {
+      console.error('Error creating relationship:', error);
+    }
   };
 
   const handleDownloadOntology = () => {
-    const blob = new Blob([JSON.stringify(dbData, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(ontologyData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     
     const link = document.createElement('a');
@@ -279,10 +253,8 @@ export default function Home() {
         onViewModeChange={(checked) => setViewMode(checked ? 'table' : 'graph')}
       />
 
-      {/* View Container */}
       {viewMode === 'graph' ? (
         <>
-          {/* Controls */}
           <div className="absolute bottom-4 left-4 z-10">
             <div className="flex flex-col gap-2">
               <Button
@@ -313,7 +285,6 @@ export default function Home() {
             </div>
           </div>
 
-          {/* SVG Container */}
           <svg
             ref={svgRef}
             className="w-full h-full"
@@ -321,7 +292,7 @@ export default function Home() {
         </>
       ) : (
         <div className="p-4 mt-16 ml-72 h-[calc(100vh-5rem)] w-[calc(100vw-20rem)]">
-          <OntologyTable data={dbData} />
+          <OntologyTable data={ontologyData} />
         </div>
       )}
 
@@ -334,7 +305,7 @@ export default function Home() {
         onCreateNode={handleCreateNode}
         onUpdateNode={handleUpdateNode}
         onDeleteNode={handleDeleteNode}
-        onCreateLink={handleCreateLink}
+        onCreateRelationship={handleCreateRelationship}
       />
 
       <NodePanel 
@@ -344,8 +315,7 @@ export default function Home() {
         onCreateNode={handleCreateNode}
       />
 
-      {/* Add AiChat component */}
-      <AiChat ontologyData={dbData} />
+      <AiChat ontologyData={ontologyData} />
     </div>
   );
 }

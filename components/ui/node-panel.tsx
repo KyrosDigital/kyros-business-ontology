@@ -21,100 +21,40 @@ interface CreateFormData {
 }
 
 export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: NodePanelProps) {
-  const getDirectChildren = () => {
+  const getConnectedNodes = () => {
     if (!selectedNode) return [];
     
-    const children = [];
+    const connectedNodes = [];
     
-    // Handle different node types and their relationships based on schema
-    switch (selectedNode.type) {
-      case 'Organization':
-        if (selectedNode.departments) {
-          children.push(...selectedNode.departments.map((dept: any) => ({
-            name: dept.name,
-            type: 'Department',
-            description: dept.description
-          })));
-        }
-        break;
-        
-      case 'Department':
-        // Departments can have roles, processes, tools, analytics, and AI components
-        if (selectedNode.roles) {
-          children.push(...selectedNode.roles.map((role: any) => ({
-            name: role.name,
-            type: 'Role',
-            description: role.responsibilities
-          })));
-        }
-        if (selectedNode.processes) {
-          children.push(...selectedNode.processes.map((process: any) => ({
-            name: process.name,
-            type: 'Process',
-            description: process.description
-          })));
-        }
-        if (selectedNode.tools) {
-          children.push(...selectedNode.tools.map((tool: any) => ({
-            name: tool.name,
-            type: 'Software Tool',
-            description: tool.description
-          })));
-        }
-        if (selectedNode.analytics) {
-          children.push(...selectedNode.analytics.map((analytic: any) => ({
-            name: analytic.name,
-            type: 'Analytics',
-            description: analytic.description
-          })));
-        }
-        if (selectedNode.aiComponents) {
-          children.push(...selectedNode.aiComponents.map((ai: any) => ({
-            name: ai.name,
-            type: 'AI Component',
-            description: ai.description
-          })));
-        }
-        break;
-        
-      case 'Process':
-        // Processes can have tasks, integrations, and data sources
-        if (selectedNode.workflow) {
-          children.push(...selectedNode.workflow.map((task: any) => ({
-            name: task.name,
-            type: 'Task',
-            description: task.description
-          })));
-        }
-        if (selectedNode.integrations) {
-          children.push(...selectedNode.integrations.map((integration: any) => ({
-            name: integration.name,
-            type: 'Integration',
-            description: integration.description
-          })));
-        }
-        if (selectedNode.dataSources) {
-          children.push(...selectedNode.dataSources.map((ds: any) => ({
-            name: ds.name,
-            type: 'Data Source',
-            description: ds.description
-          })));
-        }
-        break;
-        
-      case 'Role':
-        // Roles can have tasks
-        if (selectedNode.tasks) {
-          children.push(...selectedNode.tasks.map((task: any) => ({
-            name: task.name,
-            type: 'Task',
-            description: task.description
-          })));
-        }
-        break;
+    // Get nodes from outgoing relationships (fromRelations)
+    if (selectedNode.fromRelations) {
+      const outgoingNodes = selectedNode.fromRelations.map((rel: any) => ({
+        id: rel.toNode.id,
+        name: rel.toNode.name,
+        type: rel.toNode.type,
+        description: rel.toNode.description,
+        metadata: rel.toNode.metadata,
+        relationType: rel.relationType,
+        direction: 'outgoing'
+      }));
+      connectedNodes.push(...outgoingNodes);
     }
-    
-    return children;
+
+    // Get nodes from incoming relationships (toRelations)
+    if (selectedNode.toRelations) {
+      const incomingNodes = selectedNode.toRelations.map((rel: any) => ({
+        id: rel.fromNode.id,
+        name: rel.fromNode.name,
+        type: rel.fromNode.type,
+        description: rel.fromNode.description,
+        metadata: rel.fromNode.metadata,
+        relationType: rel.relationType,
+        direction: 'incoming'
+      }));
+      connectedNodes.push(...incomingNodes);
+    }
+
+    return connectedNodes;
   };
 
   const handleClose = () => {
@@ -135,18 +75,19 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
   });
 
   const getChildTypeForParent = (parentType: string): string[] => {
-    switch (parentType) {
-      case 'Organization':
-        return ['Department'];
-      case 'Department':
-        return ['Role', 'Process', 'Software Tool', 'Analytics', 'AI Component'];
-      case 'Process':
-        return ['Task', 'Integration', 'Data Source'];
-      case 'Role':
-        return ['Task'];
-      default:
-        return [];
-    }
+    // All nodes can potentially connect to any other node type
+    return [
+      'Organization',
+      'Department',
+      'Role',
+      'Process',
+      'Task',
+      'Integration',
+      'SoftwareTool',
+      'DataSource',
+      'Analytics',
+      'AIComponent'
+    ];
   };
 
   const handleCreateChild = async () => {
@@ -257,7 +198,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
 
           <div>
             <div className="flex justify-between items-center">
-              <h3 className="text-sm font-medium text-gray-500">Child Nodes</h3>
+              <h3 className="text-sm font-medium text-gray-500">Connected Nodes</h3>
               {selectedNode && !isCreating && (
                 <Button
                   size="sm"
@@ -271,22 +212,23 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
             
             {isCreating && selectedNode && (
               <div className="mt-4 space-y-4">
-                {selectedNode.type === 'Department' && (
-                  <select 
-                    className="w-full p-2 border rounded"
-                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
-                  >
-                    <option value="">Select Type</option>
-                    {getChildTypeForParent(selectedNode.type).map((type) => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                )}
+                <select 
+                  className="w-full p-2 border rounded"
+                  value={formData.type}
+                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
+                  required
+                >
+                  <option value="">Select Type</option>
+                  {getChildTypeForParent(selectedNode.type).map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
 
                 <Input
                   placeholder="Name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  required
                 />
 
                 <Textarea
@@ -315,28 +257,43 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
               </div>
             )}
 
-            {getDirectChildren().length > 0 ? (
+            {getConnectedNodes().length > 0 ? (
               <div className="space-y-4 mt-3">
-                {getDirectChildren().map((child: any, index: number) => (
-                  <Card key={index} className="p-3">
+                {getConnectedNodes().map((node: any) => (
+                  <Card key={`${node.id}-${node.direction}`} className="p-3">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium text-gray-700">{child.name}</p>
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                          {child.type}
-                        </span>
+                        <p className="font-medium text-gray-700">{node.name}</p>
+                        <div className="flex gap-2 mt-1">
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            {node.type}
+                          </span>
+                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                            {node.direction === 'incoming' ? '← ' : '→ '}
+                            {node.relationType}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    {child.description && (
+                    {node.description && (
                       <p className="mt-2 text-sm text-gray-600">
-                        {child.description}
+                        {node.description}
                       </p>
+                    )}
+                    {node.metadata && Object.keys(node.metadata).length > 0 && (
+                      <div className="mt-2 text-xs text-gray-500">
+                        {Object.entries(node.metadata).map(([key, value]) => (
+                          <p key={key}>
+                            {key}: {JSON.stringify(value)}
+                          </p>
+                        ))}
+                      </div>
                     )}
                   </Card>
                 ))}
               </div>
             ) : (
-              <p className="mt-1 text-gray-700">No child nodes available.</p>
+              <p className="mt-1 text-gray-700">No connected nodes.</p>
             )}
           </div>
         </div>

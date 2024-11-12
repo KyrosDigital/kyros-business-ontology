@@ -13,250 +13,61 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Organization {
-  id            String       @id @default(uuid())
-  name          String
-  url           String?
-  description   String?
-  
-  // Address fields
-  streetAddress String?
-  city         String?      @map("address_locality")
-  state        String?      @map("address_region")
-  postalCode   String?
-  country      String?      @map("address_country")
-  
-  // Contact fields
-  phone        String?
-  contactType  String?
-
-  // Relationships
-  departments  Department[]
-  notes       Note[]
-
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-
-  @@map("organizations")
+enum NodeType {
+  ORGANIZATION
+  DEPARTMENT
+  ROLE
+  PROCESS
+  TASK
+  INTEGRATION
+  SOFTWARE_TOOL
+  DATA_SOURCE
+  ANALYTICS
+  AI_COMPONENT
 }
 
-model Department {
+model Node {
   id            String       @id @default(uuid())
+  type          NodeType
   name          String
   description   String?
+  metadata      Json?       // For any type-specific data we might need
   
   // Relationships
-  organization  Organization @relation(fields: [orgId], references: [id])
-  orgId         String       @map("organization_id")
-  roles         Role[]
-  processes     Process[]
-  tools         SoftwareTool[]
-  analytics     Analytics[]
-  aiComponents  AIComponent[]
+  fromRelations NodeRelationship[] @relation("FromNode")
+  toRelations   NodeRelationship[] @relation("ToNode")
+  notes         Note[]
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
-  // Add notes relationship
-  notes        Note[]
+  @@map("nodes")
+}
 
-  @@map("departments")
+model NodeRelationship {
+  id            String   @id @default(uuid())
+  fromNode      Node     @relation("FromNode", fields: [fromNodeId], references: [id])
+  fromNodeId    String
+  toNode        Node     @relation("ToNode", fields: [toNodeId], references: [id])
+  toNodeId      String
+  relationType  String   // e.g., "PARENT_CHILD", "USES", "DEPENDS_ON", etc.
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([fromNodeId, toNodeId, relationType])
+  @@map("node_relationships")
 }
 
 model Note {
-  id          String       @id @default(uuid())
+  id          String    @id @default(uuid())
   content     String
   author      String
-  dateCreated DateTime
+  node        Node      @relation(fields: [nodeId], references: [id])
+  nodeId      String
   
-  // Relationships - all optional
-  organization Organization? @relation(fields: [orgId], references: [id])
-  orgId        String?      @map("organization_id")
-  department   Department?  @relation(fields: [deptId], references: [id])
-  deptId       String?     @map("department_id")
-  role         Role?       @relation(fields: [roleId], references: [id])
-  roleId       String?     @map("role_id")
-  process      Process?    @relation(fields: [processId], references: [id])
-  processId    String?     @map("process_id")
-  task         Task?       @relation(fields: [taskId], references: [id])
-  taskId       String?     @map("task_id")
-  integration  Integration? @relation(fields: [integrationId], references: [id])
-  integrationId String?    @map("integration_id")
-  softwareTool SoftwareTool? @relation(fields: [toolId], references: [id])
-  toolId       String?     @map("tool_id")
-  dataSource   DataSource? @relation(fields: [dataSourceId], references: [id])
-  dataSourceId String?     @map("data_source_id")
-  analytics    Analytics?  @relation(fields: [analyticsId], references: [id])
-  analyticsId  String?     @map("analytics_id")
-  aiComponent  AIComponent? @relation(fields: [aiComponentId], references: [id])
-  aiComponentId String?    @map("ai_component_id")
-
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   @@map("notes")
-}
-
-model Role {
-  id              String       @id @default(uuid())
-  name            String
-  responsibilities String?
-  
-  // Relationships
-  department      Department   @relation(fields: [deptId], references: [id])
-  deptId          String      @map("department_id")
-  assignedProcess Process?    @relation(fields: [processId], references: [id])
-  processId       String?     @map("process_id")
-  tasks           Task[]
-  notes           Note[]
-
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-
-  @@map("roles")
-}
-
-model Process {
-  id            String       @id @default(uuid())
-  name          String
-  description   String?
-  
-  // Relationships
-  department    Department   @relation(fields: [deptId], references: [id])
-  deptId        String      @map("department_id")
-  workflow      Task[]
-  roles         Role[]
-  integrations  Integration[]
-  dataSources   DataSource[]
-  notes         Note[]
-  aiComponents  AIComponent[]
-
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  @@map("processes")
-}
-
-model Task {
-  id            String       @id @default(uuid())
-  name          String
-  description   String?
-  taskStatus    String?
-  
-  // Relationships
-  process       Process     @relation(fields: [processId], references: [id])
-  processId     String      @map("process_id")
-  responsibleRole Role?     @relation(fields: [roleId], references: [id])
-  roleId        String?     @map("role_id")
-
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  // Add notes relationship
-  notes         Note[]
-
-  @@map("tasks")
-}
-
-model Integration {
-  id            String       @id @default(uuid())
-  name          String
-  description   String?
-  
-  // Relationships
-  process       Process     @relation(fields: [processId], references: [id])
-  processId     String      @map("process_id")
-  softwareTool  SoftwareTool? @relation(fields: [toolId], references: [id])
-  toolId        String?     @map("tool_id")
-
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  // Add notes relationship
-  notes         Note[]
-
-  @@map("integrations")
-}
-
-model SoftwareTool {
-  id            String       @id @default(uuid())
-  name          String
-  description   String?
-  apiVersion    String?
-  
-  // Relationships
-  department    Department   @relation(fields: [deptId], references: [id])
-  deptId        String      @map("department_id")
-  integrations  Integration[]
-  aiComponents  AIComponent[]
-
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  // Add notes relationship
-  notes         Note[]
-
-  @@map("software_tools")
-}
-
-model DataSource {
-  id            String       @id @default(uuid())
-  name          String
-  description   String?
-  
-  // Relationships
-  processes     Process[]
-  analytics     Analytics[]
-  aiComponents  AIComponent[]
-
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  // Add notes relationship
-  notes         Note[]
-
-  @@map("data_sources")
-}
-
-model Analytics {
-  id            String       @id @default(uuid())
-  name          String
-  description   String?
-  
-  // Relationships
-  department    Department   @relation(fields: [deptId], references: [id])
-  deptId        String      @map("department_id")
-  dataSources   DataSource[]
-
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  // Add notes relationship
-  notes         Note[]
-
-  @@map("analytics")
-}
-
-model AIComponent {
-  id            String       @id @default(uuid())
-  name          String
-  description   String?
-  
-  // Relationships
-  department    Department   @relation(fields: [deptId], references: [id])
-  deptId        String      @map("department_id")
-  process       Process?    @relation(fields: [processId], references: [id])
-  processId     String?     @map("process_id")
-  dataSource    DataSource? @relation(fields: [dataSourceId], references: [id])
-  dataSourceId  String?     @map("data_source_id")
-  softwareTool  SoftwareTool? @relation(fields: [toolId], references: [id])
-  toolId        String?     @map("tool_id")
-
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  // Add notes relationship
-  notes         Note[]
-
-  @@map("ai_components")
 }

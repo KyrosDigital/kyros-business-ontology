@@ -1,124 +1,206 @@
 import { prisma } from '@/prisma/prisma-client'
+import { NodeType } from '@prisma/client'
 
-export async function getOntologyData() {
-  const organization = await prisma.organization.findFirst({
+// Types
+type CreateNodeData = {
+  type: NodeType
+  name: string
+  description?: string
+  metadata?: Record<string, any>
+}
+
+type CreateRelationshipData = {
+  fromNodeId: string
+  toNodeId: string
+  relationType: string
+}
+
+type CreateNoteData = {
+  content: string
+  author: string
+  nodeId: string
+}
+
+// Default includes for consistent node queries
+const defaultIncludes = {
+  fromRelations: {
     include: {
-      departments: {
-        include: {
-          roles: true,
-          processes: {
-            include: {
-              workflow: true,
-              integrations: true,
-              dataSources: true,
-              aiComponents: true
-            }
-          },
-          tools: true,
-          analytics: true,
-          aiComponents: true
-        }
-      },
-      notes: true
+      toNode: true
+    }
+  },
+  toRelations: {
+    include: {
+      fromNode: true
+    }
+  },
+  notes: true
+}
+
+// Core Node Operations
+export async function createNode(data: CreateNodeData) {
+  return prisma.node.create({
+    data,
+    include: defaultIncludes
+  })
+}
+
+export async function getNode(nodeId: string) {
+  return prisma.node.findUnique({
+    where: { id: nodeId },
+    include: defaultIncludes
+  })
+}
+
+export async function updateNode(nodeId: string, data: Partial<CreateNodeData>) {
+  return prisma.node.update({
+    where: { id: nodeId },
+    data,
+    include: defaultIncludes
+  })
+}
+
+export async function deleteNode(nodeId: string) {
+  // First delete all relationships
+  await prisma.nodeRelationship.deleteMany({
+    where: {
+      OR: [
+        { fromNodeId: nodeId },
+        { toNodeId: nodeId }
+      ]
     }
   })
 
-  return organization
+  // Then delete all notes
+  await prisma.note.deleteMany({
+    where: { nodeId }
+  })
+
+  // Finally delete the node
+  return prisma.node.delete({
+    where: { id: nodeId }
+  })
 }
 
-export async function createDepartment(orgId: string, data: {
-  name: string;
-  description?: string;
-}) {
-  return prisma.department.create({
-    data: {
-      name: data.name,
-      description: data.description,
-      organization: { connect: { id: orgId } }
+// Relationship Operations
+export async function createRelationship(data: CreateRelationshipData) {
+  return prisma.nodeRelationship.create({
+    data,
+    include: {
+      fromNode: true,
+      toNode: true
+    }
+  })
+}
+
+export async function deleteRelationship(fromNodeId: string, toNodeId: string, relationType: string) {
+  return prisma.nodeRelationship.delete({
+    where: {
+      fromNodeId_toNodeId_relationType: {
+        fromNodeId,
+        toNodeId,
+        relationType
+      }
+    }
+  })
+}
+
+// Note Operations
+export async function addNote(data: CreateNoteData) {
+  return prisma.note.create({
+    data,
+    include: {
+      node: true
+    }
+  })
+}
+
+export async function deleteNote(noteId: string) {
+  return prisma.note.delete({
+    where: { id: noteId }
+  })
+}
+
+// Query Operations
+export async function getOntologyData() {
+  return prisma.node.findMany({
+    include: defaultIncludes
+  })
+}
+
+export async function getNodesByType(type: NodeType) {
+  return prisma.node.findMany({
+    where: { type },
+    include: defaultIncludes
+  })
+}
+
+export async function getNodeRelationships(nodeId: string) {
+  return prisma.node.findUnique({
+    where: { id: nodeId },
+    include: {
+      fromRelations: {
+        include: {
+          toNode: true
+        }
+      },
+      toRelations: {
+        include: {
+          fromNode: true
+        }
+      }
+    }
+  })
+}
+
+export async function getRelatedNodes(nodeId: string, relationType?: string) {
+  const where = relationType 
+    ? {
+        OR: [
+          { fromNodeId: nodeId, relationType },
+          { toNodeId: nodeId, relationType }
+        ]
+      }
+    : {
+        OR: [
+          { fromNodeId: nodeId },
+          { toNodeId: nodeId }
+        ]
+      }
+
+  return prisma.nodeRelationship.findMany({
+    where,
+    include: {
+      fromNode: true,
+      toNode: true
+    }
+  })
+}
+
+export async function getNodeNotes(nodeId: string) {
+  return prisma.note.findMany({
+    where: { nodeId },
+    orderBy: { createdAt: 'desc' }
+  })
+}
+
+// Search Operations
+export async function searchNodes(query: string) {
+  return prisma.node.findMany({
+    where: {
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { description: { contains: query, mode: 'insensitive' } }
+      ]
     },
-    include: defaultIncludes.department
-  });
+    include: defaultIncludes
+  })
 }
 
-export async function createRole(deptId: string, data: {
-  name: string;
-  responsibilities?: string;
-}) {
-  return prisma.role.create({
-    data: {
-      name: data.name,
-      responsibilities: data.description,
-      department: { connect: { id: deptId } }
-    },
-    include: defaultIncludes.role
-  });
+// Metadata Operations
+export async function updateNodeMetadata(nodeId: string, metadata: Record<string, any>) {
+  return prisma.node.update({
+    where: { id: nodeId },
+    data: { metadata },
+    include: defaultIncludes
+  })
 }
-
-export async function createProcess(deptId: string, data: {
-  name: string;
-  description?: string;
-}) {
-  return prisma.process.create({
-    data: {
-      name: data.name,
-      description: data.description,
-      department: { connect: { id: deptId } }
-    },
-    include: defaultIncludes.process
-  });
-}
-
-export async function createTask(processId: string, data: {
-  name: string;
-  description?: string;
-  roleId?: string;
-}) {
-  return prisma.task.create({
-    data: {
-      name: data.name,
-      description: data.description,
-      process: { connect: { id: processId } },
-      ...(data.roleId && {
-        responsibleRole: { connect: { id: data.roleId } }
-      })
-    },
-    include: defaultIncludes.task
-  });
-}
-
-// Add similar functions for other types:
-// createSoftwareTool, createAnalytics, createAIComponent, 
-// createIntegration, createDataSource
-
-// Helper object for consistent includes
-const defaultIncludes = {
-  department: {
-    organization: true,
-    roles: true,
-    processes: true,
-    tools: true,
-    analytics: true,
-    aiComponents: true,
-    notes: true
-  },
-  role: {
-    department: true,
-    tasks: true,
-    notes: true
-  },
-  process: {
-    department: true,
-    workflow: true,
-    roles: true,
-    integrations: true,
-    dataSources: true,
-    aiComponents: true,
-    notes: true
-  },
-  task: {
-    process: true,
-    responsibleRole: true,
-    notes: true
-  }
-  // Add other includes as needed
-};
