@@ -1,102 +1,286 @@
 import { prisma } from "./prisma-client"
+import { NodeType } from "@prisma/client"
 
 async function main() {
 	// Create the organization
-	const org = await prisma.organization.upsert({
-		where: { id: "550e8400-e29b-41d4-a716-446655440000" },
-		update: {},
-		create: {
-			id: "550e8400-e29b-41d4-a716-446655440000",
+	const org = await prisma.node.create({
+		data: {
+			type: NodeType.ORGANIZATION,
 			name: "Kyros Digital LLC",
-			url: "https://example.com",
-			description: "A business demonstrating an ontology for organizational structure, roles, workflows, integrations, data sources, AI/ML, analytics, and tools.",
-			streetAddress: "123 Main St",
-			city: "Anytown",
-			state: "CA",
-			postalCode: "12345",
-			country: "US",
-			phone: "+1-123-555-0123",
-			contactType: "Customer Service",
-		}
-	})
+			description: "Modern software development and digital transformation company",
+				metadata: {
+					industry: "Technology",
+					size: "50-100",
+					founded: "2020"
+				}
+			}
+		})
 
 	// Create departments
 	const departments = await Promise.all([
-		prisma.department.create({
+		prisma.node.create({
 			data: {
-				id: "dept_7b44c642-0a1c-4c6b-b8da-c113b8aef817",
-				name: "Human Resources",
-				description: "Oversees employee recruitment, benefits, and compliance.",
-				orgId: org.id,
+				type: NodeType.DEPARTMENT,
+				name: "Engineering",
+				description: "Core software development and technical operations",
+				metadata: {
+					headcount: 25,
+					location: "Hybrid"
+				}
 			}
 		}),
-		prisma.department.create({
+		prisma.node.create({
 			data: {
-				id: "dept_91b0f0a1-754f-4ef1-a5c7-f1c3b8e4d5c6",
-				name: "Finance",
-				description: "Manages financial planning, accounting, and budgeting.",
-				orgId: org.id,
+				type: NodeType.DEPARTMENT,
+				name: "Product",
+				description: "Product management and user experience design",
+				metadata: {
+					headcount: 10,
+					location: "Remote"
+				}
 			}
 		}),
-		// ... similar pattern for IT and Operations departments ...
-		prisma.department.create({
+		prisma.node.create({
 			data: {
-				id: "dept_4d7c6b5a-3e2d-1f0e-9a8b-7c6d5e4f3a2b",
-				name: "Sales",
-				description: "Handles sales operations and customer outreach.",
-				orgId: org.id,
-				roles: {
-					create: [
-						{
-							id: "role_8a7b6c5d-4e3f-2a1b-9c8d-7e6f5a4b3c2d",
-							version: "1.0.0",
-							versionDate: new Date("2024-03-20"),
-							name: "Sales Manager",
-							responsibilities: "Oversees sales strategy and manages the sales team."
-						},
-						{
-							id: "role_9b8a7c6d-5e4f-3b2a-1c9d-8f7e6g5h4i3j",
-							version: "1.0.0",
-							versionDate: new Date("2024-03-20"),
-							name: "Sales Associate",
-							responsibilities: "Engages with customers and supports sales activities."
-						}
-					]
-				},
-				processes: {
-					create: {
-						id: "proc_7g6f5e4d-3c2b-1a0b-9d8e-7f6g5h4i3j2k",
-						version: "3.1.2",
-						versionDate: new Date("2024-03-18"),
-						prevVersion: "https://example.com/process/customer-support/v2",
-						name: "Customer Support Process",
-						description: "A process to manage customer inquiries and issues.",
-					}
-				},
-				aiComponents: {
-					create: {
-						id: "ai_2l1k0j9i-8h7g-6f5e-4d3c-2i1j0k9l8m7n",
-						version: "1.2.3",
-						versionDate: new Date("2024-03-19"),
-						modelVersion: "gpt-4-0125-preview",
-						name: "Customer Sentiment Analysis",
-						description: "Analyzes customer communications to detect sentiment and flag issues."
-					}
+				type: NodeType.DEPARTMENT,
+				name: "People Operations",
+				description: "Human resources, recruitment, and employee experience",
+				metadata: {
+					headcount: 5,
+					location: "Hybrid"
+				}
+			}
+		}),
+		prisma.node.create({
+			data: {
+				type: NodeType.DEPARTMENT,
+				name: "Operations",
+				description: "Business operations, finance, and administrative functions",
+				metadata: {
+					headcount: 8,
+					location: "On-site"
 				}
 			}
 		})
 	])
 
-	// Create notes
-	await prisma.note.create({
-		data: {
-			id: "note_1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p",
-			content: "Organization structure updated to reflect new departments",
-			author: "John Doe",
-			dateCreated: new Date("2024-03-20"),
-			orgId: org.id
-		}
-	})
+	// Create roles
+	const roles = await Promise.all([
+		prisma.node.create({
+			data: {
+				type: NodeType.ROLE,
+				name: "Senior Software Engineer",
+				description: "Lead development initiatives and mentor junior developers",
+				metadata: {
+					level: "Senior",
+					yearsExperienceRequired: 5,
+					skills: ["JavaScript", "Python", "Cloud Architecture"]
+				}
+			}
+		}),
+		prisma.node.create({
+			data: {
+				type: NodeType.ROLE,
+				name: "DevOps Engineer",
+				description: "Manage infrastructure and deployment pipelines",
+				metadata: {
+					level: "Mid-Senior",
+					yearsExperienceRequired: 3,
+					skills: ["AWS", "Kubernetes", "CI/CD"]
+				}
+			}
+		}),
+		prisma.node.create({
+			data: {
+				type: NodeType.ROLE,
+				name: "Product Manager",
+				description: "Lead product strategy and development",
+				metadata: {
+					level: "Senior",
+					yearsExperienceRequired: 4,
+					skills: ["Product Strategy", "Agile", "User Research"]
+				}
+			}
+		})
+	])
+
+	// Create processes
+	const processes = await Promise.all([
+		prisma.node.create({
+			data: {
+				type: NodeType.PROCESS,
+				name: "Agile Development",
+				description: "Two-week sprint cycles with daily standups",
+				metadata: {
+					cycleTime: "2 weeks",
+					ceremonies: ["Daily Standup", "Sprint Planning", "Retrospective"],
+					tools: ["Jira", "Confluence"]
+				}
+			}
+		}),
+		prisma.node.create({
+			data: {
+				type: NodeType.PROCESS,
+				name: "Code Review",
+				description: "Peer review process for all code changes",
+				metadata: {
+					requiredApprovals: 2,
+					automatedChecks: ["Linting", "Tests", "Security Scan"]
+				}
+			}
+		})
+	])
+
+	// Create tools
+	const tools = await Promise.all([
+		prisma.node.create({
+			data: {
+				type: NodeType.SOFTWARE_TOOL,
+				name: "GitHub",
+				description: "Version control and collaboration platform",
+				metadata: {
+					type: "Version Control",
+					license: "Enterprise",
+					integrations: ["Jira", "Slack"]
+				}
+			}
+		}),
+		prisma.node.create({
+			data: {
+				type: NodeType.SOFTWARE_TOOL,
+				name: "AWS",
+				description: "Cloud infrastructure platform",
+				metadata: {
+					type: "Cloud Platform",
+					services: ["EC2", "S3", "Lambda"],
+					region: "us-east-1"
+				}
+			}
+		})
+	])
+
+	// Create AI components
+	const aiComponents = await Promise.all([
+		prisma.node.create({
+			data: {
+				type: NodeType.AI_COMPONENT,
+				name: "Code Analysis AI",
+				description: "AI-powered code quality and security analysis",
+				metadata: {
+					model: "GPT-4",
+					capabilities: ["Code Review", "Security Analysis", "Optimization Suggestions"],
+					integration: "GitHub Actions"
+				}
+			}
+		}),
+		prisma.node.create({
+			data: {
+				type: NodeType.AI_COMPONENT,
+				name: "Customer Support Bot",
+				description: "AI chatbot for customer support automation",
+				metadata: {
+					model: "Claude",
+					channels: ["Website", "Slack"],
+					languages: ["English", "Spanish"]
+				}
+			}
+		})
+	])
+
+	// Create relationships
+	const relationships = await Promise.all([
+		// Department to Org relationships
+		...departments.map(dept => 
+			prisma.nodeRelationship.create({
+				data: {
+					fromNodeId: org.id,
+					toNodeId: dept.id,
+					relationType: "CONTAINS"
+				}
+			})
+		),
+		// Roles to their respective departments
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[0].id, // Engineering
+				toNodeId: roles[0].id, // Senior Software Engineer
+				relationType: "HAS_ROLE"
+			}
+		}),
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[0].id, // Engineering
+				toNodeId: roles[1].id, // DevOps Engineer
+				relationType: "HAS_ROLE"
+			}
+		}),
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[1].id, // Product
+				toNodeId: roles[2].id, // Product Manager
+				relationType: "HAS_ROLE"
+			}
+		}),
+		// Tools relationships
+		...departments.slice(0, 2).flatMap(dept => // Engineering and Product departments
+			tools.map(tool =>
+				prisma.nodeRelationship.create({
+					data: {
+						fromNodeId: dept.id,
+						toNodeId: tool.id,
+						relationType: "USES"
+					}
+				})
+			)
+		),
+		// Process relationships
+		...departments.slice(0, 2).flatMap(dept => // Engineering and Product departments
+			processes.map(process =>
+				prisma.nodeRelationship.create({
+					data: {
+						fromNodeId: dept.id,
+						toNodeId: process.id,
+						relationType: "FOLLOWS"
+					}
+				})
+			)
+		),
+		// AI Components relationships
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[0].id, // Engineering
+				toNodeId: aiComponents[0].id, // Code Analysis AI
+				relationType: "USES"
+			}
+		}),
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[3].id, // Operations
+				toNodeId: aiComponents[1].id, // Customer Support Bot
+				relationType: "USES"
+			}
+		})
+	])
+
+	// Add some notes
+	await Promise.all([
+		prisma.note.create({
+			data: {
+				content: "Implementing new security protocols across all engineering tools",
+				author: "Security Team",
+				nodeId: departments[0].id
+			}
+		}),
+		prisma.note.create({
+			data: {
+				content: "Updated CI/CD pipeline documentation available in confluence",
+				author: "DevOps Team",
+				nodeId: processes[0].id
+			}
+		})
+	])
+
+	console.log("Seed data created successfully!")
 }
 
 main()

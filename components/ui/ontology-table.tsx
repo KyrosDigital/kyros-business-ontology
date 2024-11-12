@@ -7,11 +7,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 
-interface JsonLdTableProps {
+interface OntologyTableProps {
   data: Record<string, any>
 }
 
-export function JsonLdTable({ data }: JsonLdTableProps) {
+export function OntologyTable({ data }: OntologyTableProps) {
   // Extract all nodes from the nested JSON-LD structure
   const extractNodes = (data: any): any[] => {
     const nodes: any[] = [];

@@ -1,18 +1,32 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X, Plus, Edit, Trash2, Link as LinkIcon } from "lucide-react";
-import { Note, NodeData } from '@/types/graph';
+import { NodeType } from '@prisma/client';
+
+interface Node {
+  id: string;
+  type: NodeType;
+  name: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  notes?: Array<{
+    id: string;
+    content: string;
+    author: string;
+    dateCreated: Date;
+  }>;
+}
 
 interface NodesCategoryProps {
   isPanelOpen: boolean;
-  selectedNode: NodeData | null;
-  selectedType: string | null;
-  nodes: NodeData[];
+  selectedNode: Node | null;
+  selectedType: NodeType | null;
+  nodes: Node[];
   onClose: () => void;
-  onCreateNode: (nodeData: Partial<NodeData>) => void;
-  onUpdateNode: (nodeId: string, nodeData: Partial<NodeData>) => void;
+  onCreateNode: (nodeData: Partial<Node>) => void;
+  onUpdateNode: (nodeId: string, nodeData: Partial<Node>) => void;
   onDeleteNode: (nodeId: string) => void;
-  onCreateLink: (sourceId: string, targetId: string, relationship: string) => void;
+  onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => void;
 }
 
 export function NodesCategoryPanel({ 
@@ -24,12 +38,23 @@ export function NodesCategoryPanel({
   onCreateNode,
   onUpdateNode,
   onDeleteNode,
-  onCreateLink 
+  onCreateRelationship 
 }: NodesCategoryProps) {
   // Filter nodes by selected type
   const categoryNodes = nodes.filter(node => node.type === selectedType);
 
-	console.log(categoryNodes)
+  // Helper function to render metadata
+  const renderMetadata = (metadata: Record<string, any>) => {
+    return Object.entries(metadata).map(([key, value]) => (
+      <div key={key} className="text-sm">
+        <span className="font-medium">{key}: </span>
+        <span className="text-gray-600">
+          {typeof value === 'object' ? JSON.stringify(value) : value.toString()}
+        </span>
+      </div>
+    ));
+  };
+
   return (
     <div
       className={`fixed top-0 right-0 w-96 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
@@ -77,28 +102,20 @@ export function NodesCategoryPanel({
                         )}
                       </div>
                       
-                      {/* Additional node details */}
-                      {node.responsibilities && (
-                        <div className="text-sm">
-                          <span className="font-medium">Responsibilities:</span>
-                          <p className="text-gray-600">{node.responsibilities}</p>
-                        </div>
-                      )}
-                      
-                      {node.version && (
-                        <div className="text-xs text-gray-500">
-                          Version: {node.version}
-                          {node.versionDate && ` (${new Date(node.versionDate).toLocaleDateString()})`}
+                      {/* Metadata section */}
+                      {node.metadata && (
+                        <div className="space-y-1">
+                          {renderMetadata(node.metadata)}
                         </div>
                       )}
 
-                      {/* Display notes if they exist */}
-                      {(node.notes?.length > 0 || node.hasNote?.length > 0) && (
+                      {/* Notes section */}
+                      {node.notes && node.notes.length > 0 && (
                         <div className="mt-2 text-sm">
                           <p className="font-medium">Notes:</p>
                           <ul className="list-disc list-inside text-gray-600">
-                            {[...(node.notes || []), ...(node.hasNote || [])].map((note, index) => (
-                              <li key={index} className="ml-2">
+                            {node.notes.map((note) => (
+                              <li key={note.id} className="ml-2">
                                 {note.content}
                                 <span className="text-xs text-gray-500 ml-1">
                                   - {note.author}, {new Date(note.dateCreated).toLocaleDateString()}
@@ -109,19 +126,19 @@ export function NodesCategoryPanel({
                         </div>
                       )}
 
-                      {/* Add child nodes section */}
-                      {node.children?.length > 0 && (
+                      {/* Relationships section */}
+                      {(node.fromRelations?.length > 0 || node.toRelations?.length > 0) && (
                         <div className="mt-2 text-sm">
-                          <p className="font-medium">Child Nodes:</p>
+                          <p className="font-medium">Relationships:</p>
                           <ul className="list-disc list-inside text-gray-600">
-                            {node.children.map((childNode, index) => (
-                              <li key={index} className="ml-2">
-                                {childNode.name || childNode.id}
-                                {childNode.type && (
-                                  <span className="text-xs text-gray-500 ml-1">
-                                    - {childNode.type}
-                                  </span>
-                                )}
+                            {node.fromRelations?.map((rel) => (
+                              <li key={rel.id} className="ml-2">
+                                {rel.relationType} → {rel.toNode.name}
+                              </li>
+                            ))}
+                            {node.toRelations?.map((rel) => (
+                              <li key={rel.id} className="ml-2">
+                                {rel.fromNode.name} → {rel.relationType}
                               </li>
                             ))}
                           </ul>
@@ -142,8 +159,8 @@ export function NodesCategoryPanel({
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => onCreateLink(node.id, '', '')}
-                        title="Create Link"
+                        onClick={() => onCreateRelationship(node.id, '', '')}
+                        title="Create Relationship"
                       >
                         <LinkIcon className="h-4 w-4" />
                       </Button>
@@ -169,10 +186,40 @@ export function NodesCategoryPanel({
           </div>
         )}
 
-        {/* Single Node View - kept for reference */}
+        {/* Single Node View */}
         {selectedNode && (
           <div className="space-y-6">
-            {/* ... existing node detail view code ... */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium">{selectedNode.name}</h3>
+              {selectedNode.description && (
+                <p className="text-gray-600">{selectedNode.description}</p>
+              )}
+              
+              {/* Metadata display */}
+              {selectedNode.metadata && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Metadata</h4>
+                  {renderMetadata(selectedNode.metadata)}
+                </div>
+              )}
+              
+              {/* Notes display */}
+              {selectedNode.notes && selectedNode.notes.length > 0 && (
+                <div className="space-y-2">
+                  <h4 className="font-medium">Notes</h4>
+                  <div className="space-y-2">
+                    {selectedNode.notes.map((note) => (
+                      <div key={note.id} className="text-sm">
+                        <p>{note.content}</p>
+                        <p className="text-xs text-gray-500">
+                          - {note.author}, {new Date(note.dateCreated).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

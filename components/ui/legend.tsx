@@ -1,12 +1,46 @@
 import { Card } from '@/components/ui/card';
 import { Switch } from "@/components/ui/switch"
+import { NodeType } from '@prisma/client';
 
 interface LegendProps {
-  selectedType: string | null;
-  onLegendClick: (type: string) => void;
+  selectedType: NodeType | null;
+  onLegendClick: (type: NodeType) => void;
   viewMode: 'graph' | 'table';
   onViewModeChange: (checked: boolean) => void;
 }
+
+type NodeTypeConfig = {
+  type: NodeType;
+  color: string;
+  label: string;
+}
+
+// Export the color mapping
+export const NODE_COLORS = {
+  [NodeType.ORGANIZATION]: '#69b3a2',
+  [NodeType.DEPARTMENT]: '#ffcc00',
+  [NodeType.ROLE]: '#ff6600',
+  [NodeType.PROCESS]: '#0066cc',
+  [NodeType.TASK]: '#cc0066',
+  [NodeType.INTEGRATION]: '#9900cc',
+  [NodeType.SOFTWARE_TOOL]: '#00cc99',
+  [NodeType.DATA_SOURCE]: '#ff3333',
+  [NodeType.ANALYTICS]: '#3333ff',
+  [NodeType.AI_COMPONENT]: '#ff99cc',
+} as const;
+
+const NODE_TYPES: NodeTypeConfig[] = [
+  { type: NodeType.ORGANIZATION, color: NODE_COLORS[NodeType.ORGANIZATION], label: 'Organization' },
+  { type: NodeType.DEPARTMENT, color: NODE_COLORS[NodeType.DEPARTMENT], label: 'Department' },
+  { type: NodeType.ROLE, color: NODE_COLORS[NodeType.ROLE], label: 'Role' },
+  { type: NodeType.PROCESS, color: NODE_COLORS[NodeType.PROCESS], label: 'Process' },
+  { type: NodeType.TASK, color: NODE_COLORS[NodeType.TASK], label: 'Task' },
+  { type: NodeType.INTEGRATION, color: NODE_COLORS[NodeType.INTEGRATION], label: 'Integration' },
+  { type: NodeType.SOFTWARE_TOOL, color: NODE_COLORS[NodeType.SOFTWARE_TOOL], label: 'Software Tool' },
+  { type: NodeType.DATA_SOURCE, color: NODE_COLORS[NodeType.DATA_SOURCE], label: 'Data Source' },
+  { type: NodeType.ANALYTICS, color: NODE_COLORS[NodeType.ANALYTICS], label: 'Analytics' },
+  { type: NodeType.AI_COMPONENT, color: NODE_COLORS[NodeType.AI_COMPONENT], label: 'AI Component' },
+];
 
 export function Legend({ 
   selectedType, 
@@ -18,24 +52,13 @@ export function Legend({
     <div className="absolute top-4 left-4 z-20 flex flex-col gap-4">
       <Card className="bg-white/80 backdrop-blur-sm p-4 rounded-lg border">
         <div className="space-y-2">
-          {[
-            { color: '#69b3a2', label: 'Organization' },
-            { color: '#ffcc00', label: 'Department' },
-            { color: '#ff6600', label: 'Role' },
-            { color: '#0066cc', label: 'Process' },
-            { color: '#cc0066', label: 'Task' },
-            { color: '#9900cc', label: 'Integration' },
-            { color: '#00cc99', label: 'DataSource' },
-            { color: '#ff3333', label: 'AIComponent' },
-            { color: '#3333ff', label: 'Analytics' },
-            { color: '#ff99cc', label: 'SoftwareTool' },
-          ].map(({ color, label }) => (
+          {NODE_TYPES.map(({ type, color, label }) => (
             <div
-              key={label}
+              key={type}
               className={`flex items-center gap-2 p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors duration-200 ${
-                selectedType === label ? 'bg-gray-200 ring-2 ring-gray-400' : ''
+                selectedType === type ? 'bg-gray-200 ring-2 ring-gray-400' : ''
               }`}
-              onClick={() => onLegendClick(label)}
+              onClick={() => onLegendClick(type)}
             >
               <span
                 className="w-3 h-3 rounded-sm"

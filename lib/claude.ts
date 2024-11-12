@@ -5,9 +5,9 @@ const anthropic = new Anthropic({
 	dangerouslyAllowBrowser: true // TODO: make this entire interaction server side only. 
 });
 
-function cleanJsonLd(obj: any): any {
+function cleanJson(obj: any): any {
   if (Array.isArray(obj)) {
-    return obj.map(item => cleanJsonLd(item));
+    return obj.map(item => cleanJson(item));
   }
   
   if (typeof obj === 'object' && obj !== null) {
@@ -17,7 +17,7 @@ function cleanJsonLd(obj: any): any {
       if (['version', 'versionDate', 'previousVersion', 'author', 'dateCreated', '@id'].includes(key)) {
         continue;
       }
-      cleaned[key] = cleanJsonLd(value);
+      cleaned[key] = cleanJson(value);
     }
     return cleaned;
   }
@@ -28,11 +28,11 @@ function cleanJsonLd(obj: any): any {
 export async function sendMessage(
   message: string, 
   previousMessages: { role: string, content: string }[], 
-  jsonld: any
+  json: any
 ) {
   try {
-    const cleanedJsonld = cleanJsonLd(jsonld);
-    const minifiedJsonld = JSON.stringify(cleanedJsonld);
+    const cleanedJson = cleanJson(json);
+    const minifiedJson = JSON.stringify(cleanedJson);
     
     const systemMessage = {
       role: 'assistant',
@@ -44,7 +44,7 @@ export async function sendMessage(
 - Data sources and analytics
 - AI components and their uses
 
-The full ontology data is here: ${minifiedJsonld}
+The full ontology data is here: ${minifiedJson}
 
 Please format your responses using markdown:
 - Use headers (##) for main sections
