@@ -199,36 +199,67 @@ async function main() {
 				}
 			})
 		),
-		// Roles to Engineering department
-		...roles.slice(0, 2).map(role =>
-			prisma.nodeRelationship.create({
-				data: {
-					fromNodeId: departments[0].id,
-					toNodeId: role.id,
-					relationType: "HAS_ROLE"
-				}
-			})
+		// Roles to their respective departments
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[0].id, // Engineering
+				toNodeId: roles[0].id, // Senior Software Engineer
+				relationType: "HAS_ROLE"
+			}
+		}),
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[0].id, // Engineering
+				toNodeId: roles[1].id, // DevOps Engineer
+				relationType: "HAS_ROLE"
+			}
+		}),
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[1].id, // Product
+				toNodeId: roles[2].id, // Product Manager
+				relationType: "HAS_ROLE"
+			}
+		}),
+		// Tools relationships
+		...departments.slice(0, 2).flatMap(dept => // Engineering and Product departments
+			tools.map(tool =>
+				prisma.nodeRelationship.create({
+					data: {
+						fromNodeId: dept.id,
+						toNodeId: tool.id,
+						relationType: "USES"
+					}
+				})
+			)
 		),
-		// Tools to Engineering
-		...tools.map(tool =>
-			prisma.nodeRelationship.create({
-				data: {
-					fromNodeId: departments[0].id,
-					toNodeId: tool.id,
-					relationType: "USES"
-				}
-			})
+		// Process relationships
+		...departments.slice(0, 2).flatMap(dept => // Engineering and Product departments
+			processes.map(process =>
+				prisma.nodeRelationship.create({
+					data: {
+						fromNodeId: dept.id,
+						toNodeId: process.id,
+						relationType: "FOLLOWS"
+					}
+				})
+			)
 		),
-		// Processes to Engineering
-		...processes.map(process =>
-			prisma.nodeRelationship.create({
-				data: {
-					fromNodeId: departments[0].id,
-					toNodeId: process.id,
-					relationType: "FOLLOWS"
-				}
-			})
-		)
+		// AI Components relationships
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[0].id, // Engineering
+				toNodeId: aiComponents[0].id, // Code Analysis AI
+				relationType: "USES"
+			}
+		}),
+		prisma.nodeRelationship.create({
+			data: {
+				fromNodeId: departments[3].id, // Operations
+				toNodeId: aiComponents[1].id, // Customer Support Bot
+				relationType: "USES"
+			}
+		})
 	])
 
 	// Add some notes

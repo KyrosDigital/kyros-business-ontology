@@ -100,7 +100,7 @@ export default function Home() {
         d3.select(svgRef.current).selectAll('*').remove();
       };
     }
-  }, [viewMode, ontologyData, selectedNodeId]);
+  }, [viewMode, ontologyData]);
 
   const handleLegendClick = (type: NodeType) => {
     setSelectedType(type);

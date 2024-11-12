@@ -74,10 +74,14 @@ export const initializeGraph = (
   const simulation = d3.forceSimulation<Node>(nodes)
     .force("link", d3.forceLink<Node, Link>(links)
       .id(d => d.id)
-      .distance(100))
-    .force("charge", d3.forceManyBody().strength(-500))
+      .distance(200))
+    .force("charge", d3.forceManyBody().strength(-1000))
     .force("center", d3.forceCenter(width / 2, height / 2))
-    .force("collision", d3.forceCollide().radius(50));
+    .force("collision", d3.forceCollide().radius(75));
+
+  // Let the simulation settle initially
+  simulation.tick(300); // Run several ticks immediately
+  simulation.alphaTarget(0).alpha(0.1);
 
   // Drag functions
   function dragstarted(event: any, d: any) {
@@ -188,53 +192,55 @@ export const initializeGraph = (
     });
 
   // Add click handlers
-  node.on("click", (event: any, d: Node) => {
+  node.on("click", function(event: any, d: Node) {
     event.stopPropagation();
     
-    // Find the full node data with relationships from the original data
-    const fullNodeData = data.nodes.find(n => n.id === d.id);
-    setSelectedNode(fullNodeData);
-    setSelectedNodeId(d.id);
-    setIsPanelOpen(true);
-
-    // Highlight connected nodes
+    // Clear existing effects first
+    d3.selectAll('.node').classed('node-pulse', false);
+    svg.selectAll('.node, .link').style('opacity', 1);
+    
+    // Apply pulse effect to clicked node
+    d3.select(this).classed('node-pulse', true);
+    
+    // Find connected nodes
     const connectedNodeIds = new Set(
       links
         .filter(l => l.source.id === d.id || l.target.id === d.id)
         .flatMap(l => [l.source.id, l.target.id])
     );
-
+    
+    // Apply opacity changes
     svg.selectAll('.node')
-      .transition()
-      .duration(200)
       .style('opacity', n => 
         connectedNodeIds.has((n as any).id) || (n as any).id === d.id ? 1 : 0.2
       );
 
     svg.selectAll('.link')
-      .transition()
-      .duration(200)
       .style('opacity', l => 
         l.source.id === d.id || l.target.id === d.id ? 1 : 0.2
       );
 
-    // Add pulse effect
-    d3.select(event.currentTarget).classed('node-pulse', true);
+    // Update React state
+    const fullNodeData = data.nodes.find(n => n.id === d.id);
+    setSelectedNode(fullNodeData);
+    setSelectedNodeId(d.id);
+    setIsPanelOpen(true);
   });
 
-  // Add simulation tick handler
+  // Modify the simulation tick handler to be more efficient
   simulation.on("tick", () => {
-    // Update link positions
+    // Update positions without transitions
     link.select("line")
       .attr("x1", d => d.source.x!)
       .attr("y1", d => d.source.y!)
       .attr("x2", d => d.target.x!)
       .attr("y2", d => d.target.y!);
 
-    // Update link label positions
     link.select("text")
       .attr("x", d => (d.source.x! + d.target.x!) / 2)
       .attr("y", d => (d.source.y! + d.target.y!) / 2);
+
+    node.attr("transform", d => `translate(${d.x},${d.y})`);
 
     // Update link label backgrounds
     link.select("rect")
@@ -254,9 +260,6 @@ export const initializeGraph = (
         const bbox = d3.select(this.parentNode).select("text").node()?.getBBox();
         return (bbox?.height || 0) + 12;
       });
-
-    // Update node positions
-    node.attr("transform", d => `translate(${d.x},${d.y})`);
   });
 
   // Add click handler to background
