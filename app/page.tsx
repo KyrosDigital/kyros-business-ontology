@@ -11,6 +11,7 @@ import { NodePanel } from '@/components/ui/node-panel';
 import { OntologyTable } from "@/components/ui/ontology-table"
 import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
 import { NodeType } from '@prisma/client';
+import { LayoutSelect, LAYOUT_OPTIONS } from '@/components/ui/layout-select';
 
 // Types
 type NodeData = {
@@ -22,7 +23,7 @@ type NodeData = {
 }
 
 export default function Home() {
-  const svgRef = useRef<SVGSVGElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [selectedType, setSelectedType] = useState<NodeType | null>(null);
   const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);
   const [isPanelOpen, setIsPanelOpen] = useState(false);
@@ -30,6 +31,8 @@ export default function Home() {
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   const [nodes, setNodes] = useState<NodeData[]>([]);
   const [ontologyData, setOntologyData] = useState<any>(null);
+  const [isDataReady, setIsDataReady] = useState(false);
+  const [currentLayout, setCurrentLayout] = useState(LAYOUT_OPTIONS.breadthfirst);
 
   // Fetch ontology data
   useEffect(() => {
@@ -68,6 +71,7 @@ export default function Home() {
 
         setOntologyData(transformedData);
         setNodes(transformedData.nodes);
+        setIsDataReady(true);
       } catch (error) {
         console.error('Error fetching ontology data:', error);
       }
@@ -78,76 +82,82 @@ export default function Home() {
 
   // Initialize or update graph
   useEffect(() => {
-    if (viewMode === 'graph' && svgRef.current && ontologyData) {
-      // Clear existing SVG content
-      d3.select(svgRef.current).selectAll('*').remove();
+    let cleanup: (() => void) | undefined;
 
-      // Initialize the visualization
-      const cleanup = initializeGraph(
-        svgRef,
-        window.innerWidth,
-        window.innerHeight,
-        ontologyData,
-        handleClosePanel,
-        setSelectedNodeId,
-        setSelectedNode,
-        setIsPanelOpen,
-        selectedNodeId
-      );
+    if (
+      viewMode === 'graph' && 
+      containerRef.current && 
+      ontologyData && 
+      isDataReady && 
+      ontologyData.nodes.length > 0
+    ) {
+      // Add a small delay to ensure the container is properly mounted
+      const timer = setTimeout(() => {
+        try {
+          cleanup = initializeGraph(
+            containerRef.current!,
+            window.innerWidth,
+            window.innerHeight,
+            ontologyData,
+            handleClosePanel,
+            setSelectedNodeId,
+            setSelectedNode,
+            setIsPanelOpen,
+            selectedNodeId,
+            currentLayout
+          );
+        } catch (error) {
+          console.error('Error initializing graph:', error);
+        }
+      }, 100);
 
       return () => {
+        clearTimeout(timer);
         if (cleanup) cleanup();
-        d3.select(svgRef.current).selectAll('*').remove();
       };
     }
-  }, [viewMode, ontologyData]);
+
+    return cleanup;
+  }, [viewMode, ontologyData, isDataReady, currentLayout]);
 
   const handleLegendClick = (type: NodeType) => {
     setSelectedType(type);
     setIsPanelOpen(true);
     setSelectedNode(null);
     
-    const svg = d3.select(svgRef.current);
+    // Get Cytoscape instance from the container
+    const cy = containerRef.current?.__cy;
+    if (!cy) return;
     
-    // Update node visibility
-    svg.selectAll('.node')
-      .transition()
-      .duration(200)
-      .style('opacity', (d: any) => d.type === type ? 1 : 0.2);
-    
-    // Update relationship visibility
-    svg.selectAll('.link')
-      .transition()
-      .duration(200)
-      .style('opacity', (d: any) => {
-        const source = d.source as NodeData;
-        const target = d.target as NodeData;
-        return source.type === type || target.type === type ? 1 : 0.2;
-      });
+    // Update visibility using Cytoscape classes
+    cy.elements().removeClass('highlighted faded');
+    cy.nodes().forEach(node => {
+      if (node.data('type') === type) {
+        node.addClass('highlighted');
+        node.neighborhood().addClass('highlighted');
+      } else {
+        node.addClass('faded');
+      }
+    });
   };
 
   const handleClosePanel = () => {
     setIsPanelOpen(false);
     setSelectedNodeId(null);
     
-    // Remove pulse effect
-    d3.selectAll('.node').classed('node-pulse', false);
-    
-    // Restore all nodes visibility
-    d3.select(svgRef.current)
-      .selectAll('.node, .link, .link-label')
-      .transition()
-      .duration(300)
-      .style('opacity', 1);
+    // Get Cytoscape instance and reset styles
+    const cy = containerRef.current?.__cy;
+    if (cy) {
+      cy.elements().removeClass('highlighted faded selected');
+    }
   };
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (svgRef.current) {
-        d3.select(svgRef.current)
-          .selectAll('.node, .link, .link-label')
-          .style('opacity', 1);
+      const cy = containerRef.current?.__cy;
+      if (cy) {
+        cy.elements().removeClass('highlighted faded selected');
       }
     };
   }, []);
@@ -284,6 +294,10 @@ export default function Home() {
         onViewModeChange={(checked) => setViewMode(checked ? 'table' : 'graph')}
       />
 
+      {viewMode === 'graph' && (
+        <LayoutSelect onLayoutChange={setCurrentLayout} />
+      )}
+
       {viewMode === 'graph' ? (
         <>
           <div className="absolute bottom-4 left-4 z-10">
@@ -316,10 +330,17 @@ export default function Home() {
             </div>
           </div>
 
-          <svg
-            ref={svgRef}
+          <div
+            ref={containerRef}
             className="w-full h-full"
+            style={{ visibility: isDataReady ? 'visible' : 'hidden' }}
           />
+          
+          {!isDataReady && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="text-lg">Loading graph...</div>
+            </div>
+          )}
         </>
       ) : (
         <div className="p-4 mt-16 ml-72 h-[calc(100vh-5rem)] w-[calc(100vw-20rem)]">
