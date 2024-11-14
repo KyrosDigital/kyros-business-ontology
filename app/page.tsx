@@ -294,6 +294,30 @@ export default function Home() {
     }
   };
 
+  const handleNodeUpdate = (nodeId: string, updatedNode: Partial<NodeData>) => {
+    // Update the nodes array
+    setNodes(prevNodes => 
+      prevNodes.map(node => 
+        node.id === nodeId ? { ...node, ...updatedNode } : node
+      )
+    );
+
+    // Update the selected node
+    setSelectedNode(prevNode => 
+      prevNode?.id === nodeId ? { ...prevNode, ...updatedNode } : prevNode
+    );
+
+    // Update the ontology data
+    if (ontologyData) {
+      setOntologyData(prevData => ({
+        ...prevData!,
+        nodes: prevData!.nodes.map(node =>
+          node.id === nodeId ? { ...node, ...updatedNode } : node
+        )
+      }));
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       <Legend 
@@ -375,6 +399,7 @@ export default function Home() {
         onClose={handleClosePanel}
         onCreateNode={handleCreateNode}
         refreshNode={refreshNode}
+        onNodeUpdate={handleNodeUpdate}
       />
 
       <AiChat ontologyData={ontologyData as OntologyData} />

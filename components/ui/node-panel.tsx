@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { X, Plus } from "lucide-react";
+import { X, Plus, Pencil } from "lucide-react";
 import { Note } from '@/types/graph';
 import * as d3 from 'd3';
 import { useState } from 'react';
@@ -14,6 +14,7 @@ interface NodePanelProps {
   onClose: () => void;
   onCreateNode: (nodeData: Partial<NodeData>) => void;
   refreshNode: (nodeId: string) => Promise<void>;
+  onNodeUpdate: (nodeId: string, updatedData: Partial<NodeData>) => void;
 }
 
 interface CreateFormData {
@@ -30,7 +31,7 @@ const formatNodeType = (type: NodeType): string => {
     .join(' ');
 };
 
-export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode }: NodePanelProps) {
+export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode, onNodeUpdate }: NodePanelProps) {
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
     
@@ -172,6 +173,29 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     }
   };
 
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState(selectedNode?.description || '');
+
+  const handleUpdateDescription = async () => {
+    try {
+      const response = await fetch(`/api/v1/ontology/${selectedNode.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: editedDescription }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update description');
+      }
+
+      const updatedNode = await response.json();
+      onNodeUpdate(selectedNode.id, updatedNode);
+      setIsEditingDescription(false);
+    } catch (error) {
+      console.error('Error updating description:', error);
+    }
+  };
+
   return (
     <div
       className={`fixed top-0 right-0 w-96 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
@@ -198,10 +222,54 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
             <p className="mt-1">{selectedNode?.type && formatNodeType(selectedNode.type)}</p>
           </div>
 
-          {selectedNode?.description && (
+          {selectedNode?.description !== undefined && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500">Description</h3>
-              <p className="mt-1 text-gray-700">{selectedNode.description}</p>
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-medium text-gray-500">Description</h3>
+                {!isEditingDescription && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setIsEditingDescription(true);
+                      setEditedDescription(selectedNode.description || '');
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+              {isEditingDescription ? (
+                <div className="mt-2 space-y-2">
+                  <Textarea
+                    value={editedDescription}
+                    onChange={(e) => setEditedDescription(e.target.value)}
+                    className="w-full"
+                  />
+                  <div className="flex space-x-2">
+                    <Button
+                      size="sm"
+                      onClick={handleUpdateDescription}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditingDescription(false);
+                        setEditedDescription(selectedNode.description || '');
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-1 text-gray-700">
+                  {selectedNode.description || 'No description provided'}
+                </p>
+              )}
             </div>
           )}
 
