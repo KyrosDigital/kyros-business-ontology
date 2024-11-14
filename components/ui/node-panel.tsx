@@ -127,8 +127,13 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
 
       const newNode = await response.json();
       onCreateNode(newNode);
+      
+      // Reset the form and creation state
       setIsCreating(false);
       resetForm();
+      
+      // Remove the refreshNode call since we already have the updated data
+      // await refreshNode(selectedNode.id);
     } catch (error) {
       console.error('Error creating child node:', error);
     }
