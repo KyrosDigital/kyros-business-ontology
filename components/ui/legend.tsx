@@ -29,7 +29,7 @@ export const NODE_COLORS = {
   [NodeType.AI_COMPONENT]: '#ff99cc',
 } as const;
 
-const NODE_TYPES: NodeTypeConfig[] = [
+export const NODE_TYPES: NodeTypeConfig[] = [
   { type: NodeType.ORGANIZATION, color: NODE_COLORS[NodeType.ORGANIZATION], label: 'Organization' },
   { type: NodeType.DEPARTMENT, color: NODE_COLORS[NodeType.DEPARTMENT], label: 'Department' },
   { type: NodeType.ROLE, color: NODE_COLORS[NodeType.ROLE], label: 'Role' },

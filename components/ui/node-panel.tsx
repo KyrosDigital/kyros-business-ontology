@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NodeType } from '@prisma/client';
+import { NODE_TYPES } from './legend';
 
 interface NodePanelProps {
   isPanelOpen: boolean;
@@ -196,6 +197,29 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     }
   };
 
+  const [isEditingType, setIsEditingType] = useState(false);
+  const [editedType, setEditedType] = useState<NodeType>(selectedNode?.type || NodeType.ORGANIZATION);
+
+  const handleUpdateType = async () => {
+    try {
+      const response = await fetch(`/api/v1/ontology/${selectedNode.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: editedType }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update type');
+      }
+
+      const updatedNode = await response.json();
+      onNodeUpdate(selectedNode.id, updatedNode);
+      setIsEditingType(false);
+    } catch (error) {
+      console.error('Error updating type:', error);
+    }
+  };
+
   return (
     <div
       className={`fixed top-0 right-0 w-96 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
@@ -218,8 +242,56 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
         
         <div className="space-y-6">
           <div>
-            <h3 className="text-sm font-medium text-gray-500">Type</h3>
-            <p className="mt-1">{selectedNode?.type && formatNodeType(selectedNode.type)}</p>
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-medium text-gray-500">Type</h3>
+              {!isEditingType && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditingType(true);
+                    setEditedType(selectedNode.type);
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            {isEditingType ? (
+              <div className="mt-2 space-y-2">
+                <select 
+                  className="w-full p-2 border rounded"
+                  value={editedType}
+                  onChange={(e) => setEditedType(e.target.value as NodeType)}
+                >
+                  {NODE_TYPES.map((type) => (
+                    <option key={type.type} value={type.type}>
+                      {formatNodeType(type.type)}
+                    </option>
+                  ))}
+                </select>
+                <div className="flex space-x-2">
+                  <Button
+                    size="sm"
+                    onClick={handleUpdateType}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditingType(false);
+                      setEditedType(selectedNode.type);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-1">{selectedNode?.type && formatNodeType(selectedNode.type)}</p>
+            )}
           </div>
 
           {selectedNode?.description !== undefined && (
