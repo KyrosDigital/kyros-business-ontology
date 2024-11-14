@@ -1,17 +1,16 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X, Plus, Pencil } from "lucide-react";
-import { Note } from '@/types/graph';
+import { NodeData, Note, NodeType } from '@/types/graph';
 import * as d3 from 'd3';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { NodeType } from '@prisma/client';
 import { NODE_TYPES } from './legend';
 
 interface NodePanelProps {
   isPanelOpen: boolean;
-  selectedNode: any;
+  selectedNode: NodeData | null;
   onClose: () => void;
   onCreateNode: (nodeData: Partial<NodeData>) => void;
   refreshNode: (nodeId: string) => Promise<void>;

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateNode, getNode } from '@/services/ontology';
+import { getNodeWithDetails, updateNode } from '@/services/ontology';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { nodeId: string } }
 ) {
   try {
-    const node = await getNode(params.nodeId);
+    const node = await getNodeWithDetails(params.nodeId);
     if (!node) {
       return NextResponse.json(
         { error: 'Node not found' },

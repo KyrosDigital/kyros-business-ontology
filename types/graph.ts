@@ -6,52 +6,40 @@ export interface Note {
   id: string;
   content: string;
   author: string;
-  dateCreated: Date;
+  nodeId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface NodeData {
   id: string;
-  name: string;
   type: NodeType;
+  name: string;
   description?: string;
   metadata?: Record<string, unknown>;
-  fromRelations?: NodeRelationship[];
-  toRelations?: NodeRelationship[];
   notes?: Note[];
-}
-
-export interface NodeRelationship {
-  id: string;
-  fromNodeId: string;
-  toNodeId: string;
-  relationType: string;
-  fromNode: NodeData;
-  toNode: NodeData;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Relationship {
-  id: string;
-  source: NodeData;
-  target: NodeData;
-  relationType: string;
-}
-
-export interface OntologyData {
-  nodes: NodeData[];
-  relationships: Relationship[];
-}
-
-export interface ApiNodeResponse extends Omit<NodeData, 'fromRelations' | 'toRelations'> {
-  fromRelations: {
+  fromRelations?: Array<{
     id: string;
     relationType: string;
     toNode: NodeData;
-  }[];
-  toRelations: {
+  }>;
+  toRelations?: Array<{
     id: string;
     relationType: string;
     fromNode: NodeData;
-  }[];
+  }>;
+}
+
+export interface OntologyData {
+  nodes: Array<{
+    id: string;
+    type: NodeType;
+    name: string;
+  }>;
+  relationships: Array<{
+    id: string;
+    source: { id: string };
+    target: { id: string };
+    relationType: string;
+  }>;
 }

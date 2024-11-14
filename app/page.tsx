@@ -29,42 +29,22 @@ export default function Home() {
   useEffect(() => {
     const fetchOntologyData = async () => {
       try {
-        const response = await fetch('/api/v1/ontology');
+        const response = await fetch('/api/v1/ontology/graph');
         const data = await response.json();
         
         // Transform the data to match the expected format
         const transformedData: OntologyData = {
-          nodes: data.map((node: Omit<NodeData, 'fromRelations' | 'toRelations'> & {
-            fromRelations: Omit<NodeRelationship, 'fromNode' | 'toNode'> & {
-              toNode: NodeData;
-            }[];
-            toRelations: Omit<NodeRelationship, 'fromNode' | 'toNode'> & {
-              fromNode: NodeData;
-            }[];
-          }) => ({
+          nodes: data.nodes.map((node: any) => ({
             id: node.id,
             type: node.type,
-            name: node.name,
-            description: node.description,
-            metadata: node.metadata,
-            fromRelations: node.fromRelations,
-            toRelations: node.toRelations,
-            notes: node.notes
+            name: node.name
           })),
-          relationships: data.flatMap((node: ApiNodeResponse) => [
-            ...node.fromRelations.map((rel) => ({
-              id: rel.id,
-              source: node,
-              target: rel.toNode,
-              relationType: rel.relationType
-            })),
-            ...node.toRelations.map((rel) => ({
-              id: rel.id,
-              source: rel.fromNode,
-              target: node,
-              relationType: rel.relationType
-            }))
-          ])
+          relationships: data.relationships.map((rel: any) => ({
+            id: rel.id,
+            source: { id: rel.fromNodeId },
+            target: { id: rel.toNodeId },
+            relationType: rel.relationType
+          }))
         };
 
         setOntologyData(transformedData);
@@ -77,6 +57,18 @@ export default function Home() {
 
     fetchOntologyData();
   }, []);
+
+  // Add a function to fetch detailed node data when needed
+  const fetchNodeDetails = async (nodeId: string) => {
+    try {
+      const response = await fetch(`/api/v1/ontology/${nodeId}`);
+      if (!response.ok) throw new Error('Failed to fetch node details');
+      const nodeData = await response.json();
+      setSelectedNode(nodeData);
+    } catch (error) {
+      console.error('Error fetching node details:', error);
+    }
+  };
 
   // Initialize or update graph
   useEffect(() => {
@@ -102,7 +94,8 @@ export default function Home() {
             setSelectedNode,
             setIsPanelOpen,
             selectedNodeId,
-            currentLayout
+            currentLayout,
+            fetchNodeDetails
           );
         } catch (error) {
           console.error('Error initializing graph:', error);

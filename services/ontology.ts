@@ -6,7 +6,7 @@ type CreateNodeData = {
   type: NodeType
   name: string
   description?: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 type CreateRelationshipData = {
@@ -200,7 +200,7 @@ export async function searchNodes(query: string) {
 }
 
 // Metadata Operations
-export async function updateNodeMetadata(nodeId: string, metadata: Record<string, any>) {
+export async function updateNodeMetadata(nodeId: string, metadata: Record<string, unknown>) {
   return prisma.node.update({
     where: { id: nodeId },
     data: { metadata },
@@ -259,6 +259,79 @@ export async function connectNodes(
     include: {
       fromNode: true,
       toNode: true
+    }
+  });
+}
+
+// Add this new function for graph-specific data
+export async function getGraphData() {
+  const nodes = await prisma.node.findMany({
+    select: {
+      id: true,
+      type: true,
+      name: true,
+    }
+  });
+
+  const relationships = await prisma.nodeRelationship.findMany({
+    select: {
+      id: true,
+      fromNodeId: true,
+      toNodeId: true,
+      relationType: true
+    }
+  });
+
+  return {
+    nodes,
+    relationships
+  };
+}
+
+// Add a new function to get detailed node data
+export async function getNodeWithDetails(nodeId: string) {
+  return prisma.node.findUnique({
+    where: { id: nodeId },
+    include: {
+      fromRelations: {
+        include: {
+          toNode: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              description: true,
+              metadata: true
+            }
+          }
+        }
+      },
+      toRelations: {
+        include: {
+          fromNode: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              description: true,
+              metadata: true
+            }
+          }
+        }
+      },
+      notes: {
+        orderBy: {
+          createdAt: 'desc'
+        },
+        select: {
+          id: true,
+          content: true,
+          author: true,
+          nodeId: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }
     }
   });
 }

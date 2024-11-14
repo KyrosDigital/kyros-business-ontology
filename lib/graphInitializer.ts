@@ -18,7 +18,8 @@ export function initializeGraph(
   setSelectedNode: (node: NodeData | null) => void,
   setIsPanelOpen: (isOpen: boolean) => void,
   selectedNodeId: string | null,
-  layout: cytoscape.LayoutOptions
+  layout: cytoscape.LayoutOptions,
+  fetchNodeDetails: (nodeId: string) => Promise<void>
 ): () => void {
   // Validate input data
   if (!container || !data.nodes || !data.relationships) {
@@ -35,7 +36,9 @@ export function initializeGraph(
   const elements = {
     nodes: data.nodes.map(node => ({
       data: {
-        ...node,
+        id: node.id,
+        type: node.type,
+        name: node.name,
         label: node.name,
       }
     })),
@@ -116,8 +119,8 @@ export function initializeGraph(
     // Store the instance on the container
     container.__cy = cy;
 
-    // Add click handlers
-    cy.on('tap', 'node', (evt) => {
+    // Update click handlers to use fetchNodeDetails
+    cy.on('tap', 'node', async (evt) => {
       const node = evt.target;
       const nodeData = node.data();
       
@@ -129,10 +132,9 @@ export function initializeGraph(
       node.neighborhood().addClass('highlighted');
       cy.elements().not(node.neighborhood()).not(node).addClass('faded');
       
-      // Update React state
-      const fullNodeData = data.nodes.find(n => n.id === nodeData.id) || null;
-      setSelectedNode(fullNodeData);
+      // Update React state and fetch detailed node data
       setSelectedNodeId(nodeData.id);
+      await fetchNodeDetails(nodeData.id);
       setIsPanelOpen(true);
     });
 
