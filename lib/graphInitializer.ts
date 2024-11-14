@@ -144,9 +144,20 @@ export function initializeGraph(
       }
     });
 
-    // Add zoom handlers
-    const zoomIn = () => cy.zoom(cy.zoom() * 1.3);
-    const zoomOut = () => cy.zoom(cy.zoom() * 0.7);
+    // Replace the zoom handlers with animated viewport-centered zoom
+    const zoomIn = () => {
+      cy.animate({
+        zoom: cy.zoom() * 1.3,
+        duration: 200
+      });
+    };
+
+    const zoomOut = () => {
+      cy.animate({
+        zoom: cy.zoom() * 0.7,
+        duration: 200
+      });
+    };
 
     document.getElementById('zoom-in')?.addEventListener('click', zoomIn);
     document.getElementById('zoom-out')?.addEventListener('click', zoomOut);

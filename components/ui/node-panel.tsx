@@ -13,6 +13,7 @@ interface NodePanelProps {
   selectedNode: any;
   onClose: () => void;
   onCreateNode: (nodeData: Partial<NodeData>) => void;
+  refreshNode: (nodeId: string) => Promise<void>;
 }
 
 interface CreateFormData {
@@ -29,7 +30,7 @@ const formatNodeType = (type: NodeType): string => {
     .join(' ');
 };
 
-export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: NodePanelProps) {
+export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode }: NodePanelProps) {
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
     
@@ -139,6 +140,38 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
     });
   };
 
+  const [noteContent, setNoteContent] = useState('')
+  const [isAddingNote, setIsAddingNote] = useState(false)
+
+  const handleAddNote = async () => {
+    try {
+      const response = await fetch('/api/v1/ontology/add-note', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          nodeId: selectedNode.id,
+          content: noteContent,
+          author: 'User'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add note');
+      }
+
+      // Clear the input and hide the note form
+      setNoteContent('');
+      setIsAddingNote(false);
+      
+      // Refresh the node data to show the new note
+      await refreshNode(selectedNode.id);
+    } catch (error) {
+      console.error('Error adding note:', error);
+    }
+  };
+
   return (
     <div
       className={`fixed top-0 right-0 w-96 h-full bg-white shadow-lg transform transition-transform duration-300 ease-in-out ${
@@ -179,29 +212,56 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode }: 
             </div>
           )}
           
-          {selectedNode?.notes && selectedNode.notes.length > 0 ? (
+          {selectedNode?.notes && (
             <div>
-              <h3 className="text-sm font-medium text-gray-500 mb-3">Notes</h3>
-              <div className="space-y-4">
-                {selectedNode.notes.map((note: Note, index: number) => (
-                  <Card key={index} className="p-3">
-                    <p className="text-gray-700">{note.content}</p>
-                    <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
-                      {note.author && <span>By: {note.author}</span>}
-                      {note.dateCreated && (
-                        <span>
-                          {new Date(note.dateCreated).toLocaleDateString()}
-                        </span>
-                      )}
-                    </div>
-                  </Card>
-                ))}
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-sm font-medium text-gray-500">Notes</h3>
+                <Button
+                  size="sm"
+                  onClick={() => setIsAddingNote(!isAddingNote)}
+                >
+                  {isAddingNote ? 'Cancel' : 'Add Note'}
+                </Button>
               </div>
-            </div>
-          ) : (
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Notes</h3>
-              <p className="mt-1 text-gray-700">No notes available for this node.</p>
+
+              {/* Add note form */}
+              {isAddingNote && (
+                <div className="mb-4 space-y-2">
+                  <Textarea
+                    value={noteContent}
+                    onChange={(e) => setNoteContent(e.target.value)}
+                    placeholder="Enter your note..."
+                    className="w-full"
+                  />
+                  <Button 
+                    onClick={handleAddNote}
+                    disabled={!noteContent.trim()}
+                  >
+                    Save Note
+                  </Button>
+                </div>
+              )}
+
+              {/* Display existing notes */}
+              <div className="space-y-4">
+                {selectedNode.notes.length > 0 ? (
+                  selectedNode.notes.map((note: Note, index: number) => (
+                    <Card key={index} className="p-3">
+                      <p className="text-gray-700">{note.content}</p>
+                      <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                        {note.author && <span>By: {note.author}</span>}
+                        {note.createdAt && (
+                          <span>
+                            {new Date(note.createdAt).toLocaleDateString()}
+                          </span>
+                        )}
+                      </div>
+                    </Card>
+                  ))
+                ) : (
+                  <p className="text-gray-500">No notes available</p>
+                )}
+              </div>
             </div>
           )}
 

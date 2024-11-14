@@ -283,6 +283,17 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
+  const refreshNode = async (nodeId: string) => {
+    try {
+      const response = await fetch(`/api/v1/ontology/${nodeId}`);
+      if (!response.ok) throw new Error('Failed to fetch node');
+      const updatedNode = await response.json();
+      setSelectedNode(updatedNode); // Update your state with the fresh node data
+    } catch (error) {
+      console.error('Error refreshing node:', error);
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       <Legend 
@@ -363,6 +374,7 @@ export default function Home() {
         selectedNode={selectedNode}
         onClose={handleClosePanel}
         onCreateNode={handleCreateNode}
+        refreshNode={refreshNode}
       />
 
       <AiChat ontologyData={ontologyData as OntologyData} />
