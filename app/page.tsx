@@ -174,36 +174,26 @@ export default function Home() {
         
         if (!response.ok) throw new Error('Failed to create node');
         
-        // Refresh data
-        const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
-        const transformedData: OntologyData = {
-          nodes: updatedData.map((node: ApiNodeResponse) => ({
-            id: node.id,
-            type: node.type,
-            name: node.name,
-            description: node.description,
-            metadata: node.metadata,
-            fromRelations: node.fromRelations,
-            toRelations: node.toRelations,
-            notes: node.notes
-          })),
-          relationships: updatedData.flatMap((node: ApiNodeResponse) => [
-            ...node.fromRelations.map((rel: { id: string; relationType: string; toNode: NodeData }) => ({
-              id: rel.id,
-              source: node,
-              target: rel.toNode,
-              relationType: rel.relationType
-            })),
-            ...node.toRelations.map((rel: { id: string; relationType: string; fromNode: NodeData }) => ({
-              id: rel.id,
-              source: rel.fromNode,
-              target: node,
-              relationType: rel.relationType
-            }))
-          ])
-        };
-        setOntologyData(transformedData);
-        setNodes(transformedData.nodes);
+        // Get the newly created node from the response
+        const newNode = await response.json();
+        
+        // Update the state directly with the new node instead of fetching all data again
+        if (ontologyData) {
+          setOntologyData(prevData => ({
+            nodes: [...prevData!.nodes, newNode],
+            relationships: [
+              ...prevData!.relationships,
+              // Add the parent-child relationship
+              {
+                id: `${selectedNode.id}-${newNode.id}`,
+                source: selectedNode,
+                target: newNode,
+                relationType: 'PARENT_CHILD'
+              }
+            ]
+          }));
+          setNodes(prevNodes => [...prevNodes, newNode]);
+        }
       }
     } catch (error) {
       console.error('Error creating node:', error);
