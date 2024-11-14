@@ -97,7 +97,7 @@ export const LAYOUT_OPTIONS = {
     fit: true,
     minNodeSpacing: 100,
     levelWidth: () => 1,
-    concentric: (node: any) => node.degree(),
+    concentric: (node: cytoscape.NodeSingular) => node.degree(true),
   },
   'grid': {
     name: 'grid',
@@ -111,15 +111,17 @@ export const LAYOUT_OPTIONS = {
   }
 };
 
+type LayoutConfig = typeof LAYOUT_OPTIONS[keyof typeof LAYOUT_OPTIONS];
+
 type LayoutSelectProps = {
-  onLayoutChange: (layoutConfig: any) => void;
+  onLayoutChange: (layoutConfig: LayoutConfig) => void;
 };
 
 export function LayoutSelect({ onLayoutChange }: LayoutSelectProps) {
   return (
     <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
       <Select
-        onValueChange={(value) => onLayoutChange(LAYOUT_OPTIONS[value])}
+        onValueChange={(value) => onLayoutChange(LAYOUT_OPTIONS[value as keyof typeof LAYOUT_OPTIONS])}
         defaultValue="breadthfirst"
       >
         <SelectTrigger className="w-[180px]">

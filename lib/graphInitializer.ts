@@ -1,37 +1,25 @@
 import cytoscape from 'cytoscape';
-import { NodeType } from '@prisma/client';
+import { NodeData, OntologyData } from '@/types/graph';
 import { NODE_COLORS } from '@/components/ui/legend';
 
-type Node = {
-  id: string;
-  type: NodeType;
-  name: string;
-  description?: string;
-  metadata?: Record<string, any>;
-  fromRelations?: any[];
-  toRelations?: any[];
-  notes?: any[];
-};
+declare global {
+  interface HTMLDivElement {
+    __cy?: cytoscape.Core;
+  }
+}
 
-type Link = {
-  id: string;
-  source: Node;
-  target: Node;
-  relationType: string;
-};
-
-export const initializeGraph = (
-  container: HTMLElement,
+export function initializeGraph(
+  container: HTMLDivElement,
   width: number,
   height: number,
-  data: { nodes: Node[], relationships: Link[] },
-  handleClosePanel: () => void,
+  data: OntologyData,
+  onClose: () => void,
   setSelectedNodeId: (id: string | null) => void,
-  setSelectedNode: (node: Node | null) => void,
-  setIsPanelOpen: (open: boolean) => void,
+  setSelectedNode: (node: NodeData | null) => void,
+  setIsPanelOpen: (isOpen: boolean) => void,
   selectedNodeId: string | null,
-  layoutConfig: any
-) => {
+  layout: cytoscape.LayoutOptions
+): () => void {
   // Validate input data
   if (!container || !data.nodes || !data.relationships) {
     console.error('Invalid input for graph initialization');
@@ -70,7 +58,7 @@ export const initializeGraph = (
         {
           selector: 'node',
           style: {
-            'background-color': (ele) => NODE_COLORS[ele.data('type')],
+            'background-color': (ele) => NODE_COLORS[ele.data('type') as keyof typeof NODE_COLORS],
             'label': 'data(label)',
             'text-valign': 'bottom',
             'text-halign': 'center',
@@ -118,11 +106,11 @@ export const initializeGraph = (
             'border-width': 4,
             'border-color': '#000',
             'border-opacity': 0.8,
-            'background-color': (ele) => NODE_COLORS[ele.data('type')],
+            'background-color': (ele) => NODE_COLORS[ele.data('type') as keyof typeof NODE_COLORS],
           }
         }
       ],
-      layout: layoutConfig
+      layout: layout
     });
 
     // Store the instance on the container
@@ -142,7 +130,7 @@ export const initializeGraph = (
       cy.elements().not(node.neighborhood()).not(node).addClass('faded');
       
       // Update React state
-      const fullNodeData = data.nodes.find(n => n.id === nodeData.id);
+      const fullNodeData = data.nodes.find(n => n.id === nodeData.id) || null;
       setSelectedNode(fullNodeData);
       setSelectedNodeId(nodeData.id);
       setIsPanelOpen(true);
@@ -151,7 +139,7 @@ export const initializeGraph = (
     // Background click handler
     cy.on('tap', (evt) => {
       if (evt.target === cy) {
-        handleClosePanel();
+        onClose();
         cy.elements().removeClass('highlighted faded selected');
       }
     });
@@ -175,4 +163,4 @@ export const initializeGraph = (
     console.error('Error during Cytoscape initialization:', error);
     return () => {};
   }
-};
+}

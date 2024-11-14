@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import * as d3 from 'd3';
 import { Button } from '@/components/ui/button';
 import { Legend } from '@/components/ui/legend';
 import { initializeGraph } from '@/lib/graphInitializer';
@@ -10,17 +9,9 @@ import { AiChat } from '@/components/ui/ai-chat';
 import { NodePanel } from '@/components/ui/node-panel';
 import { OntologyTable } from "@/components/ui/ontology-table"
 import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
-import { NodeType } from '@prisma/client';
+import { NodeData, OntologyData, NodeRelationship, NodeType, ApiNodeResponse } from '@/types/graph';
 import { LayoutSelect, LAYOUT_OPTIONS } from '@/components/ui/layout-select';
-
-// Types
-type NodeData = {
-  id: string;
-  type: NodeType;
-  name: string;
-  description?: string;
-  metadata?: Record<string, any>;
-}
+import type { LayoutOptions as LayoutConfig } from 'cytoscape';
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -30,9 +21,9 @@ export default function Home() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   const [nodes, setNodes] = useState<NodeData[]>([]);
-  const [ontologyData, setOntologyData] = useState<any>(null);
+  const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
   const [isDataReady, setIsDataReady] = useState(false);
-  const [currentLayout, setCurrentLayout] = useState(LAYOUT_OPTIONS.breadthfirst);
+  const [currentLayout, setCurrentLayout] = useState<LayoutConfig>(LAYOUT_OPTIONS.breadthfirst);
 
   // Fetch ontology data
   useEffect(() => {
@@ -42,8 +33,15 @@ export default function Home() {
         const data = await response.json();
         
         // Transform the data to match the expected format
-        const transformedData = {
-          nodes: data.map((node: any) => ({
+        const transformedData: OntologyData = {
+          nodes: data.map((node: Omit<NodeData, 'fromRelations' | 'toRelations'> & {
+            fromRelations: Omit<NodeRelationship, 'fromNode' | 'toNode'> & {
+              toNode: NodeData;
+            }[];
+            toRelations: Omit<NodeRelationship, 'fromNode' | 'toNode'> & {
+              fromNode: NodeData;
+            }[];
+          }) => ({
             id: node.id,
             type: node.type,
             name: node.name,
@@ -53,14 +51,14 @@ export default function Home() {
             toRelations: node.toRelations,
             notes: node.notes
           })),
-          relationships: data.flatMap((node: any) => [
-            ...node.fromRelations.map((rel: any) => ({
+          relationships: data.flatMap((node: ApiNodeResponse) => [
+            ...node.fromRelations.map((rel) => ({
               id: rel.id,
               source: node,
               target: rel.toNode,
               relationType: rel.relationType
             })),
-            ...node.toRelations.map((rel: any) => ({
+            ...node.toRelations.map((rel) => ({
               id: rel.id,
               source: rel.fromNode,
               target: node,
@@ -162,7 +160,7 @@ export default function Home() {
     };
   }, []);
 
-  const handleCreateNode = async (nodeData: Partial<NodeData>) => {
+  const handleCreateNode = async (nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
       if (selectedNode?.id) {
         const response = await fetch('/api/v1/ontology/create-child', {
@@ -178,8 +176,8 @@ export default function Home() {
         
         // Refresh data
         const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
-        const transformedData = {
-          nodes: updatedData.map((node: any) => ({
+        const transformedData: OntologyData = {
+          nodes: updatedData.map((node: ApiNodeResponse) => ({
             id: node.id,
             type: node.type,
             name: node.name,
@@ -189,14 +187,14 @@ export default function Home() {
             toRelations: node.toRelations,
             notes: node.notes
           })),
-          relationships: updatedData.flatMap((node: any) => [
-            ...node.fromRelations.map((rel: any) => ({
+          relationships: updatedData.flatMap((node: ApiNodeResponse) => [
+            ...node.fromRelations.map((rel: { id: string; relationType: string; toNode: NodeData }) => ({
               id: rel.id,
               source: node,
               target: rel.toNode,
               relationType: rel.relationType
             })),
-            ...node.toRelations.map((rel: any) => ({
+            ...node.toRelations.map((rel: { id: string; relationType: string; fromNode: NodeData }) => ({
               id: rel.id,
               source: rel.fromNode,
               target: node,
@@ -212,7 +210,7 @@ export default function Home() {
     }
   };
 
-  const handleUpdateNode = async (nodeId: string, nodeData: Partial<NodeData>) => {
+  const handleUpdateNode = async (nodeId: string, nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
       const response = await fetch(`/api/v1/ontology/nodes/${nodeId}`, {
         method: 'PUT',
@@ -344,7 +342,7 @@ export default function Home() {
         </>
       ) : (
         <div className="p-4 mt-16 ml-72 h-[calc(100vh-5rem)] w-[calc(100vw-20rem)]">
-          <OntologyTable data={ontologyData} />
+          {ontologyData && <OntologyTable data={ontologyData} />}
         </div>
       )}
 
@@ -367,7 +365,7 @@ export default function Home() {
         onCreateNode={handleCreateNode}
       />
 
-      <AiChat ontologyData={ontologyData} />
+      <AiChat ontologyData={ontologyData as OntologyData} />
     </div>
   );
 }

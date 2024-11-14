@@ -847,6 +847,25 @@
   resolved "https://registry.yarnpkg.com/@tsconfig/node16/-/node16-1.0.4.tgz#0b92dcc0cc1c81f6f306a381f28e31b1a56536e9"
   integrity sha512-vxhUy4J8lyeyinH7Azl1pdd43GJhZH/tP2weN8TntQblOY+A0XbT8DJk1/oCPuOOyg/Ja757rG0CgHcWC8OfMA==
 
+"@types/cytoscape-dagre@^2.3.3":
+  version "2.3.3"
+  resolved "https://registry.yarnpkg.com/@types/cytoscape-dagre/-/cytoscape-dagre-2.3.3.tgz#27f7c57e6e055a05d8f971cb09e76e11c837734c"
+  integrity sha512-FJBsNMbBZpqNwT6rp5leVYMevWUjnyD1QS8erNMAMWoBifvaVUklXIjE+bllLDSowjM3abXuRvljliSXUU+d1A==
+  dependencies:
+    "@types/cytoscape" "*"
+
+"@types/cytoscape-klay@^3.1.4":
+  version "3.1.4"
+  resolved "https://registry.yarnpkg.com/@types/cytoscape-klay/-/cytoscape-klay-3.1.4.tgz#809fe7ee75642132be3df53f22a9cbd1fcbf9225"
+  integrity sha512-H+tIadpcVjmDGWKFUfibwzIpH/kddfwAFsuhPparjiC+bWBm+MeNqIwwY+19ofkJZWcqWqZL6Jp8lkp+sP8Aig==
+  dependencies:
+    "@types/cytoscape" "*"
+
+"@types/cytoscape@*", "@types/cytoscape@^3.21.8":
+  version "3.21.8"
+  resolved "https://registry.yarnpkg.com/@types/cytoscape/-/cytoscape-3.21.8.tgz#6166a2eabd66d3ae3259024875e037492adb8db6"
+  integrity sha512-6Bo9ZDrv0vfwe8Sg/ERc5VL0yU0gYvP4dgZi0fAXYkKHfyHaNqWRMcwYm3mu4sLsXbB8ZuXE75sR7qnaOL5JgQ==
+
 "@types/d3-array@*":
   version "3.2.1"
   resolved "https://registry.yarnpkg.com/@types/d3-array/-/d3-array-3.2.1.tgz#1f6658e3d2006c4fceac53fde464166859f8b8c5"
@@ -1772,13 +1791,6 @@ cytoscape-dagre@^2.5.0:
   dependencies:
     dagre "^0.8.5"
 
-cytoscape-elk@^2.2.0:
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/cytoscape-elk/-/cytoscape-elk-2.2.0.tgz#330364b4c799f59179904a775c864b725018e7d4"
-  integrity sha512-EqXBVRcWeah/oBOifAmne0ImmIKntBVEQh2XCJXY++BgCufehZglRclrJ1DWm5Qm/NDBO/wEDijjgd50xJXw0A==
-  dependencies:
-    elkjs "^0.8.1"
-
 cytoscape-klay@^3.1.4:
   version "3.1.4"
   resolved "https://registry.yarnpkg.com/cytoscape-klay/-/cytoscape-klay-3.1.4.tgz#0e5bbb5c482b384b2ff2485150173aaecebc324b"
@@ -2225,11 +2237,6 @@ eastasianwidth@^0.2.0:
   version "0.2.0"
   resolved "https://registry.yarnpkg.com/eastasianwidth/-/eastasianwidth-0.2.0.tgz#696ce2ec0aa0e6ea93a397ffcf24aa7840c827cb"
   integrity sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==
-
-elkjs@^0.8.1:
-  version "0.8.2"
-  resolved "https://registry.yarnpkg.com/elkjs/-/elkjs-0.8.2.tgz#c37763c5a3e24e042e318455e0147c912a7c248e"
-  integrity sha512-L6uRgvZTH+4OF5NE/MBbzQx/WYpru1xCBE9respNj6qznEewGUIfhzmm7horWWxbNO2M0WckQypGctR8lH79xQ==
 
 emoji-regex@^8.0.0:
   version "8.0.0"
