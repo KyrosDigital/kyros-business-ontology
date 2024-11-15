@@ -26,6 +26,16 @@ interface CreateFormData {
   type: NodeType | '';
 }
 
+interface ConnectedNode {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  metadata?: Record<string, any>;
+  relationType: string;
+  direction: 'incoming' | 'outgoing';
+}
+
 export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode, onNodeUpdate, onDeleteNode, refreshGraph }: NodePanelProps) {
   const [noteContent, setNoteContent] = useState('')
   const [isAddingNote, setIsAddingNote] = useState(false)
@@ -44,32 +54,32 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
     
-    const connectedNodes = [];
+    const connectedNodes: ConnectedNode[] = [];
     
     // Get nodes from outgoing relationships (fromRelations)
     if (selectedNode.fromRelations) {
-      const outgoingNodes = selectedNode.fromRelations.map((rel: any) => ({
+      const outgoingNodes = selectedNode.fromRelations.map((rel) => ({
         id: rel.toNode.id,
         name: rel.toNode.name,
         type: rel.toNode.type,
         description: rel.toNode.description,
         metadata: rel.toNode.metadata,
         relationType: rel.relationType,
-        direction: 'outgoing'
+        direction: 'outgoing' as const
       }));
       connectedNodes.push(...outgoingNodes);
     }
 
     // Get nodes from incoming relationships (toRelations)
     if (selectedNode.toRelations) {
-      const incomingNodes = selectedNode.toRelations.map((rel: any) => ({
+      const incomingNodes = selectedNode.toRelations.map((rel) => ({
         id: rel.fromNode.id,
         name: rel.fromNode.name,
         type: rel.fromNode.type,
         description: rel.fromNode.description,
         metadata: rel.fromNode.metadata,
         relationType: rel.relationType,
-        direction: 'incoming'
+        direction: 'incoming' as const
       }));
       connectedNodes.push(...incomingNodes);
     }
@@ -538,7 +548,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
 
             {getConnectedNodes().length > 0 ? (
               <div className="space-y-4 mt-3">
-                {getConnectedNodes().map((node: any) => (
+                {getConnectedNodes().map((node: ConnectedNode) => (
                   <Card key={`${node.id}-${node.direction}`} className="p-3">
                     <div className="flex justify-between items-start">
                       <div>

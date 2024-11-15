@@ -27,26 +27,14 @@ export default function Home() {
   const getOntologyData = async () => {
     const response = await fetch('/api/v1/ontology/graph');
     const data = await response.json();
-    
-    return {
-      nodes: data.nodes.map((node: NodeData) => ({
-        id: node.id,
-        type: node.type,
-        name: node.name
-      })),
-      relationships: data.relationships.map((rel: any) => ({
-        id: rel.id,
-        source: { id: rel.fromNodeId },
-        target: { id: rel.toNodeId },
-        relationType: rel.relationType
-      }))
-    };
+    return data;
   };
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const data = await getOntologyData();
+        console.log('data', data);
         setOntologyData(data);
         setIsDataReady(true);
       } catch (error) {
@@ -166,12 +154,14 @@ export default function Home() {
           nodes: [...prevData!.nodes, newNode],
           relationships: [
             ...prevData!.relationships,
-            // Add the parent-child relationship
+            // Add the parent-child relationship with correct structure
             {
               id: `${selectedNode.id}-${newNode.id}`,
-              source: selectedNode,
-              target: newNode,
-              relationType: 'PARENT_CHILD'
+              fromNodeId: selectedNode.id,
+              toNodeId: newNode.id,
+              relationType: 'PARENT_CHILD',
+              fromNode: selectedNode,
+              toNode: newNode
             }
           ]
         }));
@@ -214,7 +204,7 @@ export default function Home() {
       setOntologyData(prev => ({
         nodes: prev!.nodes.filter(node => node.id !== nodeId),
         relationships: prev!.relationships.filter(rel => 
-          rel.source.id !== nodeId && rel.target.id !== nodeId
+          rel.fromNodeId !== nodeId && rel.toNodeId !== nodeId
         )
       }));
       
@@ -309,23 +299,7 @@ export default function Home() {
         throw new Error('Failed to fetch graph data');
       }
       const data = await response.json();
-      
-      // Transform the data to match the expected format
-      const transformedData: OntologyData = {
-        nodes: data.nodes.map((node: any) => ({
-          id: node.id,
-          type: node.type,
-          name: node.name
-        })),
-        relationships: data.relationships.map((rel: any) => ({
-          id: rel.id,
-          source: { id: rel.fromNodeId },
-          target: { id: rel.toNodeId },
-          relationType: rel.relationType
-        }))
-      };
-
-      setOntologyData(transformedData);
+      setOntologyData(data);
     } catch (error) {
       console.error('Error refreshing graph:', error);
     }

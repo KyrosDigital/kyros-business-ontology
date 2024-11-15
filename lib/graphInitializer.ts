@@ -71,8 +71,8 @@ export function initializeGraph(
     edges: data.relationships.map(rel => ({
       data: {
         id: rel.id,
-        source: rel.source.id,
-        target: rel.target.id,
+        source: rel.fromNodeId,
+        target: rel.toNodeId,
         label: rel.relationType
       }
     }))
@@ -145,12 +145,12 @@ export function initializeGraph(
     // Store the instance on the container
     container.__cy = cy;
 
-    // Update click handlers to use fetchNodeDetails
+    // Update click handlers to use full node data
     cy.on('tap', 'node', (event) => {
       const node = event.target;
       const nodeId = node.id();
       
-      // Find the node data directly from the provided data
+      // Find the complete node data with relationships
       const nodeData = data.nodes.find(n => n.id === nodeId);
       if (nodeData) {
         setSelectedNode(nodeData);

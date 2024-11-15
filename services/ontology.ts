@@ -2,11 +2,13 @@ import { prisma } from '@/prisma/prisma-client'
 import { NodeType } from '@prisma/client'
 
 // Types
+type InputJsonValue = string | number | boolean | null | { [key: string]: InputJsonValue } | InputJsonValue[];
+
 type CreateNodeData = {
   type: NodeType
   name: string
   description?: string
-  metadata?: Record<string, unknown>
+  metadata?: InputJsonValue
 }
 
 type CreateNoteData = {
@@ -112,22 +114,9 @@ export async function connectNodes(
 
 // Add this new function for graph-specific data
 export async function getGraphData() {
-  const nodes = await prisma.node.findMany({
-    select: {
-      id: true,
-      type: true,
-      name: true,
-    }
-  });
+  const nodes = await prisma.node.findMany({});
 
-  const relationships = await prisma.nodeRelationship.findMany({
-    select: {
-      id: true,
-      fromNodeId: true,
-      toNodeId: true,
-      relationType: true
-    }
-  });
+  const relationships = await prisma.nodeRelationship.findMany({});
 
   return {
     nodes,

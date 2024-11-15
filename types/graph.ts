@@ -2,13 +2,24 @@ import { NodeType } from '@prisma/client';
 
 export { NodeType };
 
+export interface NodeRelationship {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  relationType: string;
+  fromNode: Node;
+  toNode: Node;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
 export interface Note {
   id: string;
   content: string;
   author: string;
   nodeId: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt?: Date;
 }
 
 export interface NodeData {
@@ -16,30 +27,15 @@ export interface NodeData {
   type: NodeType;
   name: string;
   description?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: InputJsonValue;
   notes?: Note[];
-  fromRelations?: Array<{
-    id: string;
-    relationType: string;
-    toNode: NodeData;
-  }>;
-  toRelations?: Array<{
-    id: string;
-    relationType: string;
-    fromNode: NodeData;
-  }>;
+  fromRelations?: NodeRelationship[];
+  toRelations?: NodeRelationship[];
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface OntologyData {
-  nodes: Array<{
-    id: string;
-    type: NodeType;
-    name: string;
-  }>;
-  relationships: Array<{
-    id: string;
-    source: { id: string };
-    target: { id: string };
-    relationType: string;
-  }>;
+  nodes: NodeData[];
+  relationships: NodeRelationship[];
 }
