@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNodeWithDetails, updateNode, deleteNode, deleteNodeWithStrategy } from '@/services/ontology';
+import { getNodeWithDetails, updateNode, deleteNodeWithStrategy } from '@/services/ontology';
 
 export async function GET(
   request: NextRequest,
