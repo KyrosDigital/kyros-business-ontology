@@ -285,6 +285,19 @@ export default function Home() {
     URL.revokeObjectURL(url);
   };
 
+  /**
+   * Fetches updated data for a specific node from the API and updates the local state
+   * @param nodeId - The unique identifier of the node to refresh
+   * @returns Promise<void>
+   * 
+   * This function is used to:
+   * 1. Get fresh node data after operations like adding notes or updating node details
+   * 2. Update the selectedNode state with the latest data from the backend
+   * 
+   * The function makes a GET request to /api/v1/ontology/{nodeId} and updates
+   * the selectedNode state with the response data. If the request fails,
+   * the error is logged to the console.
+   */
   const refreshNode = async (nodeId: string) => {
     try {
       const response = await fetch(`/api/v1/ontology/${nodeId}`);

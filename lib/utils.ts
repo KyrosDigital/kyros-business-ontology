@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { NodeData, NodeType } from '@/types/graph';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -31,4 +32,25 @@ export const graphColors = {
   AIComponent: '#ff3333',
   Analytics: '#3333ff',
   SoftwareTool: '#ff99cc'
+};
+
+/**
+ * Converts a NodeType enum value from SNAKE_CASE to Title Case
+ * @param type NodeType enum value
+ * @returns Formatted string in Title Case
+ */
+export const formatNodeType = (type: NodeType): string => {
+  return type.split('_')
+    .map(word => word.charAt(0) + word.toLowerCase().slice(1))
+    .join(' ');
+};
+
+/**
+ * Checks if a node has any child nodes by examining its fromRelations
+ * @param node The node to check for children
+ * @returns boolean indicating if the node has children
+ */
+export const hasChildren = (node: NodeData | null): boolean => {
+  if (!node || !node.fromRelations) return false;
+  return node.fromRelations.length > 0;
 };

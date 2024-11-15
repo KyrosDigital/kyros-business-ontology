@@ -2,12 +2,12 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X, Plus, Pencil } from "lucide-react";
 import { NodeData, Note, NodeType } from '@/types/graph';
-import * as d3 from 'd3';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NODE_TYPES } from './legend';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { formatNodeType, hasChildren } from '@/lib/utils';
 
 interface NodePanelProps {
   isPanelOpen: boolean;
@@ -26,24 +26,21 @@ interface CreateFormData {
   type: NodeType | '';
 }
 
-// Add this helper function at the top of the file, outside the component
-const formatNodeType = (type: NodeType): string => {
-  // Convert SNAKE_CASE to Title Case
-  return type.split('_')
-    .map(word => word.charAt(0) + word.toLowerCase().slice(1))
-    .join(' ');
-};
-
-// Add this type near the top of the file
-type DeletionStrategy = 'orphan' | 'cascade' | 'reconnect';
-
-// Add this helper function to check if node has children
-const hasChildren = (node: NodeData | null): boolean => {
-  if (!node || !node.fromRelations) return false;
-  return node.fromRelations.length > 0;
-};
-
 export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode, onNodeUpdate, onDeleteNode, refreshGraph }: NodePanelProps) {
+  const [noteContent, setNoteContent] = useState('')
+  const [isAddingNote, setIsAddingNote] = useState(false)
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [editedDescription, setEditedDescription] = useState(selectedNode?.description || '');
+  const [isEditingType, setIsEditingType] = useState(false);
+  const [editedType, setEditedType] = useState<NodeType>(selectedNode?.type || NodeType.ORGANIZATION);
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [formData, setFormData] = useState<CreateFormData>({
+    name: '',
+    description: '',
+    type: ''
+  });
+  
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
     
@@ -80,22 +77,10 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     return connectedNodes;
   };
 
+  // close the panel
   const handleClose = () => {
     onClose();
-    // Remove pulse effect from all nodes when panel is closed
-    const svg = d3.select('svg');
-    svg.selectAll('.node').classed('node-pulse', false);
-    // Reset opacity for all nodes and links
-    svg.selectAll('.node').transition().duration(200).style('opacity', 1);
-    svg.selectAll('.link').transition().duration(200).style('opacity', 1);
   };
-
-  const [isCreating, setIsCreating] = useState(false);
-  const [formData, setFormData] = useState<CreateFormData>({
-    name: '',
-    description: '',
-    type: ''
-  });
 
   const getChildTypeForParent = (parentType: string): NodeType[] => {
     return [
@@ -158,9 +143,6 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     });
   };
 
-  const [noteContent, setNoteContent] = useState('')
-  const [isAddingNote, setIsAddingNote] = useState(false)
-
   const handleAddNote = async () => {
     try {
       const response = await fetch('/api/v1/ontology/add-note', {
@@ -190,9 +172,6 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     }
   };
 
-  const [isEditingDescription, setIsEditingDescription] = useState(false);
-  const [editedDescription, setEditedDescription] = useState(selectedNode?.description || '');
-
   const handleUpdateDescription = async () => {
     try {
       const response = await fetch(`/api/v1/ontology/${selectedNode.id}`, {
@@ -213,9 +192,6 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     }
   };
 
-  const [isEditingType, setIsEditingType] = useState(false);
-  const [editedType, setEditedType] = useState<NodeType>(selectedNode?.type || NodeType.ORGANIZATION);
-
   const handleUpdateType = async () => {
     try {
       const response = await fetch(`/api/v1/ontology/${selectedNode.id}`, {
@@ -235,8 +211,6 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
       console.error('Error updating type:', error);
     }
   };
-
-  const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   const handleDeleteNode = async (strategy: DeletionStrategy) => {
     try {
