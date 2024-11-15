@@ -20,7 +20,6 @@ export default function Home() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
-  const [nodes, setNodes] = useState<NodeData[]>([]);
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
   const [isDataReady, setIsDataReady] = useState(false);
   const [currentLayout, setCurrentLayout] = useState<LayoutConfig>(LAYOUT_OPTIONS.breadthfirst);
@@ -44,13 +43,11 @@ export default function Home() {
     };
   };
 
-  // Replace the useEffect data fetching with this
   useEffect(() => {
     const loadData = async () => {
       try {
         const data = await getOntologyData();
         setOntologyData(data);
-        setNodes(data.nodes);
         setIsDataReady(true);
       } catch (error) {
         console.error('Error fetching ontology data:', error);
@@ -58,7 +55,7 @@ export default function Home() {
     };
 
     loadData();
-  }, []); // Empty dependency array since getOntologyData is cached
+  }, []);
 
   // Add a function to fetch detailed node data when needed
   const fetchNodeDetails = async (nodeId: string) => {
@@ -187,7 +184,6 @@ export default function Home() {
               }
             ]
           }));
-          setNodes(prevNodes => [...prevNodes, newNode]);
         }
       }
     } catch (error) {
@@ -208,7 +204,6 @@ export default function Home() {
       // Refresh data
       const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
       setOntologyData(updatedData);
-      setNodes(updatedData);
     } catch (error) {
       console.error('Error updating node:', error);
     }
@@ -229,7 +224,6 @@ export default function Home() {
           rel.source.id !== nodeId && rel.target.id !== nodeId
         )
       }));
-      setNodes(prev => prev.filter(node => node.id !== nodeId));
       
       // Close any open panels
       handleClosePanel();
@@ -255,7 +249,6 @@ export default function Home() {
       // Refresh data
       const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
       setOntologyData(updatedData);
-      setNodes(updatedData.nodes);
     } catch (error) {
       console.error('Error creating relationship:', error);
     }
@@ -301,18 +294,6 @@ export default function Home() {
 
   const handleNodeUpdate = (nodeId: string, updatedNode: Partial<NodeData>) => {
     // Update the nodes array
-    setNodes(prevNodes => 
-      prevNodes.map(node => 
-        node.id === nodeId ? { ...node, ...updatedNode } : node
-      )
-    );
-
-    // Update the selected node
-    setSelectedNode(prevNode => 
-      prevNode?.id === nodeId ? { ...prevNode, ...updatedNode } : prevNode
-    );
-
-    // Update the ontology data
     if (ontologyData) {
       setOntologyData(prevData => ({
         ...prevData!,
@@ -321,6 +302,11 @@ export default function Home() {
         )
       }));
     }
+
+    // Update the selected node
+    setSelectedNode(prevNode => 
+      prevNode?.id === nodeId ? { ...prevNode, ...updatedNode } : prevNode
+    );
   };
 
   const refreshGraph = async () => {
@@ -347,7 +333,6 @@ export default function Home() {
       };
 
       setOntologyData(transformedData);
-      setNodes(transformedData.nodes);
     } catch (error) {
       console.error('Error refreshing graph:', error);
     }
@@ -420,7 +405,7 @@ export default function Home() {
         isPanelOpen={isPanelOpen && !selectedNode}
         selectedNode={selectedNode}
         selectedType={selectedType}
-        nodes={nodes}
+        nodes={ontologyData?.nodes ?? []}
         onClose={handleClosePanel}
         onCreateNode={handleCreateNode}
         onUpdateNode={handleUpdateNode}
