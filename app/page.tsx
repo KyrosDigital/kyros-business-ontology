@@ -154,38 +154,41 @@ export default function Home() {
 
   const handleCreateNode = async (nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
-      if (selectedNode?.id) {
-        const response = await fetch('/api/v1/ontology/create-child', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            parentId: selectedNode.id,
-            nodeData: nodeData,
-          }),
-        });
-        
-        if (!response.ok) throw new Error('Failed to create node');
-        
-        // Get the newly created node from the response
-        const newNode = await response.json();
-        
-        // Update the state directly with the new node instead of fetching all data again
-        if (ontologyData) {
-          setOntologyData(prevData => ({
-            nodes: [...prevData!.nodes, newNode],
-            relationships: [
-              ...prevData!.relationships,
-              // Add the parent-child relationship
-              {
-                id: `${selectedNode.id}-${newNode.id}`,
-                source: selectedNode,
-                target: newNode,
-                relationType: 'PARENT_CHILD'
-              }
-            ]
-          }));
-        }
+      if (!selectedNode?.id) return;
+
+      const response = await fetch('/api/v1/ontology/create-child', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parentId: selectedNode.id,
+          nodeData: nodeData,
+        }),
+      });
+      
+      if (!response.ok) throw new Error('Failed to create node');
+      
+      // Get the newly created node from the response
+      const newNode = await response.json();
+      
+      // Update the state directly with the new node instead of fetching all data again
+      if (ontologyData) {
+        setOntologyData(prevData => ({
+          nodes: [...prevData!.nodes, newNode],
+          relationships: [
+            ...prevData!.relationships,
+            // Add the parent-child relationship
+            {
+              id: `${selectedNode.id}-${newNode.id}`,
+              source: selectedNode,
+              target: newNode,
+              relationType: 'PARENT_CHILD'
+            }
+          ]
+        }));
       }
+
+      // Refresh the selected node to show updated relationships
+      await refreshNode(selectedNode.id);
     } catch (error) {
       console.error('Error creating node:', error);
     }
@@ -407,7 +410,6 @@ export default function Home() {
         selectedType={selectedType}
         nodes={ontologyData?.nodes ?? []}
         onClose={handleClosePanel}
-        onCreateNode={handleCreateNode}
         onUpdateNode={handleUpdateNode}
         onDeleteNode={handleDeleteNode}
         onCreateRelationship={handleCreateRelationship}

@@ -23,7 +23,6 @@ interface NodesCategoryProps {
   selectedType: NodeType | null;
   nodes: Node[];
   onClose: () => void;
-  onCreateNode: (nodeData: Partial<Node>) => void;
   onUpdateNode: (nodeId: string, nodeData: Partial<Node>) => void;
   onDeleteNode: (nodeId: string) => void;
   onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => void;
@@ -35,7 +34,6 @@ export function NodesCategoryPanel({
   selectedType,
   nodes,
   onClose,
-  onCreateNode,
   onUpdateNode,
   onDeleteNode,
   onCreateRelationship 

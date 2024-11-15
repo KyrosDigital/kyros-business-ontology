@@ -97,42 +97,18 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     ];
   };
 
-  const handleCreateChild = async () => {
-    if (!selectedNode?.id || !formData.name || !formData.type) return;
+  const handleCreateNode = async () => {
+    if (!formData.name || !formData.type) return;
 
-    try {
-      const nodeData = {
-        type: formData.type,
-        name: formData.name,
-        description: formData.description
-      };
+    onCreateNode({
+      type: formData.type as NodeType,
+      name: formData.name,
+      description: formData.description
+    });
 
-      const response = await fetch('/api/v1/ontology/create-child', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          parentId: selectedNode.id,
-          nodeData: nodeData,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create child node');
-      }
-
-      const newNode = await response.json();
-      onCreateNode(newNode);
-      
-      // Reset the form and creation state
-      setIsCreating(false);
-      resetForm();
-      
-      // Remove the refreshNode call since we already have the updated data
-      // await refreshNode(selectedNode.id);
-    } catch (error) {
-      console.error('Error creating child node:', error);
-    }
+    // Reset form and creation state
+    setIsCreating(false);
+    resetForm();
   };
 
   const resetForm = () => {
@@ -542,7 +518,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
 
                 <div className="flex space-x-2">
                   <Button 
-                    onClick={handleCreateChild}
+                    onClick={handleCreateNode}
                     disabled={!formData.name}
                   >
                     Create
