@@ -558,11 +558,15 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                         <p className="font-medium text-gray-700">{node.name}</p>
                         <div className="flex gap-2 mt-1">
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                            {formatNodeType(node.type)}
-                          </span>
-                          <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                            {node.direction === 'incoming' ? '← ' : '→ '}
-                            {node.relationType}
+                            {node.direction === 'outgoing' ? (
+                              <>
+                                {node.relationType} {' → '} {formatNodeType(node.type)}
+                              </>
+                            ) : (
+                              <>
+                                {formatNodeType(node.type)} {' ← '} {node.relationType}
+                              </>
+                            )}
                           </span>
                         </div>
                       </div>
