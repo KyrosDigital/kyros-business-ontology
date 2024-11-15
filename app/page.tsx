@@ -57,18 +57,6 @@ export default function Home() {
     loadData();
   }, []);
 
-  // Add a function to fetch detailed node data when needed
-  const fetchNodeDetails = async (nodeId: string) => {
-    try {
-      const response = await fetch(`/api/v1/ontology/${nodeId}`);
-      if (!response.ok) throw new Error('Failed to fetch node details');
-      const nodeData = await response.json();
-      setSelectedNode(nodeData);
-    } catch (error) {
-      console.error('Error fetching node details:', error);
-    }
-  };
-
   // Initialize or update graph
   useEffect(() => {
     let cleanup: (() => void) | undefined;
@@ -83,6 +71,10 @@ export default function Home() {
       // Add a small delay to ensure the container is properly mounted
       const timer = setTimeout(() => {
         try {
+          // NOTE: window.innerWidth and window.innerHeight are required parameters
+          // for proper Cytoscape initialization. Do not remove them even though
+          // the container is responsively sized with CSS. Removing these will
+          // cause the graph to be invisible or fail to render properly.
           cleanup = initializeGraph(
             containerRef.current!,
             window.innerWidth,
@@ -92,9 +84,7 @@ export default function Home() {
             setSelectedNodeId,
             setSelectedNode,
             setIsPanelOpen,
-            selectedNodeId,
-            currentLayout,
-            fetchNodeDetails
+            currentLayout
           );
         } catch (error) {
           console.error('Error initializing graph:', error);
@@ -389,7 +379,14 @@ export default function Home() {
           <div
             ref={containerRef}
             className="w-full h-full"
-            style={{ visibility: isDataReady ? 'visible' : 'hidden' }}
+            style={{ 
+              visibility: isDataReady ? 'visible' : 'hidden',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0
+            }}
           />
           
           {!isDataReady && (

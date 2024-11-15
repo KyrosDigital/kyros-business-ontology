@@ -8,6 +8,30 @@ declare global {
   }
 }
 
+/**
+ * Initializes and renders a Cytoscape graph instance
+ * 
+ * @param container - The HTML container element where the graph will be rendered
+ * @param width - Container width in pixels. Required for proper Cytoscape initialization
+ *               even though we use CSS for responsive sizing. Removing this parameter
+ *               will cause the graph to fail to render properly.
+ * @param height - Container height in pixels. Required for proper Cytoscape initialization
+ *                even though we use CSS for responsive sizing. Removing this parameter
+ *                will cause the graph to fail to render properly.
+ * @param data - The ontology data containing nodes and relationships to display
+ * @param onClose - Callback function to handle closing/cleanup actions
+ * @param setSelectedNodeId - Callback to update the selected node ID
+ * @param setSelectedNode - Callback to update the selected node data
+ * @param setIsPanelOpen - Callback to control panel visibility
+ * @param layout - Cytoscape layout configuration
+ * 
+ * @returns Cleanup function to remove event listeners and destroy the Cytoscape instance
+ * 
+ * @important The width and height parameters are crucial for proper graph initialization.
+ * Even though the container uses CSS for responsive sizing, Cytoscape requires explicit
+ * dimensions during initialization. Without these, the graph may appear invisible or
+ * fail to render properly. Do not remove these parameters even if they appear unused.
+ */
 export function initializeGraph(
   container: HTMLDivElement,
   width: number,
@@ -17,9 +41,7 @@ export function initializeGraph(
   setSelectedNodeId: (id: string | null) => void,
   setSelectedNode: (node: NodeData | null) => void,
   setIsPanelOpen: (isOpen: boolean) => void,
-  selectedNodeId: string | null,
-  layout: cytoscape.LayoutOptions,
-  fetchNodeDetails: (nodeId: string) => Promise<void>
+  layout: cytoscape.LayoutOptions
 ): () => void {
   // Validate input data
   if (!container || !data.nodes || !data.relationships) {
@@ -31,6 +53,10 @@ export function initializeGraph(
   if (container.__cy) {
     container.__cy.destroy();
   }
+
+  // Set container dimensions explicitly - required for proper Cytoscape initialization
+  container.style.width = `${width}px`;
+  container.style.height = `${height}px`;
 
   // Transform data for Cytoscape
   const elements = {
@@ -120,9 +146,17 @@ export function initializeGraph(
     container.__cy = cy;
 
     // Update click handlers to use fetchNodeDetails
-    cy.on('tap', 'node', async (evt) => {
-      const node = evt.target;
-      const nodeData = node.data();
+    cy.on('tap', 'node', (event) => {
+      const node = event.target;
+      const nodeId = node.id();
+      
+      // Find the node data directly from the provided data
+      const nodeData = data.nodes.find(n => n.id === nodeId);
+      if (nodeData) {
+        setSelectedNode(nodeData);
+        setSelectedNodeId(nodeId);
+        setIsPanelOpen(true);
+      }
       
       // Reset styles
       cy.elements().removeClass('highlighted faded selected');
@@ -131,11 +165,6 @@ export function initializeGraph(
       node.addClass('selected');
       node.neighborhood().addClass('highlighted');
       cy.elements().not(node.neighborhood()).not(node).addClass('faded');
-      
-      // Update React state and fetch detailed node data
-      setSelectedNodeId(nodeData.id);
-      await fetchNodeDetails(nodeData.id);
-      setIsPanelOpen(true);
     });
 
     // Background click handler
