@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getNodeWithDetails, updateNode } from '@/services/ontology';
+import { getNodeWithDetails, updateNode, deleteNode, deleteNodeWithStrategy } from '@/services/ontology';
 
 export async function GET(
   request: NextRequest,
@@ -37,5 +37,31 @@ export async function PATCH(
       { error: 'Failed to update node' },
       { status: 500 }
     );
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { nodeId: string } }
+) {
+  try {
+    const nodeId = params.nodeId;
+    let strategy: 'orphan' | 'cascade' | 'reconnect' = 'orphan'; // Default strategy
+    
+    try {
+      const body = await request.json();
+      strategy = body.strategy;
+    } catch (error) {
+      console.warn('No strategy provided, using default "orphan" strategy');
+    }
+    
+    await deleteNodeWithStrategy(nodeId, strategy);
+    return new Response(null, { status: 204 });
+  } catch (error) {
+    console.error('Error deleting node:', error);
+    return new Response(JSON.stringify({ error: 'Failed to delete node' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
 } 

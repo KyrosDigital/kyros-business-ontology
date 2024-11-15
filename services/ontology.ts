@@ -71,17 +71,25 @@ export async function deleteNode(nodeId: string) {
         { toNodeId: nodeId }
       ]
     }
-  })
+  });
 
   // Then delete all notes
   await prisma.note.deleteMany({
     where: { nodeId }
-  })
+  });
 
-  // Finally delete the node
-  return prisma.node.delete({
+  // Finally delete the node, but check if it exists first
+  const nodeExists = await prisma.node.findUnique({
     where: { id: nodeId }
-  })
+  });
+
+  if (nodeExists) {
+    return prisma.node.delete({
+      where: { id: nodeId }
+    });
+  }
+  
+  return null; // Return null if node doesn't exist
 }
 
 // Relationship Operations
@@ -332,6 +340,152 @@ export async function getNodeWithDetails(nodeId: string) {
           updatedAt: true
         }
       }
+    }
+  });
+}
+
+// Add these new functions to handle different deletion strategies
+export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' | 'cascade' | 'reconnect') {
+  switch (strategy) {
+    case 'orphan':
+      return deleteNode(nodeId);
+
+    case 'cascade':
+      return prisma.$transaction(async (tx) => {
+        const descendants = await getDescendantNodes(nodeId);
+        
+        // Delete relationships first for all nodes
+        await tx.nodeRelationship.deleteMany({
+          where: {
+            OR: [
+              { fromNodeId: { in: [...descendants.map(d => d.id), nodeId] } },
+              { toNodeId: { in: [...descendants.map(d => d.id), nodeId] } }
+            ]
+          }
+        });
+
+        // Delete notes for all nodes
+        await tx.note.deleteMany({
+          where: {
+            nodeId: { in: [...descendants.map(d => d.id), nodeId] }
+          }
+        });
+
+        // Delete descendant nodes
+        for (const descendant of descendants) {
+          await tx.node.delete({
+            where: { id: descendant.id }
+          });
+        }
+        
+        // Finally delete the target node
+        return tx.node.delete({
+          where: { id: nodeId }
+        });
+      });
+
+    case 'reconnect':
+      return prisma.$transaction(async (tx) => {
+        // Get the parent relationship and child relationships
+        const parentRel = await getParentNode(nodeId);
+        const childRels = await getChildNodes(nodeId);
+        
+        if (parentRel) {
+          // Reconnect each child to the parent
+          for (const childRel of childRels) {
+            await tx.nodeRelationship.create({
+              data: {
+                fromNodeId: parentRel.fromNode.id,
+                toNodeId: childRel.toNode.id,
+                relationType: childRel.relationType
+              }
+            });
+          }
+        }
+        
+        // Delete the node's relationships first
+        await tx.nodeRelationship.deleteMany({
+          where: {
+            OR: [
+              { fromNodeId: nodeId },
+              { toNodeId: nodeId }
+            ]
+          }
+        });
+
+        // Delete the node's notes
+        await tx.note.deleteMany({
+          where: { nodeId }
+        });
+        
+        // Finally delete the node itself
+        return tx.node.delete({
+          where: { id: nodeId }
+        });
+      });
+  }
+}
+
+// Helper functions
+async function getDescendantNodes(nodeId: string) {
+  const descendants = new Set<string>();
+  const visited = new Set<string>();
+  
+  async function collectDescendants(currentId: string) {
+    if (visited.has(currentId)) return; // Prevent cycles
+    visited.add(currentId);
+
+    // Get all outgoing relationships from this node
+    const relationships = await prisma.nodeRelationship.findMany({
+      where: {
+        fromNodeId: currentId,
+      },
+      include: {
+        toNode: true
+      }
+    });
+
+    for (const rel of relationships) {
+      const childId = rel.toNode.id;
+      if (!descendants.has(childId)) {
+        descendants.add(childId);
+        // Recursively get descendants of this child
+        await collectDescendants(childId);
+      }
+    }
+  }
+
+  await collectDescendants(nodeId);
+  
+  return prisma.node.findMany({
+    where: {
+      id: {
+        in: Array.from(descendants)
+      }
+    }
+  });
+}
+
+// Update getParentNode to look for any incoming relationships
+async function getParentNode(nodeId: string) {
+  return prisma.nodeRelationship.findFirst({
+    where: {
+      toNodeId: nodeId,
+    },
+    include: {
+      fromNode: true
+    }
+  });
+}
+
+// Update getChildNodes to look for any outgoing relationships
+async function getChildNodes(nodeId: string) {
+  return prisma.nodeRelationship.findMany({
+    where: {
+      fromNodeId: nodeId,
+    },
+    include: {
+      toNode: true
     }
   });
 }

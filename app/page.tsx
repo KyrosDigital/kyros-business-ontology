@@ -214,16 +214,23 @@ export default function Home() {
 
   const handleDeleteNode = async (nodeId: string) => {
     try {
-      const response = await fetch(`/api/v1/ontology/nodes/${nodeId}`, {
+      const response = await fetch(`/api/v1/ontology/${nodeId}`, {
         method: 'DELETE',
       });
       
       if (!response.ok) throw new Error('Failed to delete node');
       
-      // Refresh data
-      const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
-      setOntologyData(updatedData);
-      setNodes(updatedData);
+      // Update the state to remove the deleted node and its relationships
+      setOntologyData(prev => ({
+        nodes: prev!.nodes.filter(node => node.id !== nodeId),
+        relationships: prev!.relationships.filter(rel => 
+          rel.source.id !== nodeId && rel.target.id !== nodeId
+        )
+      }));
+      setNodes(prev => prev.filter(node => node.id !== nodeId));
+      
+      // Close any open panels
+      handleClosePanel();
     } catch (error) {
       console.error('Error deleting node:', error);
     }
@@ -383,6 +390,7 @@ export default function Home() {
         onCreateNode={handleCreateNode}
         refreshNode={refreshNode}
         onNodeUpdate={handleNodeUpdate}
+        onDeleteNode={handleDeleteNode}
       />
 
       <AiChat ontologyData={ontologyData as OntologyData} />
