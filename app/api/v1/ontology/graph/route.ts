@@ -4,14 +4,7 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   try {
     const data = await getGraphData();
-    
-    // Create response with cache headers
-    const response = NextResponse.json(data);
-    
-    // Add cache control headers
-    response.headers.set('Cache-Control', 'public, max-age=31536000, immutable');
-    
-    return response;
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching graph data:', error);
     return NextResponse.json(

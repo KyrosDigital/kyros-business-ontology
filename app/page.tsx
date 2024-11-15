@@ -9,38 +9,9 @@ import { AiChat } from '@/components/ui/ai-chat';
 import { NodePanel } from '@/components/ui/node-panel';
 import { OntologyTable } from "@/components/ui/ontology-table"
 import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
-import { NodeData, OntologyData, NodeRelationship, NodeType, ApiNodeResponse } from '@/types/graph';
+import { NodeData, OntologyData, NodeType } from '@/types/graph';
 import { LayoutSelect, LAYOUT_OPTIONS } from '@/components/ui/layout-select';
 import type { LayoutOptions as LayoutConfig } from 'cytoscape';
-import { cache } from 'react'
-
-// Create a cached version of the fetch function
-const getOntologyData = cache(async () => {
-  const response = await fetch('/api/v1/ontology/graph', {
-    // Add cache headers
-    headers: {
-      'Cache-Control': 'public, max-age=31536000, immutable',
-    },
-  });
-  const data = await response.json();
-  
-  // Transform the data
-  const transformedData: OntologyData = {
-    nodes: data.nodes.map((node: NodeData) => ({
-      id: node.id,
-      type: node.type,
-      name: node.name
-    })),
-    relationships: data.relationships.map((rel: { id: string; fromNodeId: string; toNodeId: string; relationType: string }) => ({
-      id: rel.id,
-      source: { id: rel.fromNodeId },
-      target: { id: rel.toNodeId },
-      relationType: rel.relationType
-    }))
-  };
-  
-  return transformedData;
-});
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -53,6 +24,25 @@ export default function Home() {
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
   const [isDataReady, setIsDataReady] = useState(false);
   const [currentLayout, setCurrentLayout] = useState<LayoutConfig>(LAYOUT_OPTIONS.breadthfirst);
+
+  const getOntologyData = async () => {
+    const response = await fetch('/api/v1/ontology/graph');
+    const data = await response.json();
+    
+    return {
+      nodes: data.nodes.map((node: NodeData) => ({
+        id: node.id,
+        type: node.type,
+        name: node.name
+      })),
+      relationships: data.relationships.map((rel: any) => ({
+        id: rel.id,
+        source: { id: rel.fromNodeId },
+        target: { id: rel.toNodeId },
+        relationType: rel.relationType
+      }))
+    };
+  };
 
   // Replace the useEffect data fetching with this
   useEffect(() => {
