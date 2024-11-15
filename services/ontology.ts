@@ -114,7 +114,23 @@ export async function connectNodes(
 
 // Add this new function for graph-specific data
 export async function getGraphData() {
-  const nodes = await prisma.node.findMany({});
+  const nodes = await prisma.node.findMany({
+    include: {
+      notes: {
+        orderBy: {
+          createdAt: 'desc'
+        },
+        select: {
+          id: true,
+          content: true,
+          author: true,
+          nodeId: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      }
+    }
+  });
 
   const relationships = await prisma.nodeRelationship.findMany({});
 

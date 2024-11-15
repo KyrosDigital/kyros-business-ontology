@@ -153,6 +153,8 @@ export function initializeGraph(
       // Find the complete node data with relationships
       const nodeData = data.nodes.find(n => n.id === nodeId);
       if (nodeData) {
+
+        console.log('nodeData', nodeData);
         // Ensure the node data includes relationships
         const completeNodeData: NodeData = {
           ...nodeData,

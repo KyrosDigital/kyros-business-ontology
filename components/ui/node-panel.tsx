@@ -435,7 +435,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
             </div>
           )}
           
-          {selectedNode?.notes && (
+          {selectedNode && (
             <div>
               <div className="flex justify-between items-center mb-3">
                 <h3 className="text-sm font-medium text-gray-500">Notes</h3>
@@ -467,9 +467,9 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
 
               {/* Display existing notes */}
               <div className="space-y-4">
-                {selectedNode.notes.length > 0 ? (
-                  selectedNode.notes.map((note: Note, index: number) => (
-                    <Card key={index} className="p-3">
+                {selectedNode.notes && selectedNode.notes.length > 0 ? (
+                  selectedNode.notes.map((note: Note) => (
+                    <Card key={note.id} className="p-3">
                       <p className="text-gray-700">{note.content}</p>
                       <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
                         {note.author && <span>By: {note.author}</span>}
