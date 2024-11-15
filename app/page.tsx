@@ -308,6 +308,36 @@ export default function Home() {
     }
   };
 
+  const refreshGraph = async () => {
+    try {
+      const response = await fetch('/api/v1/ontology/graph');
+      if (!response.ok) {
+        throw new Error('Failed to fetch graph data');
+      }
+      const data = await response.json();
+      
+      // Transform the data to match the expected format
+      const transformedData: OntologyData = {
+        nodes: data.nodes.map((node: any) => ({
+          id: node.id,
+          type: node.type,
+          name: node.name
+        })),
+        relationships: data.relationships.map((rel: any) => ({
+          id: rel.id,
+          source: { id: rel.fromNodeId },
+          target: { id: rel.toNodeId },
+          relationType: rel.relationType
+        }))
+      };
+
+      setOntologyData(transformedData);
+      setNodes(transformedData.nodes);
+    } catch (error) {
+      console.error('Error refreshing graph:', error);
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       <Legend 
@@ -391,6 +421,7 @@ export default function Home() {
         refreshNode={refreshNode}
         onNodeUpdate={handleNodeUpdate}
         onDeleteNode={handleDeleteNode}
+        refreshGraph={refreshGraph}
       />
 
       <AiChat ontologyData={ontologyData as OntologyData} />

@@ -63,22 +63,7 @@ export async function updateNode(nodeId: string, data: Partial<CreateNodeData>) 
 }
 
 export async function deleteNode(nodeId: string) {
-  // First delete all relationships
-  await prisma.nodeRelationship.deleteMany({
-    where: {
-      OR: [
-        { fromNodeId: nodeId },
-        { toNodeId: nodeId }
-      ]
-    }
-  });
-
-  // Then delete all notes
-  await prisma.note.deleteMany({
-    where: { nodeId }
-  });
-
-  // Finally delete the node, but check if it exists first
+  // Check if node exists first
   const nodeExists = await prisma.node.findUnique({
     where: { id: nodeId }
   });
@@ -89,7 +74,7 @@ export async function deleteNode(nodeId: string) {
     });
   }
   
-  return null; // Return null if node doesn't exist
+  return null;
 }
 
 // Relationship Operations
@@ -346,9 +331,38 @@ export async function getNodeWithDetails(nodeId: string) {
 
 // Add these new functions to handle different deletion strategies
 export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' | 'cascade' | 'reconnect') {
+  // First verify the node exists before starting any transaction
+  const nodeExists = await prisma.node.findUnique({
+    where: { id: nodeId }
+  });
+
+  if (!nodeExists) {
+    return null;
+  }
+
   switch (strategy) {
     case 'orphan':
-      return deleteNode(nodeId);
+      return prisma.$transaction(async (tx) => {
+        // Delete all notes first
+        await tx.note.deleteMany({
+          where: { nodeId }
+        });
+
+        // Delete all relationships where this node is involved
+        await tx.nodeRelationship.deleteMany({
+          where: {
+            OR: [
+              { fromNodeId: nodeId },
+              { toNodeId: nodeId }
+            ]
+          }
+        });
+
+        // Finally delete the node itself
+        return tx.node.delete({
+          where: { id: nodeId }
+        });
+      });
 
     case 'cascade':
       return prisma.$transaction(async (tx) => {
@@ -489,3 +503,4 @@ async function getChildNodes(nodeId: string) {
     }
   });
 }
+

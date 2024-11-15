@@ -17,6 +17,7 @@ interface NodePanelProps {
   refreshNode: (nodeId: string) => Promise<void>;
   onNodeUpdate: (nodeId: string, updatedData: Partial<NodeData>) => void;
   onDeleteNode: (nodeId: string) => void;
+  refreshGraph: () => Promise<void>;
 }
 
 interface CreateFormData {
@@ -42,7 +43,7 @@ const hasChildren = (node: NodeData | null): boolean => {
   return node.fromRelations.length > 0;
 };
 
-export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode, onNodeUpdate, onDeleteNode }: NodePanelProps) {
+export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode, onNodeUpdate, onDeleteNode, refreshGraph }: NodePanelProps) {
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
     
@@ -254,6 +255,8 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
       setIsAlertOpen(false);
       onDeleteNode(selectedNode!.id);
       handleClose();
+      
+      await refreshGraph();
     } catch (error) {
       console.error('Error deleting node:', error);
     }

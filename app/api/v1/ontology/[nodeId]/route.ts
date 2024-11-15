@@ -46,16 +46,23 @@ export async function DELETE(
 ) {
   try {
     const nodeId = params.nodeId;
-    let strategy: 'orphan' | 'cascade' | 'reconnect' = 'orphan'; // Default strategy
+    let strategy: 'orphan' | 'cascade' | 'reconnect' = 'orphan';
     
-    try {
+    const contentType = request.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
       const body = await request.json();
-      strategy = body.strategy;
-    } catch (error) {
-      console.warn('No strategy provided, using default "orphan" strategy');
+      strategy = body.strategy || 'orphan';
     }
     
-    await deleteNodeWithStrategy(nodeId, strategy);
+    const result = await deleteNodeWithStrategy(nodeId, strategy);
+    
+    if (result === null) {
+      return new Response(JSON.stringify({ error: 'Node not found' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(null, { status: 204 });
   } catch (error) {
     console.error('Error deleting node:', error);
