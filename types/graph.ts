@@ -24,18 +24,41 @@ export interface Note {
 
 export interface NodeData {
   id: string;
-  type: NodeType;
   name: string;
+  type: NodeType;
   description?: string;
-  metadata?: InputJsonValue;
+  metadata?: Record<string, any>;
   notes?: Note[];
-  fromRelations?: NodeRelationship[];
-  toRelations?: NodeRelationship[];
-  createdAt?: Date;
-  updatedAt?: Date;
+  fromRelations?: {
+    toNode: {
+      id: string;
+      name: string;
+      type: NodeType;
+      description?: string;
+      metadata?: Record<string, any>;
+    };
+    relationType: string;
+  }[];
+  toRelations?: {
+    fromNode: {
+      id: string;
+      name: string;
+      type: NodeType;
+      description?: string;
+      metadata?: Record<string, any>;
+    };
+    relationType: string;
+  }[];
+  responsibilities?: string;
 }
 
 export interface OntologyData {
   nodes: NodeData[];
   relationships: NodeRelationship[];
+}
+
+export enum DeletionStrategy {
+  ORPHAN = 'orphan',
+  CASCADE = 'cascade',
+  RECONNECT = 'reconnect'
 }

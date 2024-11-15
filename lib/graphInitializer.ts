@@ -153,7 +153,24 @@ export function initializeGraph(
       // Find the complete node data with relationships
       const nodeData = data.nodes.find(n => n.id === nodeId);
       if (nodeData) {
-        setSelectedNode(nodeData);
+        // Ensure the node data includes relationships
+        const completeNodeData: NodeData = {
+          ...nodeData,
+          fromRelations: data.relationships
+            .filter(rel => rel.fromNodeId === nodeId)
+            .map(rel => ({
+              toNode: data.nodes.find(n => n.id === rel.toNodeId)!,
+              relationType: rel.relationType
+            })),
+          toRelations: data.relationships
+            .filter(rel => rel.toNodeId === nodeId)
+            .map(rel => ({
+              fromNode: data.nodes.find(n => n.id === rel.fromNodeId)!,
+              relationType: rel.relationType
+            }))
+        };
+        
+        setSelectedNode(completeNodeData);
         setSelectedNodeId(nodeId);
         setIsPanelOpen(true);
       }

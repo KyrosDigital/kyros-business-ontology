@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X, Plus, Pencil } from "lucide-react";
-import { NodeData, Note, NodeType } from '@/types/graph';
+import { NodeData, Note, NodeType, DeletionStrategy } from '@/types/graph';
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -57,7 +57,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     const connectedNodes: ConnectedNode[] = [];
     
     // Get nodes from outgoing relationships (fromRelations)
-    if (selectedNode.fromRelations) {
+    if (selectedNode.fromRelations && Array.isArray(selectedNode.fromRelations)) {
       const outgoingNodes = selectedNode.fromRelations.map((rel) => ({
         id: rel.toNode.id,
         name: rel.toNode.name,
@@ -71,7 +71,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     }
 
     // Get nodes from incoming relationships (toRelations)
-    if (selectedNode.toRelations) {
+    if (selectedNode.toRelations && Array.isArray(selectedNode.toRelations)) {
       const incomingNodes = selectedNode.toRelations.map((rel) => ({
         id: rel.fromNode.id,
         name: rel.fromNode.name,
@@ -130,6 +130,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   };
 
   const handleAddNote = async () => {
+    if (!selectedNode) return;
     try {
       const response = await fetch('/api/v1/ontology/add-note', {
         method: 'POST',
@@ -159,6 +160,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   };
 
   const handleUpdateDescription = async () => {
+    if (!selectedNode) return;
     try {
       const response = await fetch(`/api/v1/ontology/${selectedNode.id}`, {
         method: 'PATCH',
@@ -179,6 +181,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   };
 
   const handleUpdateType = async () => {
+    if (!selectedNode) return;
     try {
       const response = await fetch(`/api/v1/ontology/${selectedNode.id}`, {
         method: 'PATCH',
