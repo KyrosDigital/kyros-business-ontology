@@ -206,13 +206,9 @@ export default function Home() {
         throw new Error('Failed to delete node');
       }
       
-      // Update the state to remove the deleted node and its relationships
-      setOntologyData(prev => ({
-        nodes: prev!.nodes.filter(node => node.id !== nodeId),
-        relationships: prev!.relationships.filter(rel => 
-          rel.fromNodeId !== nodeId && rel.toNodeId !== nodeId
-        )
-      }));
+      // Fetch fresh graph data after deletion
+      const updatedData = await fetch('/api/v1/ontology/graph').then(res => res.json());
+      setOntologyData(updatedData);
       
       // Don't call handleClosePanel here - let the NodePanel handle it
     } catch (error) {

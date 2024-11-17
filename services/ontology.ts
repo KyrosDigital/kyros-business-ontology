@@ -264,15 +264,27 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
         const childRels = await getChildNodes(nodeId);
         
         if (parentRel) {
-          // Reconnect each child to the parent
+          // Reconnect each child to the parent, but check for existing relationships first
           for (const childRel of childRels) {
-            await tx.nodeRelationship.create({
-              data: {
+            // Check if relationship already exists
+            const existingRelationship = await tx.nodeRelationship.findFirst({
+              where: {
                 fromNodeId: parentRel.fromNode.id,
                 toNodeId: childRel.toNode.id,
                 relationType: childRel.relationType
               }
             });
+
+            // Only create the relationship if it doesn't already exist
+            if (!existingRelationship) {
+              await tx.nodeRelationship.create({
+                data: {
+                  fromNodeId: parentRel.fromNode.id,
+                  toNodeId: childRel.toNode.id,
+                  relationType: childRel.relationType
+                }
+              });
+            }
           }
         }
         
