@@ -57,8 +57,4 @@ export interface OntologyData {
   relationships: NodeRelationship[];
 }
 
-export enum DeletionStrategy {
-  ORPHAN = 'orphan',
-  CASCADE = 'cascade',
-  RECONNECT = 'reconnect'
-}
+export type DeletionStrategy = 'orphan' | 'cascade' | 'reconnect';

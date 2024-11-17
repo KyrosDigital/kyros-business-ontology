@@ -16,7 +16,7 @@ interface NodePanelProps {
   onCreateNode: (nodeData: Partial<NodeData>) => void;
   refreshNode: (nodeId: string) => Promise<void>;
   onNodeUpdate: (nodeId: string, updatedData: Partial<NodeData>) => void;
-  onDeleteNode: (nodeId: string) => void;
+  onDeleteNode: (nodeId: string, strategy: DeletionStrategy) => void;
   refreshGraph: () => Promise<void>;
 }
 
@@ -203,23 +203,9 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
 
   const handleDeleteNode = async (strategy: DeletionStrategy) => {
     try {
-      const response = await fetch(`/api/v1/ontology/${selectedNode?.id}`, {
-        method: 'DELETE',
-        headers: { 
-          'Content-Type': 'application/json' 
-        },
-        body: JSON.stringify({ strategy })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete node');
-      }
-
+      await onDeleteNode(selectedNode!.id, strategy);
       setIsAlertOpen(false);
-      onDeleteNode(selectedNode!.id);
       handleClose();
-      
-      await refreshGraph();
     } catch (error) {
       console.error('Error deleting node:', error);
     }

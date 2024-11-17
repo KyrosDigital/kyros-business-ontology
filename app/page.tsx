@@ -192,13 +192,19 @@ export default function Home() {
     }
   };
 
-  const handleDeleteNode = async (nodeId: string) => {
+  const handleDeleteNode = async (nodeId: string, strategy: 'orphan' | 'cascade' | 'reconnect' = 'orphan') => {
     try {
       const response = await fetch(`/api/v1/ontology/${nodeId}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ strategy })
       });
       
-      if (!response.ok) throw new Error('Failed to delete node');
+      if (!response.ok && response.status !== 204) {
+        throw new Error('Failed to delete node');
+      }
       
       // Update the state to remove the deleted node and its relationships
       setOntologyData(prev => ({
@@ -208,10 +214,10 @@ export default function Home() {
         )
       }));
       
-      // Close any open panels
-      handleClosePanel();
+      // Don't call handleClosePanel here - let the NodePanel handle it
     } catch (error) {
       console.error('Error deleting node:', error);
+      throw error; // Re-throw to let NodePanel handle the error
     }
   };
 
