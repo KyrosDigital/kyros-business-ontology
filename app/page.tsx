@@ -150,21 +150,31 @@ export default function Home() {
       
       // Update the state directly with the new node instead of fetching all data again
       if (ontologyData) {
-        setOntologyData(prevData => ({
-          nodes: [...prevData!.nodes, newNode],
-          relationships: [
-            ...prevData!.relationships,
-            // Add the parent-child relationship with correct structure
-            {
-              id: `${selectedNode.id}-${newNode.id}`,
-              fromNodeId: selectedNode.id,
-              toNodeId: newNode.id,
-              relationType: 'PARENT_CHILD',
-              fromNode: selectedNode,
-              toNode: newNode
-            }
-          ]
-        }));
+        setOntologyData(prevData => {
+          if (!prevData) return prevData;
+          
+          // Get the relationship from the newNode's toRelations
+          const relationship = newNode.toRelations?.[0];
+          if (!relationship) {
+            console.error('No relationship found in new node data');
+            return prevData;
+          }
+
+          return {
+            nodes: [...prevData.nodes, newNode],
+            relationships: [
+              ...prevData.relationships,
+              {
+                id: `${selectedNode.id}-${newNode.id}`,
+                fromNodeId: selectedNode.id,
+                toNodeId: newNode.id,
+                relationType: relationship.relationType,
+                fromNode: selectedNode,
+                toNode: newNode
+              }
+            ]
+          };
+        });
       }
 
       // Refresh the selected node to show updated relationships

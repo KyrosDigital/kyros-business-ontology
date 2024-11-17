@@ -1,5 +1,6 @@
 import { prisma } from '@/prisma/prisma-client'
 import { NodeType } from '@prisma/client'
+import { determineRelationType } from '@/types/graph'
 
 // Types
 type InputJsonValue = string | number | boolean | null | { [key: string]: InputJsonValue } | InputJsonValue[];
@@ -58,13 +59,17 @@ export async function getOntologyData() {
 }
 
 // Add new function to create child node with relationship
-export async function createChildNode(parentId: string, data: CreateNodeData) {
+export async function createChildNode(
+  parentId: string, 
+  data: CreateNodeData,
+  relationType: string
+) {
   if (!parentId) {
     throw new Error('Parent ID is required');
   }
 
   return prisma.$transaction(async (tx) => {
-    // First create the child node
+    // Create the child node
     const childNode = await tx.node.create({
       data: {
         type: data.type,
@@ -74,12 +79,12 @@ export async function createChildNode(parentId: string, data: CreateNodeData) {
       }
     });
 
-    // Then create the relationship
+    // Create the relationship with the user-provided type
     await tx.nodeRelationship.create({
       data: {
         fromNodeId: parentId,
         toNodeId: childNode.id,
-        relationType: 'PARENT_CHILD'
+        relationType
       }
     });
 

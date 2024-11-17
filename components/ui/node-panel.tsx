@@ -24,6 +24,7 @@ interface CreateFormData {
   name: string;
   description?: string;
   type: NodeType | '';
+  relationType: string;
 }
 
 interface ConnectedNode {
@@ -48,7 +49,8 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const [formData, setFormData] = useState<CreateFormData>({
     name: '',
     description: '',
-    type: ''
+    type: '',
+    relationType: ''
   });
   
   const getConnectedNodes = () => {
@@ -108,15 +110,15 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   };
 
   const handleCreateNode = async () => {
-    if (!formData.name || !formData.type) return;
+    if (!formData.name || !formData.type || !formData.relationType) return;
 
     onCreateNode({
       type: formData.type as NodeType,
       name: formData.name,
-      description: formData.description
+      description: formData.description,
+      relationType: formData.relationType
     });
 
-    // Reset form and creation state
     setIsCreating(false);
     resetForm();
   };
@@ -125,7 +127,8 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     setFormData({
       name: '',
       description: '',
-      type: ''
+      type: '',
+      relationType: ''
     });
   };
 
@@ -497,8 +500,8 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                   required
                 >
                   <option value="">Select Type</option>
-                  {getChildTypeForParent(selectedNode.type).map((type) => (
-                    <option key={type} value={type}>{type}</option>
+                  {Object.values(NodeType).map((type) => (
+                    <option key={type} value={type}>{formatNodeType(type)}</option>
                   ))}
                 </select>
 
@@ -506,6 +509,13 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                   placeholder="Name"
                   value={formData.name}
                   onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  required
+                />
+
+                <Input
+                  placeholder="Relationship Type (e.g., manages, uses, depends_on)"
+                  value={formData.relationType}
+                  onChange={(e) => setFormData(prev => ({ ...prev, relationType: e.target.value }))}
                   required
                 />
 
@@ -518,7 +528,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                 <div className="flex space-x-2">
                   <Button 
                     onClick={handleCreateNode}
-                    disabled={!formData.name}
+                    disabled={!formData.name || !formData.type || !formData.relationType}
                   >
                     Create
                   </Button>
