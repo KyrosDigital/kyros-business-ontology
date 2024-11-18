@@ -56,6 +56,27 @@ interface GraphProviderProps {
   children: ReactNode;
 }
 
+// Add these new utility functions at the top of the GraphProvider
+const addOrUpdateNode = (nodes: NodeData[], newNode: NodeData): NodeData[] => {
+  const index = nodes.findIndex(n => n.id === newNode.id);
+  if (index === -1) {
+    return [...nodes, newNode];
+  }
+  const updatedNodes = [...nodes];
+  updatedNodes[index] = { ...nodes[index], ...newNode };
+  return updatedNodes;
+};
+
+const addOrUpdateRelationship = (relationships: NodeRelationship[], newRel: NodeRelationship): NodeRelationship[] => {
+  const index = relationships.findIndex(r => r.id === newRel.id);
+  if (index === -1) {
+    return [...relationships, newRel];
+  }
+  const updatedRels = [...relationships];
+  updatedRels[index] = { ...relationships[index], ...newRel };
+  return updatedRels;
+};
+
 export function GraphProvider({ children }: GraphProviderProps) {
   // Graph Data State
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
@@ -90,34 +111,27 @@ export function GraphProvider({ children }: GraphProviderProps) {
       
       const newNode = await response.json();
       
-      if (ontologyData) {
-        setOntologyData(prevData => {
-          if (!prevData) return prevData;
-          
-          const relationship = newNode.toRelations?.[0];
-          if (!relationship) {
-            console.error('No relationship found in new node data');
-            return prevData;
-          }
+      setOntologyData(prevData => {
+        if (!prevData) return prevData;
+        
+        const relationship = newNode.toRelations?.[0];
+        if (!relationship) return prevData;
 
-          return {
-            nodes: [...prevData.nodes, newNode],
-            relationships: [
-              ...prevData.relationships,
-              {
-                id: `${selectedNode.id}-${newNode.id}`,
-                fromNodeId: selectedNode.id,
-                toNodeId: newNode.id,
-                relationType: relationship.relationType,
-                fromNode: selectedNode,
-                toNode: newNode
-              }
-            ]
-          };
-        });
-      }
+        const updatedNodes = addOrUpdateNode(prevData.nodes, newNode);
+        const newRelationship = {
+          id: `${selectedNode.id}-${newNode.id}`,
+          fromNodeId: selectedNode.id,
+          toNodeId: newNode.id,
+          relationType: relationship.relationType,
+          fromNode: selectedNode,
+          toNode: newNode
+        };
 
-      await refreshNode(selectedNode.id);
+        return {
+          nodes: updatedNodes,
+          relationships: addOrUpdateRelationship(prevData.relationships, newRelationship)
+        };
+      });
     } catch (error) {
       console.error('Error creating node:', error);
     }
@@ -133,7 +147,15 @@ export function GraphProvider({ children }: GraphProviderProps) {
       
       if (!response.ok) throw new Error('Failed to update node');
       
-      await refreshGraph();
+      const updatedNode = await response.json();
+      
+      setOntologyData(prevData => {
+        if (!prevData) return prevData;
+        return {
+          ...prevData,
+          nodes: addOrUpdateNode(prevData.nodes, updatedNode)
+        };
+      });
     } catch (error) {
       console.error('Error updating node:', error);
     }
@@ -143,9 +165,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
     try {
       const response = await fetch(`/api/v1/ontology/${nodeId}`, {
         method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ strategy })
       });
       
@@ -153,10 +173,17 @@ export function GraphProvider({ children }: GraphProviderProps) {
         throw new Error('Failed to delete node');
       }
       
-      await refreshGraph();
+      setOntologyData(prevData => {
+        if (!prevData) return prevData;
+        return {
+          nodes: prevData.nodes.filter(n => n.id !== nodeId),
+          relationships: prevData.relationships.filter(r => 
+            r.fromNodeId !== nodeId && r.toNodeId !== nodeId
+          )
+        };
+      });
     } catch (error) {
       console.error('Error deleting node:', error);
-      throw error;
     }
   };
 
@@ -172,15 +199,19 @@ export function GraphProvider({ children }: GraphProviderProps) {
         }),
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to create relationship');
-      }
-
-      await refreshGraph();
+      if (!response.ok) throw new Error('Failed to create relationship');
+      
+      const newRelationship = await response.json();
+      
+      setOntologyData(prevData => {
+        if (!prevData) return prevData;
+        return {
+          ...prevData,
+          relationships: addOrUpdateRelationship(prevData.relationships, newRelationship)
+        };
+      });
     } catch (error) {
       console.error('Error creating relationship:', error);
-      throw error;
     }
   };
 
@@ -205,7 +236,15 @@ export function GraphProvider({ children }: GraphProviderProps) {
         relationType: newType
       } : null);
 
-      await refreshGraph();
+      const updatedRelationship = await response.json();
+      
+      setOntologyData(prevData => {
+        if (!prevData) return prevData;
+        return {
+          ...prevData,
+          relationships: addOrUpdateRelationship(prevData.relationships, updatedRelationship)
+        };
+      });
     } catch (error) {
       console.error('Error updating relationship:', error);
     }
@@ -230,7 +269,15 @@ export function GraphProvider({ children }: GraphProviderProps) {
         throw new Error('Failed to delete relationship');
       }
 
-      await refreshGraph();
+      setOntologyData(prevData => {
+        if (!prevData) return prevData;
+        return {
+          ...prevData,
+          relationships: prevData.relationships.filter(r => 
+            r.fromNodeId !== selectedRelationship.sourceNode.id && r.toNodeId !== selectedRelationship.targetNode.id
+          )
+        };
+      });
       setSelectedRelationship(null);
     } catch (error) {
       console.error('Error deleting relationship:', error);
@@ -252,8 +299,8 @@ export function GraphProvider({ children }: GraphProviderProps) {
     try {
       const response = await fetch(`/api/v1/ontology/graph?t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch graph data');
-      const data = await response.json();
-      setOntologyData(data);
+      const newData = await response.json();
+      setOntologyData(newData);
     } catch (error) {
       console.error('Error refreshing graph:', error);
     }

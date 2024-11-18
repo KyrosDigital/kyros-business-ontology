@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { Download } from "lucide-react";
 import { initializeGraph } from '@/lib/graphInitializer';
 import { useGraph } from '@/contexts/GraphContext';
+import type { Core } from 'cytoscape';
 
 export function Graph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphInitializedRef = useRef(false);
+  const cyRef = useRef<Core | null>(null);
   
   const {
     ontologyData,
@@ -35,92 +37,70 @@ export function Graph() {
       isDataReady && 
       ontologyData.nodes.length > 0
     ) {
-      // Add a small delay to ensure the container is properly mounted
-      const timer = setTimeout(() => {
-        try {
-          cleanup = initializeGraph(
-            containerRef.current!,
-            window.innerWidth,
-            window.innerHeight,
-            ontologyData,
-            handleClosePanel,
-            setSelectedNodeId,
-            setSelectedNode,
-            setIsPanelOpen,
-            setSelectedRelationship,
-            currentLayout,
-            handleCreateRelationship
-          );
-          graphInitializedRef.current = true;
-        } catch (error) {
-          console.error('Error initializing graph:', error);
-        }
-      }, 100);
+      console.log('Initializing graph...');
+      
+      cleanup = initializeGraph(
+        containerRef.current,
+        window.innerWidth,
+        window.innerHeight,
+        ontologyData,
+        handleClosePanel,
+        setSelectedNodeId,
+        setSelectedNode,
+        setIsPanelOpen,
+        setSelectedRelationship,
+        currentLayout,
+        handleCreateRelationship
+      );
 
-      return () => {
-        clearTimeout(timer);
-        if (cleanup) cleanup();
-      };
+      graphInitializedRef.current = true;
+      cyRef.current = containerRef.current.__cy || null;
     }
 
-    return cleanup;
-  }, [ontologyData, isDataReady]); // Only depend on data readiness
-
-  // Handle layout changes separately
-  useEffect(() => {
-    if (graphInitializedRef.current && containerRef.current?.__cy) {
-      const cy = containerRef.current.__cy;
-      cy.layout(currentLayout).run();
-    }
-  }, [currentLayout]);
-
-  // Handle legend selection highlighting
-  useEffect(() => {
-    if (graphInitializedRef.current && containerRef.current?.__cy) {
-      const cy = containerRef.current.__cy;
-      
-      // Reset styles
-      cy.elements().removeClass('highlighted faded');
-      
-      if (selectedType) {
-        // Find nodes of selected type
-        const matchingNodes = cy.nodes(`[type = "${selectedType}"]`);
-        
-        // Fade all elements first
-        cy.elements().addClass('faded');
-        
-        // Remove faded class from matching nodes only
-        matchingNodes.removeClass('faded');
+    return () => {
+      if (cleanup) {
+        cleanup();
       }
-    }
-  }, [selectedType]);
+    };
+  }, [isDataReady]); // Only depend on isDataReady
 
-  // Update graph data without reinitializing
+  // Separate effect for handling data updates
   useEffect(() => {
-    if (graphInitializedRef.current && containerRef.current?.__cy && ontologyData) {
-      const cy = containerRef.current.__cy;
-      
-      // Update nodes and edges without reinitializing the entire graph
-      const existingNodes = new Set(cy.nodes().map(node => node.id()));
-      const existingEdges = new Set(cy.edges().map(edge => edge.id()));
+    if (!ontologyData || !isDataReady || !graphInitializedRef.current || !cyRef.current) {
+      return;
+    }
 
-      // Add new nodes
+    const cy = cyRef.current;
+    console.log('Updating graph data...');
+    
+    // Store current viewport state
+    const zoom = cy.zoom();
+    const pan = cy.pan();
+    
+    // Batch all updates
+    cy.batch(() => {
+      // Update nodes
       ontologyData.nodes.forEach(node => {
-        if (!existingNodes.has(node.id)) {
+        const existingNode = cy.getElementById(node.id);
+        if (existingNode.length === 0) {
           cy.add({
             group: 'nodes',
             data: {
               id: node.id,
               type: node.type,
               name: node.name,
-            }
+            },
+            position: existingNode.position() || undefined
           });
+        } else {
+          existingNode.data(node);
         }
       });
 
-      // Add new edges
+      // Update edges
       ontologyData.relationships.forEach(rel => {
-        if (!existingEdges.has(rel.id)) {
+        const existingEdge = cy.getElementById(rel.id);
+        if (existingEdge.length === 0) {
           cy.add({
             group: 'edges',
             data: {
@@ -130,32 +110,51 @@ export function Graph() {
               relationType: rel.relationType
             }
           });
+        } else {
+          existingEdge.data({
+            source: rel.fromNodeId,
+            target: rel.toNodeId,
+            relationType: rel.relationType
+          });
         }
       });
 
-      // Remove deleted nodes/edges
-      cy.nodes().forEach(node => {
-        if (!ontologyData.nodes.some(n => n.id === node.id())) {
-          node.remove();
+      // Remove deleted elements
+      cy.elements().forEach(ele => {
+        const elementId = ele.id();
+        if (ele.isNode() && !ontologyData.nodes.some(n => n.id === elementId)) {
+          ele.remove();
+        } else if (ele.isEdge() && !ontologyData.relationships.some(r => r.id === elementId)) {
+          ele.remove();
         }
       });
+    });
 
-      cy.edges().forEach(edge => {
-        if (!ontologyData.relationships.some(r => r.id === edge.id())) {
-          edge.remove();
-        }
-      });
-
-      // Run layout only if there were changes
-      cy.layout(currentLayout).run();
+    // Only run layout if elements changed
+    const elementsChanged = cy.elements().length !== ontologyData.nodes.length + ontologyData.relationships.length;
+    
+    if (elementsChanged) {
+      cy.layout({
+        ...currentLayout,
+        animate: false,
+        fit: false
+      }).run();
     }
-  }, [ontologyData, currentLayout]);
+
+    // Restore viewport state
+    cy.viewport({
+      zoom: zoom,
+      pan: pan
+    });
+  }, [ontologyData]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (containerRef.current?.__cy) {
-        containerRef.current.__cy.destroy();
+      if (cyRef.current) {
+        console.log('Cleaning up graph...');
+        cyRef.current.destroy();
+        cyRef.current = null;
         graphInitializedRef.current = false;
       }
     };
@@ -197,7 +196,7 @@ export function Graph() {
         ref={containerRef}
         className="w-full h-full"
         style={{ 
-          visibility: isDataReady ? 'visible' : 'hidden',
+          visibility: isDataReady && graphInitializedRef.current ? 'visible' : 'hidden',
           position: 'absolute',
           top: 0,
           left: 0,
@@ -206,7 +205,7 @@ export function Graph() {
         }}
       />
       
-      {!isDataReady && (
+      {(!isDataReady || !graphInitializedRef.current) && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-lg">Loading graph...</div>
         </div>

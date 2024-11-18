@@ -3,9 +3,10 @@ import edgehandles from 'cytoscape-edgehandles';
 import { NodeData, OntologyData } from '@/types/graph';
 import { NODE_COLORS } from '@/components/ui/legend';
 import type { EdgeHandlesInstance, EdgeHandlesOptions } from 'cytoscape-edgehandles';
+import type { NodeSingular, LayoutOptions as CytoscapeLayoutOptions } from 'cytoscape';
 
 // Register the edgehandles extension
-cytoscape.use(edgehandles);
+cytoscape.use(edgehandles as any);
 
 declare global {
   interface HTMLDivElement {
@@ -52,7 +53,7 @@ export function initializeGraph(
   setSelectedNode: (node: NodeData | null) => void,
   setIsPanelOpen: (isOpen: boolean) => void,
   setSelectedRelationship: (rel: { sourceNode: NodeData; targetNode: NodeData; relationType: string; } | null) => void,
-  layout: cytoscape.LayoutOptions,
+  layout: CytoscapeLayoutOptions,
   onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => Promise<void>
 ): () => void {
   // Validate input data
@@ -61,10 +62,13 @@ export function initializeGraph(
     return () => {};
   }
 
-  // Check if there's an existing instance
+  // If there's already a Cytoscape instance, don't reinitialize
   if (container.__cy) {
-    container.__cy.destroy();
+    console.warn('Graph already initialized, skipping initialization');
+    return () => {};
   }
+
+  console.log('Creating new Cytoscape instance'); // Debug log
 
   // Set container dimensions explicitly - required for proper Cytoscape initialization
   container.style.width = `${width}px`;
@@ -233,10 +237,16 @@ export function initializeGraph(
       ],
       layout: {
         ...layout,
-        animate: false, // Disable initial layout animation
-        fit: true,     // Ensure graph fits in viewport
-        padding: 50    // Add some padding around the graph
-      }
+        animate: false,
+        fit: true,
+        padding: 50
+      },
+      wheelSensitivity: 0.2,
+      minZoom: 0.1,
+      maxZoom: 3,
+      autoungrabify: false,
+      userZoomingEnabled: true,
+      userPanningEnabled: true
     });
 
     // Add this code after the initial layout
