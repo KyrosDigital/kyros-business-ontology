@@ -12,6 +12,7 @@ declare global {
     __cy?: cytoscape.Core;
     unlockNodes?: () => void;
     ehInstance?: EdgeHandlesInstance;
+    filterByNodeType?: (nodeType: string | null) => void;
   }
 }
 
@@ -105,6 +106,20 @@ export function initializeGraph(
             'shape': 'ellipse',
             'border-width': 2,
             'border-color': '#333'
+          }
+        },
+        // Add faded state style
+        {
+          selector: 'node.faded',
+          style: {
+            'opacity': 0.3,
+            'background-color': '#cccccc'  // Override color for faded nodes
+          }
+        },
+        {
+          selector: 'edge.faded',
+          style: {
+            'opacity': 0.2
           }
         },
         // Named nodes
@@ -374,6 +389,31 @@ export function initializeGraph(
 
     document.getElementById('zoom-in')?.addEventListener('click', zoomIn);
     document.getElementById('zoom-out')?.addEventListener('click', zoomOut);
+
+    // Add this function to handle legend filtering
+    const filterByNodeType = (nodeType: string | null) => {
+      if (!cy) return;
+      
+      if (!nodeType) {
+        // Reset all nodes to their original state
+        cy.elements().removeClass('faded');
+        return;
+      }
+
+      // Find all nodes of the selected type
+      const matchingNodes = cy.nodes(`[type = "${nodeType}"]`);
+      const connectedEdges = matchingNodes.connectedEdges();
+      
+      // Fade all elements first
+      cy.elements().addClass('faded');
+      
+      // Remove faded class from matching nodes and their edges
+      matchingNodes.removeClass('faded');
+      connectedEdges.removeClass('faded');
+    };
+
+    // Store the filter function on the container
+    container.filterByNodeType = filterByNodeType;
 
     return () => {
       if (container.__cy) {
