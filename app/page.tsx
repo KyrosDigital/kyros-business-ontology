@@ -114,9 +114,16 @@ export default function Home() {
     setSelectedNodeId(null);
     
     // Get Cytoscape instance and reset styles
-    const cy = containerRef.current?.__cy;
-    if (cy) {
-      cy.elements().removeClass('highlighted faded selected');
+    const container = containerRef.current;
+    if (container) {
+      const cy = container.__cy;
+      if (cy) {
+        cy.elements().removeClass('highlighted faded selected');
+      }
+      // Unlock nodes when panel closes
+      if (container.unlockNodes) {
+        container.unlockNodes();
+      }
     }
   };
 

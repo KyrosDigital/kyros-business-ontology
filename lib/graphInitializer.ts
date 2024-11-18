@@ -1,10 +1,16 @@
 import cytoscape from 'cytoscape';
+import edgehandles from 'cytoscape-edgehandles';
 import { NodeData, OntologyData } from '@/types/graph';
 import { NODE_COLORS } from '@/components/ui/legend';
+
+// Register the edgehandles extension
+cytoscape.use(edgehandles);
 
 declare global {
   interface HTMLDivElement {
     __cy?: cytoscape.Core;
+    unlockNodes?: () => void;
+    ehInstance?: any; // for the edgehandles instance
   }
 }
 
@@ -65,7 +71,6 @@ export function initializeGraph(
         id: node.id,
         type: node.type,
         name: node.name,
-        label: node.name,
       }
     })),
     edges: data.relationships.map(rel => ({
@@ -73,7 +78,7 @@ export function initializeGraph(
         id: rel.id,
         source: rel.fromNodeId,
         target: rel.toNodeId,
-        label: rel.relationType
+        relationType: rel.relationType
       }
     }))
   };
@@ -84,23 +89,35 @@ export function initializeGraph(
       container,
       elements,
       style: [
+        // Base node style first
         {
           selector: 'node',
           style: {
-            'background-color': (ele) => NODE_COLORS[ele.data('type') as keyof typeof NODE_COLORS],
-            'label': 'data(label)',
+            'background-color': (ele) => {
+              const nodeType = ele.data('type') as keyof typeof NODE_COLORS;
+              return NODE_COLORS[nodeType] || '#cccccc';
+            },
+            'width': 30,
+            'height': 30,
+            'shape': 'ellipse',
+            'border-width': 2,
+            'border-color': '#333'
+          }
+        },
+        // Named nodes
+        {
+          selector: 'node[name]',
+          style: {
+            'label': 'data(name)',
             'text-valign': 'bottom',
             'text-halign': 'center',
             'font-size': '12px',
-            'width': 30,
-            'height': 30,
-            'border-width': 2,
-            'border-color': '#333',
             'text-background-color': 'white',
             'text-background-opacity': 0.8,
             'text-background-padding': '3px'
           }
         },
+        // Edge styles
         {
           selector: 'edge',
           style: {
@@ -108,8 +125,13 @@ export function initializeGraph(
             'line-color': '#cccccc',
             'target-arrow-color': '#cccccc',
             'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier',
-            'label': 'data(label)',
+            'curve-style': 'bezier'
+          }
+        },
+        {
+          selector: 'edge[relationType]',
+          style: {
+            'label': 'data(relationType)',
             'text-background-color': 'white',
             'text-background-opacity': 0.9,
             'text-background-padding': '3px',
@@ -117,25 +139,67 @@ export function initializeGraph(
             'text-rotation': 'autorotate'
           }
         },
-        {
-          selector: '.highlighted',
-          style: {
-            'opacity': 1
-          }
-        },
-        {
-          selector: '.faded',
-          style: {
-            'opacity': 0.2
-          }
-        },
+        // Selected state
         {
           selector: '.selected',
           style: {
             'border-width': 4,
             'border-color': '#000',
-            'border-opacity': 0.8,
-            'background-color': (ele) => NODE_COLORS[ele.data('type') as keyof typeof NODE_COLORS],
+            'border-opacity': 0.8
+          }
+        },
+        // Edge handles styles - More specific selectors last
+        {
+          selector: '.eh-preview, .eh-ghost-edge',
+          style: {
+            'line-color': '#ff4444',
+            'target-arrow-color': '#ff4444',
+            'source-arrow-color': '#ff4444',
+            'target-arrow-shape': 'triangle',
+            'curve-style': 'bezier',
+            'width': 2,
+            'opacity': 0.8
+          }
+        },
+        {
+          selector: '.eh-handle',
+          style: {
+            'background-color': '#ff4444',
+            'width': 12,
+            'height': 12,
+            'shape': 'ellipse'
+          }
+        },
+        {
+          selector: '.eh-source',
+          style: {
+            'border-width': 2,
+            'border-color': '#ff4444'
+          }
+        },
+        {
+          selector: '.eh-target',
+          style: {
+            'border-width': 3,
+            'border-color': '#ff4444',
+            'border-opacity': 1,
+            'opacity': 1,
+            // Preserve original node appearance
+            'background-color': (ele) => {
+              const nodeType = ele.data('type') as keyof typeof NODE_COLORS;
+              return NODE_COLORS[nodeType] || '#cccccc';
+            },
+            'width': 30,
+            'height': 30,
+            'shape': 'ellipse'
+          }
+        },
+        // Most specific styles last
+        {
+          selector: '.eh-target.eh-hover',
+          style: {
+            'border-width': 3,
+            'border-color': '#ff4444'
           }
         }
       ],
@@ -145,17 +209,74 @@ export function initializeGraph(
     // Store the instance on the container
     container.__cy = cy;
 
-    // Update click handlers to use full node data
+    // Initialize edge handles
+    const eh = cy.edgehandles({
+      snap: true,
+      noEdgeEventsInDraw: true,
+      disableBrowserGestures: true,
+      handleNodes: 'node',
+      handlePosition: () => 'middle top',
+      handleInDrawMode: false,
+      edgeType: () => 'flat',
+      loopAllowed: () => false,
+      edgeParams: (sourceNode, targetNode) => ({
+        data: {
+          id: `${sourceNode.id()}-${targetNode.id()}`,
+          source: sourceNode.id(),
+          target: targetNode.id(),
+        },
+        classes: 'eh-preview'
+      }),
+      complete: (sourceNode, targetNode, addedEles) => {
+        // Remove the temporary edge
+        addedEles.remove();
+        
+        // Create new edge with proper data structure
+        cy.add({
+          group: 'edges',
+          data: {
+            id: `${sourceNode.id()}-${targetNode.id()}`,
+            source: sourceNode.id(),
+            target: targetNode.id(),
+            relationType: 'connected_to'
+          }
+        });
+
+        console.log('Edge created:', {
+          source: sourceNode.id(),
+          target: targetNode.id()
+        });
+      }
+    });
+
+    // Store the edgehandles instance
+    container.ehInstance = eh;
+
+    // Function to lock all nodes
+    const lockNodes = () => {
+      cy.nodes().ungrabify();
+      // Enable edge handles when nodes are locked
+      if (container.ehInstance) {
+        container.ehInstance.enableDrawMode();
+      }
+    };
+
+    // Function to unlock all nodes
+    const unlockNodes = () => {
+      cy.nodes().grabify();
+      // Disable edge handles when nodes are unlocked
+      if (container.ehInstance) {
+        container.ehInstance.disableDrawMode();
+      }
+    };
+
+    // Update click handlers
     cy.on('tap', 'node', (event) => {
       const node = event.target;
       const nodeId = node.id();
       
-      // Find the complete node data with relationships
       const nodeData = data.nodes.find(n => n.id === nodeId);
       if (nodeData) {
-
-        console.log('nodeData', nodeData);
-        // Ensure the node data includes relationships
         const completeNodeData: NodeData = {
           ...nodeData,
           fromRelations: data.relationships
@@ -175,6 +296,7 @@ export function initializeGraph(
         setSelectedNode(completeNodeData);
         setSelectedNodeId(nodeId);
         setIsPanelOpen(true);
+        lockNodes();
       }
       
       // Reset styles
@@ -191,8 +313,12 @@ export function initializeGraph(
       if (evt.target === cy) {
         onClose();
         cy.elements().removeClass('highlighted faded selected');
+        unlockNodes();
       }
     });
+
+    // Add cleanup function
+    container.unlockNodes = unlockNodes;
 
     // Replace the zoom handlers with animated viewport-centered zoom
     const zoomIn = () => {
@@ -216,6 +342,12 @@ export function initializeGraph(
       if (container.__cy) {
         document.getElementById('zoom-in')?.removeEventListener('click', zoomIn);
         document.getElementById('zoom-out')?.removeEventListener('click', zoomOut);
+        if (container.ehInstance) {
+          container.ehInstance.destroy();
+          delete container.ehInstance;
+        }
+        unlockNodes();
+        delete container.unlockNodes;
         container.__cy.destroy();
         delete container.__cy;
       }
