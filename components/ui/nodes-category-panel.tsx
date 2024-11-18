@@ -2,30 +2,18 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X, Plus, Edit, Trash2, Link as LinkIcon } from "lucide-react";
 import { NodeType } from '@prisma/client';
-
-interface Node {
-  id: string;
-  type: NodeType;
-  name: string;
-  description?: string;
-  metadata?: Record<string, any>;
-  notes?: Array<{
-    id: string;
-    content: string;
-    author: string;
-    dateCreated: Date;
-  }>;
-}
+import { NodeData, Note } from '@/types/graph';
 
 interface NodesCategoryProps {
   isPanelOpen: boolean;
-  selectedNode: Node | null;
+  selectedNode: NodeData | null;
   selectedType: NodeType | null;
-  nodes: Node[];
+  nodes: NodeData[];
   onClose: () => void;
-  onUpdateNode: (nodeId: string, nodeData: Partial<Node>) => void;
+  onUpdateNode: (nodeId: string, nodeData: Partial<Omit<NodeData, "id">>) => void;
   onDeleteNode: (nodeId: string) => void;
   onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => void;
+  onCreateNode: (data: { type: NodeType }) => void;
 }
 
 export function NodesCategoryPanel({ 
@@ -36,7 +24,8 @@ export function NodesCategoryPanel({
   onClose,
   onUpdateNode,
   onDeleteNode,
-  onCreateRelationship 
+  onCreateRelationship,
+  onCreateNode
 }: NodesCategoryProps) {
   // Filter nodes by selected type
   const categoryNodes = nodes.filter(node => node.type === selectedType);
@@ -51,6 +40,50 @@ export function NodesCategoryPanel({
         </span>
       </div>
     ));
+  };
+
+  // Update the notes rendering to use the correct type
+  const renderNotes = (notes: Note[] | undefined) => {
+    if (!notes || notes.length === 0) return null;
+    
+    return (
+      <div className="mt-2 text-sm">
+        <p className="font-medium">Notes:</p>
+        <ul className="list-disc list-inside text-gray-600">
+          {notes.map((note) => (
+            <li key={note.id} className="ml-2">
+              {note.content}
+              <span className="text-xs text-gray-500 ml-1">
+                - {note.author}, {new Date(note.createdAt).toLocaleDateString()}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  };
+
+  // Update the relationships rendering to use the correct types
+  const renderRelationships = (node: NodeData) => {
+    if (!node.fromRelations?.length && !node.toRelations?.length) return null;
+
+    return (
+      <div className="mt-2 text-sm">
+        <p className="font-medium">Relationships:</p>
+        <ul className="list-disc list-inside text-gray-600">
+          {node.fromRelations?.map((rel, index) => (
+            <li key={`from-${index}`} className="ml-2">
+              {rel.relationType} → {rel.toNode.name}
+            </li>
+          ))}
+          {node.toRelations?.map((rel, index) => (
+            <li key={`to-${index}`} className="ml-2">
+              {rel.fromNode.name} → {rel.relationType}
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
   };
 
   return (
@@ -108,40 +141,10 @@ export function NodesCategoryPanel({
                       )}
 
                       {/* Notes section */}
-                      {node.notes && node.notes.length > 0 && (
-                        <div className="mt-2 text-sm">
-                          <p className="font-medium">Notes:</p>
-                          <ul className="list-disc list-inside text-gray-600">
-                            {node.notes.map((note) => (
-                              <li key={note.id} className="ml-2">
-                                {note.content}
-                                <span className="text-xs text-gray-500 ml-1">
-                                  - {note.author}, {new Date(note.dateCreated).toLocaleDateString()}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      {renderNotes(node.notes)}
 
                       {/* Relationships section */}
-                      {(node.fromRelations?.length > 0 || node.toRelations?.length > 0) && (
-                        <div className="mt-2 text-sm">
-                          <p className="font-medium">Relationships:</p>
-                          <ul className="list-disc list-inside text-gray-600">
-                            {node.fromRelations?.map((rel) => (
-                              <li key={rel.id} className="ml-2">
-                                {rel.relationType} → {rel.toNode.name}
-                              </li>
-                            ))}
-                            {node.toRelations?.map((rel) => (
-                              <li key={rel.id} className="ml-2">
-                                {rel.fromNode.name} → {rel.relationType}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                      {renderRelationships(node)}
                     </div>
 
                     {/* Action buttons */}
@@ -202,21 +205,7 @@ export function NodesCategoryPanel({
               )}
               
               {/* Notes display */}
-              {selectedNode.notes && selectedNode.notes.length > 0 && (
-                <div className="space-y-2">
-                  <h4 className="font-medium">Notes</h4>
-                  <div className="space-y-2">
-                    {selectedNode.notes.map((note) => (
-                      <div key={note.id} className="text-sm">
-                        <p>{note.content}</p>
-                        <p className="text-xs text-gray-500">
-                          - {note.author}, {new Date(note.dateCreated).toLocaleDateString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {renderNotes(selectedNode.notes)}
             </div>
           </div>
         )}

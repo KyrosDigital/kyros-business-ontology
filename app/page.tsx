@@ -18,6 +18,7 @@ function HomeContent() {
     viewMode,
     ontologyData,
     selectedRelationship,
+    setSelectedRelationship,
     setViewMode,
     setCurrentLayout,
     handleLegendClick,
