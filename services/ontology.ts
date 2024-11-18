@@ -453,3 +453,24 @@ export async function updateRelationType(
   });
 }
 
+export async function deleteRelationship(sourceId: string, targetId: string) {
+  // Find the relationship first
+  const relationship = await prisma.nodeRelationship.findFirst({
+    where: {
+      fromNodeId: sourceId,
+      toNodeId: targetId,
+    },
+  });
+
+  if (!relationship) {
+    throw new Error('Relationship not found');
+  }
+
+  // Delete the relationship
+  return prisma.nodeRelationship.delete({
+    where: {
+      id: relationship.id,
+    },
+  });
+}
+

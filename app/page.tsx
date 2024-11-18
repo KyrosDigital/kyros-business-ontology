@@ -376,6 +376,36 @@ export default function Home() {
     }
   };
 
+  const handleDeleteRelationship = async () => {
+    if (selectedRelationship?.sourceNode && selectedRelationship?.targetNode) {
+      try {
+        const response = await fetch('/api/v1/ontology/delete-relationship', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            sourceId: selectedRelationship.sourceNode.id,
+            targetId: selectedRelationship.targetNode.id,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to delete relationship');
+        }
+
+        // Refresh your graph data here
+        await refreshGraph();
+        
+        // Close the panel
+        setSelectedRelationship(null);
+      } catch (error) {
+        console.error('Error deleting relationship:', error);
+        // Handle error (show toast notification, etc.)
+      }
+    }
+  };
+
   return (
     <div className="relative w-screen h-screen overflow-hidden">
       <Legend 
@@ -475,6 +505,7 @@ export default function Home() {
         relationType={selectedRelationship?.relationType ?? ''}
         onClose={() => setSelectedRelationship(null)}
         onUpdateRelationType={handleUpdateRelationType}
+        onDeleteRelationship={handleDeleteRelationship}
       />
 
       <AiChat ontologyData={ontologyData as OntologyData} />

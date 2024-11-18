@@ -2,6 +2,7 @@ import { Button } from "./button";
 import { NodeData } from "@/types/graph";
 import { X } from "lucide-react";
 import { useState, useEffect } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "./alert-dialog";
 
 interface RelationshipPanelProps {
   isPanelOpen: boolean;
@@ -10,6 +11,7 @@ interface RelationshipPanelProps {
   relationType: string;
   onClose: () => void;
   onUpdateRelationType: (newType: string) => Promise<void>;
+  onDeleteRelationship: () => Promise<void>;
 }
 
 export function RelationshipPanel({
@@ -18,7 +20,8 @@ export function RelationshipPanel({
   targetNode,
   relationType,
   onClose,
-  onUpdateRelationType
+  onUpdateRelationType,
+  onDeleteRelationship
 }: RelationshipPanelProps) {
   const [editedType, setEditedType] = useState(relationType);
 
@@ -89,6 +92,36 @@ export function RelationshipPanel({
                 <p className="text-sm text-gray-600">{targetNode.type}</p>
               </div>
             </div>
+          </div>
+
+          <div className="mt-8">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="w-full">
+                  Delete Relationship
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Relationship</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this relationship? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={async () => {
+                      await onDeleteRelationship();
+                      onClose();
+                    }}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       )}
