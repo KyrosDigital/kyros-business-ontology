@@ -239,14 +239,23 @@ export function initializeGraph(
       }
     });
 
-    // Run a second layout after initial render to ensure proper positioning
-    // without the animation from top-left
-    cy.layout({
-      ...layout,
-      animate: false,
-      fit: true,
-      padding: 50
-    }).run();
+    // Add this code after the initial layout
+    // Check if there's only one node and adjust zoom accordingly
+    if (data.nodes.length === 1) {
+      cy.zoom({
+        level: 1, // Set a reasonable default zoom level
+        position: cy.nodes().first().position()
+      });
+      cy.center(cy.nodes().first());
+    } else {
+      // Run the second layout as before for multi-node cases
+      cy.layout({
+        ...layout,
+        animate: false,
+        fit: true,
+        padding: 50
+      }).run();
+    }
 
     // Store the instance on the container
     container.__cy = cy;
