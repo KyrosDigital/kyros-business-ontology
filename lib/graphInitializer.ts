@@ -87,7 +87,7 @@ export function initializeGraph(
   };
 
   try {
-    // Initialize Cytoscape
+    // Initialize Cytoscape with modified layout options
     const cy = cytoscape({
       container,
       elements,
@@ -206,8 +206,22 @@ export function initializeGraph(
           }
         }
       ],
-      layout: layout
+      layout: {
+        ...layout,
+        animate: false, // Disable initial layout animation
+        fit: true,     // Ensure graph fits in viewport
+        padding: 50    // Add some padding around the graph
+      }
     });
+
+    // Run a second layout after initial render to ensure proper positioning
+    // without the animation from top-left
+    cy.layout({
+      ...layout,
+      animate: false,
+      fit: true,
+      padding: 50
+    }).run();
 
     // Store the instance on the container
     container.__cy = cy;
