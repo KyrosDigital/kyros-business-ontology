@@ -420,3 +420,36 @@ async function getChildNodes(nodeId: string) {
   });
 }
 
+// Add this new function to update relationship types
+export async function updateRelationType(
+  fromNodeId: string,
+  toNodeId: string,
+  newType: string
+) {
+  // Find the existing relationship first
+  const existingRelationship = await prisma.nodeRelationship.findFirst({
+    where: {
+      fromNodeId,
+      toNodeId,
+    },
+  });
+
+  if (!existingRelationship) {
+    throw new Error('Relationship not found');
+  }
+
+  // Update the relationship
+  return prisma.nodeRelationship.update({
+    where: {
+      id: existingRelationship.id,
+    },
+    data: {
+      relationType: newType,
+    },
+    include: {
+      fromNode: true,
+      toNode: true,
+    },
+  });
+}
+

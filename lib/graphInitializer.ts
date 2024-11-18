@@ -31,6 +31,7 @@ declare global {
  * @param setSelectedNodeId - Callback to update the selected node ID
  * @param setSelectedNode - Callback to update the selected node data
  * @param setIsPanelOpen - Callback to control panel visibility
+ * @param setSelectedRelationship - Callback to update the selected relationship
  * @param layout - Cytoscape layout configuration
  * @param onCreateRelationship - Callback to handle relationship creation
  * 
@@ -50,6 +51,7 @@ export function initializeGraph(
   setSelectedNodeId: (id: string | null) => void,
   setSelectedNode: (node: NodeData | null) => void,
   setIsPanelOpen: (isOpen: boolean) => void,
+  setSelectedRelationship: (rel: { sourceNode: NodeData; targetNode: NodeData; relationType: string; } | null) => void,
   layout: cytoscape.LayoutOptions,
   onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => Promise<void>
 ): () => void {
@@ -218,6 +220,14 @@ export function initializeGraph(
           style: {
             'border-width': 3,
             'border-color': '#ff4444'
+          }
+        },
+        {
+          selector: 'edge.selected',
+          style: {
+            'width': 3,
+            'line-color': '#000',
+            'target-arrow-color': '#000'
           }
         }
       ],
@@ -414,6 +424,42 @@ export function initializeGraph(
 
     // Store the filter function on the container
     container.filterByNodeType = filterByNodeType;
+
+    // Add this to the existing click handlers section
+    cy.on('tap', 'edge', (event) => {
+      const edge = event.target;
+      const sourceId = edge.source().id();
+      const targetId = edge.target().id();
+      const relationType = edge.data('relationType');
+
+      // Find the complete node data
+      const sourceNode = data.nodes.find(n => n.id === sourceId);
+      const targetNode = data.nodes.find(n => n.id === targetId);
+
+      if (sourceNode && targetNode) {
+        // Reset styles
+        cy.elements().removeClass('highlighted faded selected');
+        
+        // Highlight the edge and connected nodes
+        edge.addClass('selected');
+        edge.source().addClass('highlighted');
+        edge.target().addClass('highlighted');
+        
+        // Fade other elements
+        cy.elements()
+          .not(edge)
+          .not(edge.source())
+          .not(edge.target())
+          .addClass('faded');
+
+        // Update the selected relationship state
+        setSelectedRelationship({
+          sourceNode,
+          targetNode,
+          relationType
+        });
+      }
+    });
 
     return () => {
       if (container.__cy) {

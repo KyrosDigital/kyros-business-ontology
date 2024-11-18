@@ -12,6 +12,7 @@ import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
 import { NodeData, OntologyData, NodeType } from '@/types/graph';
 import { LayoutSelect, LAYOUT_OPTIONS } from '@/components/ui/layout-select';
 import type { LayoutOptions as LayoutConfig } from 'cytoscape';
+import { RelationshipPanel } from '@/components/ui/relationship-panel';
 
 export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -23,6 +24,11 @@ export default function Home() {
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
   const [isDataReady, setIsDataReady] = useState(false);
   const [currentLayout, setCurrentLayout] = useState<LayoutConfig>(LAYOUT_OPTIONS.breadthfirst);
+  const [selectedRelationship, setSelectedRelationship] = useState<{
+    sourceNode: NodeData | null;
+    targetNode: NodeData | null;
+    relationType: string;
+  } | null>(null);
 
   const getOntologyData = async () => {
     const response = await fetch(`/api/v1/ontology/graph?t=${Date.now()}`);
@@ -72,6 +78,7 @@ export default function Home() {
             setSelectedNodeId,
             setSelectedNode,
             setIsPanelOpen,
+            setSelectedRelationship,
             currentLayout,
             handleCreateRelationship
           );
@@ -113,6 +120,7 @@ export default function Home() {
   const handleClosePanel = () => {
     setIsPanelOpen(false);
     setSelectedNodeId(null);
+    setSelectedRelationship(null);
     
     // Get Cytoscape instance and reset styles
     const container = containerRef.current;
@@ -264,7 +272,7 @@ export default function Home() {
         throw new Error(errorData.error || 'Failed to create relationship');
       }
 
-      await refreshGraph();
+      // await refreshGraph();
     } catch (error) {
       console.error('Error creating relationship:', error);
       throw error;
@@ -336,6 +344,35 @@ export default function Home() {
       setOntologyData(data);
     } catch (error) {
       console.error('Error refreshing graph:', error);
+    }
+  };
+
+  const handleUpdateRelationType = async (newType: string) => {
+    if (!selectedRelationship) return;
+    
+    try {
+      const response = await fetch('/api/v1/ontology/update-relationship', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sourceId: selectedRelationship.sourceNode?.id,
+          targetId: selectedRelationship.targetNode?.id,
+          newType
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update relationship');
+      
+      // Update local state
+      setSelectedRelationship(prev => prev ? {
+        ...prev,
+        relationType: newType
+      } : null);
+
+      // Refresh the graph data
+      await refreshGraph();
+    } catch (error) {
+      console.error('Error updating relationship:', error);
     }
   };
 
@@ -429,6 +466,15 @@ export default function Home() {
         onNodeUpdate={handleNodeUpdate}
         onDeleteNode={handleDeleteNode}
         refreshGraph={refreshGraph}
+      />
+
+      <RelationshipPanel 
+        isPanelOpen={!!selectedRelationship}
+        sourceNode={selectedRelationship?.sourceNode ?? null}
+        targetNode={selectedRelationship?.targetNode ?? null}
+        relationType={selectedRelationship?.relationType ?? ''}
+        onClose={() => setSelectedRelationship(null)}
+        onUpdateRelationType={handleUpdateRelationType}
       />
 
       <AiChat ontologyData={ontologyData as OntologyData} />
