@@ -148,6 +148,14 @@ export function Graph() {
     });
   }, [ontologyData]);
 
+  // Add effect to handle node dimming based on selectedType
+  useEffect(() => {
+    if (!containerRef.current?.filterByNodeType) return;
+    
+    // Use the filterByNodeType function we defined in graphInitializer
+    containerRef.current.filterByNodeType(selectedType);
+  }, [selectedType]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
