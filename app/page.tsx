@@ -25,7 +25,7 @@ export default function Home() {
   const [currentLayout, setCurrentLayout] = useState<LayoutConfig>(LAYOUT_OPTIONS.breadthfirst);
 
   const getOntologyData = async () => {
-    const response = await fetch('/api/v1/ontology/graph');
+    const response = await fetch(`/api/v1/ontology/graph?t=${Date.now()}`);
     const data = await response.json();
     return data;
   };
@@ -72,7 +72,8 @@ export default function Home() {
             setSelectedNodeId,
             setSelectedNode,
             setIsPanelOpen,
-            currentLayout
+            currentLayout,
+            handleCreateRelationship
           );
         } catch (error) {
           console.error('Error initializing graph:', error);
@@ -114,9 +115,16 @@ export default function Home() {
     setSelectedNodeId(null);
     
     // Get Cytoscape instance and reset styles
-    const cy = containerRef.current?.__cy;
-    if (cy) {
-      cy.elements().removeClass('highlighted faded selected');
+    const container = containerRef.current;
+    if (container) {
+      const cy = container.__cy;
+      if (cy) {
+        cy.elements().removeClass('highlighted faded selected');
+      }
+      // Unlock nodes when panel closes
+      if (container.unlockNodes) {
+        container.unlockNodes();
+      }
     }
   };
 
@@ -229,23 +237,37 @@ export default function Home() {
 
   const handleCreateRelationship = async (sourceId: string, targetId: string, relationType: string) => {
     try {
+      // Verify these nodes exist in our current data
+      if (!ontologyData) {
+        throw new Error('No ontology data available');
+      }
+
+      const sourceNode = ontologyData.nodes.find(n => n.id === sourceId);
+      const targetNode = ontologyData.nodes.find(n => n.id === targetId);
+
+      if (!sourceNode || !targetNode) {
+        throw new Error(`Invalid node IDs: source=${sourceId}, target=${targetId}`);
+      }
+
       const response = await fetch('/api/v1/ontology/connect-nodes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromNodeId: sourceId,
           toNodeId: targetId,
-          relationType,
+          relationType
         }),
       });
       
-      if (!response.ok) throw new Error('Failed to create relationship');
-      
-      // Refresh data
-      const updatedData = await fetch('/api/v1/ontology').then(res => res.json());
-      setOntologyData(updatedData);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create relationship');
+      }
+
+      await refreshGraph();
     } catch (error) {
       console.error('Error creating relationship:', error);
+      throw error;
     }
   };
 
@@ -306,7 +328,7 @@ export default function Home() {
 
   const refreshGraph = async () => {
     try {
-      const response = await fetch('/api/v1/ontology/graph');
+      const response = await fetch(`/api/v1/ontology/graph?t=${Date.now()}`);
       if (!response.ok) {
         throw new Error('Failed to fetch graph data');
       }

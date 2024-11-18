@@ -98,17 +98,40 @@ export async function createChildNode(
 
 // Add new function to connect nodes with a specific relationship type
 export async function connectNodes(
-  sourceId: string,
-  sourceType: string,
-  targetId: string,
-  targetType: string
+  fromNodeId: string,
+  toNodeId: string,
+  relationType: string = 'PARENT_CHILD'
 ) {
+  // First, let's check what nodes exist in the database
+  const allNodes = await prisma.node.findMany({
+    select: { id: true }
+  });
+
+  // Then verify both nodes exist
+  const [fromNode, toNode] = await Promise.all([
+    prisma.node.findUnique({ 
+      where: { id: fromNodeId },
+      select: { id: true, name: true }
+    }),
+    prisma.node.findUnique({ 
+      where: { id: toNodeId },
+      select: { id: true, name: true }
+    })
+  ]);
+
+  if (!fromNode || !toNode) {
+    const missing = [];
+    if (!fromNode) missing.push('fromNode');
+    if (!toNode) missing.push('toNode');
+    throw new Error(`Node(s) not found: ${missing.join(', ')}. Attempted IDs: fromNodeId=${fromNodeId}, toNodeId=${toNodeId}`);
+  }
+
   // Create the relationship
   return prisma.nodeRelationship.create({
     data: {
-      fromNodeId: sourceId,
-      toNodeId: targetId,
-      relationType: `${sourceType}_${targetType}`
+      fromNodeId,
+      toNodeId,
+      relationType
     },
     include: {
       fromNode: true,
@@ -119,6 +142,7 @@ export async function connectNodes(
 
 // Add this new function for graph-specific data
 export async function getGraphData() {
+  // Get all nodes with their relationships
   const nodes = await prisma.node.findMany({
     include: {
       notes: {
@@ -133,11 +157,27 @@ export async function getGraphData() {
           createdAt: true,
           updatedAt: true
         }
+      },
+      fromRelations: {
+        include: {
+          toNode: true
+        }
+      },
+      toRelations: {
+        include: {
+          fromNode: true
+        }
       }
     }
   });
 
-  const relationships = await prisma.nodeRelationship.findMany({});
+  // Get all relationships
+  const relationships = await prisma.nodeRelationship.findMany({
+    include: {
+      fromNode: true,
+      toNode: true
+    }
+  });
 
   return {
     nodes,
