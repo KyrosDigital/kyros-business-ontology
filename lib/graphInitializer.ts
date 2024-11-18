@@ -2,6 +2,7 @@ import cytoscape from 'cytoscape';
 import edgehandles from 'cytoscape-edgehandles';
 import { NodeData, OntologyData } from '@/types/graph';
 import { NODE_COLORS } from '@/components/ui/legend';
+import type { EdgeHandlesInstance, EdgeHandlesOptions } from 'cytoscape-edgehandles';
 
 // Register the edgehandles extension
 cytoscape.use(edgehandles);
@@ -10,7 +11,7 @@ declare global {
   interface HTMLDivElement {
     __cy?: cytoscape.Core;
     unlockNodes?: () => void;
-    ehInstance?: any; // for the edgehandles instance
+    ehInstance?: EdgeHandlesInstance;
   }
 }
 
@@ -30,6 +31,7 @@ declare global {
  * @param setSelectedNode - Callback to update the selected node data
  * @param setIsPanelOpen - Callback to control panel visibility
  * @param layout - Cytoscape layout configuration
+ * @param onCreateRelationship - Callback to handle relationship creation
  * 
  * @returns Cleanup function to remove event listeners and destroy the Cytoscape instance
  * 
@@ -47,7 +49,8 @@ export function initializeGraph(
   setSelectedNodeId: (id: string | null) => void,
   setSelectedNode: (node: NodeData | null) => void,
   setIsPanelOpen: (isOpen: boolean) => void,
-  layout: cytoscape.LayoutOptions
+  layout: cytoscape.LayoutOptions,
+  onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => Promise<void>
 ): () => void {
   // Validate input data
   if (!container || !data.nodes || !data.relationships) {
@@ -209,8 +212,10 @@ export function initializeGraph(
     // Store the instance on the container
     container.__cy = cy;
 
-    // Initialize edge handles
-    const eh = cy.edgehandles({
+    // Initialize edge handles with debug logs
+    console.log('Initializing edge handles...');
+    
+    const ehOptions: EdgeHandlesOptions = {
       snap: true,
       noEdgeEventsInDraw: true,
       disableBrowserGestures: true,
@@ -219,41 +224,58 @@ export function initializeGraph(
       handleInDrawMode: false,
       edgeType: () => 'flat',
       loopAllowed: () => false,
-      edgeParams: (sourceNode, targetNode) => ({
+      edgeParams: (sourceNode: NodeSingular, targetNode: NodeSingular) => ({
         data: {
           id: `${sourceNode.id()}-${targetNode.id()}`,
           source: sourceNode.id(),
           target: targetNode.id(),
         },
         classes: 'eh-preview'
-      }),
-      complete: (sourceNode, targetNode, addedEles) => {
-        // Remove the temporary edge
-        addedEles.remove();
-        
-        // Create new edge with proper data structure
-        cy.add({
-          group: 'edges',
-          data: {
-            id: `${sourceNode.id()}-${targetNode.id()}`,
-            source: sourceNode.id(),
-            target: targetNode.id(),
-            relationType: 'connected_to'
-          }
-        });
+      })
+    };
 
-        console.log('Edge created:', {
-          source: sourceNode.id(),
-          target: targetNode.id()
-        });
-      }
-    });
+    const eh = cy.edgehandles(ehOptions);
+    console.log('Edge handles initialized:', eh);
 
     // Store the edgehandles instance
     container.ehInstance = eh;
 
+    // Bind to the ehcomplete event on the Cytoscape instance
+    cy.on('ehcomplete', (event, sourceNode, targetNode, addedEles) => {
+      console.log('Edge creation completed!', {
+        sourceId: sourceNode.id(),
+        targetId: targetNode.id()
+      });
+      
+      // Remove the temporary edge
+      addedEles.remove();
+      
+      const sourceId = sourceNode.id();
+      const targetId = targetNode.id();
+      
+      // Call the provided callback to create the relationship
+      onCreateRelationship(sourceId, targetId, 'PARENT_CHILD')
+        .then(() => {
+          console.log('Relationship created successfully');
+          // Add the edge to the graph after successful API call
+          cy.add({
+            group: 'edges',
+            data: {
+              id: `${sourceId}-${targetId}`,
+              source: sourceId,
+              target: targetId,
+              relationType: 'PARENT_CHILD'
+            }
+          });
+        })
+        .catch(error => {
+          console.error('Failed to create relationship:', error);
+        });
+    });
+
     // Function to lock all nodes
     const lockNodes = () => {
+      console.log('Locking nodes and enabling draw mode');
       cy.nodes().ungrabify();
       // Enable edge handles when nodes are locked
       if (container.ehInstance) {
@@ -263,6 +285,7 @@ export function initializeGraph(
 
     // Function to unlock all nodes
     const unlockNodes = () => {
+      console.log('Unlocking nodes and disabling draw mode');
       cy.nodes().grabify();
       // Disable edge handles when nodes are unlocked
       if (container.ehInstance) {
