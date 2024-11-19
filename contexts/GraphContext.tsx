@@ -310,7 +310,9 @@ export function GraphProvider({ children }: GraphProviderProps) {
 
   const handleClosePanel = () => {
     setIsPanelOpen(false);
+    setSelectedNode(null);
     setSelectedNodeId(null);
+    setSelectedType(null);
     setSelectedRelationship(null);
   };
 
