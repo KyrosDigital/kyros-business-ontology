@@ -35,26 +35,32 @@ export function Graph() {
       containerRef.current && 
       ontologyData && 
       isDataReady && 
-      ontologyData.nodes.length > 0
+      ontologyData.nodes.length > 0 &&
+      containerRef.current.offsetWidth > 0 &&
+      containerRef.current.offsetHeight > 0
     ) {
-      console.log('Initializing graph...');
-      
-      cleanup = initializeGraph(
-        containerRef.current,
-        window.innerWidth,
-        window.innerHeight,
-        ontologyData,
-        handleClosePanel,
-        setSelectedNodeId,
-        setSelectedNode,
-        setIsPanelOpen,
-        setSelectedRelationship,
-        currentLayout,
-        handleCreateRelationship
-      );
+      try {
+        cleanup = initializeGraph(
+          containerRef.current,
+          containerRef.current.offsetWidth,
+          containerRef.current.offsetHeight,
+          ontologyData,
+          handleClosePanel,
+          setSelectedNodeId,
+          setSelectedNode,
+          setIsPanelOpen,
+          setSelectedRelationship,
+          currentLayout,
+          handleCreateRelationship
+        );
 
-      graphInitializedRef.current = true;
-      cyRef.current = containerRef.current.__cy || null;
+        if (containerRef.current.__cy) {
+          graphInitializedRef.current = true;
+          cyRef.current = containerRef.current.__cy;
+        }
+      } catch (error) {
+        console.error('Graph initialization error:', error);
+      }
     }
 
     return () => {
@@ -62,22 +68,18 @@ export function Graph() {
         cleanup();
       }
     };
-  }, [isDataReady]); // Only depend on isDataReady
+  }, [isDataReady, ontologyData, currentLayout]);
 
-  // Separate effect for handling data updates
+  // Handle data updates
   useEffect(() => {
     if (!ontologyData || !isDataReady || !graphInitializedRef.current || !cyRef.current) {
       return;
     }
 
     const cy = cyRef.current;
-    console.log('Updating graph data...');
-    
-    // Store current viewport state
     const zoom = cy.zoom();
     const pan = cy.pan();
     
-    // Batch all updates
     cy.batch(() => {
       // Update nodes
       ontologyData.nodes.forEach(node => {
@@ -130,7 +132,6 @@ export function Graph() {
       });
     });
 
-    // Only run layout if elements changed
     const elementsChanged = cy.elements().length !== ontologyData.nodes.length + ontologyData.relationships.length;
     
     if (elementsChanged) {
@@ -141,18 +142,15 @@ export function Graph() {
       }).run();
     }
 
-    // Restore viewport state
     cy.viewport({
       zoom: zoom,
       pan: pan
     });
   }, [ontologyData]);
 
-  // Add effect to handle node dimming based on selectedType
+  // Handle node filtering based on selected type
   useEffect(() => {
     if (!containerRef.current?.filterByNodeType) return;
-    
-    // Use the filterByNodeType function we defined in graphInitializer
     containerRef.current.filterByNodeType(selectedType);
   }, [selectedType]);
 
@@ -160,7 +158,6 @@ export function Graph() {
   useEffect(() => {
     return () => {
       if (cyRef.current) {
-        console.log('Cleaning up graph...');
         cyRef.current.destroy();
         cyRef.current = null;
         graphInitializedRef.current = false;
@@ -204,7 +201,7 @@ export function Graph() {
         ref={containerRef}
         className="w-full h-full"
         style={{ 
-          visibility: isDataReady && graphInitializedRef.current ? 'visible' : 'hidden',
+          visibility: 'visible',
           position: 'absolute',
           top: 0,
           left: 0,
@@ -213,7 +210,7 @@ export function Graph() {
         }}
       />
       
-      {(!isDataReady || !graphInitializedRef.current) && (
+      {!isDataReady && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-lg">Loading graph...</div>
         </div>

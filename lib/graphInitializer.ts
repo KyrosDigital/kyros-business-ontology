@@ -6,7 +6,7 @@ import type { EdgeHandlesInstance, EdgeHandlesOptions } from 'cytoscape-edgehand
 import type { NodeSingular, LayoutOptions as CytoscapeLayoutOptions } from 'cytoscape';
 
 // Register the edgehandles extension
-cytoscape.use(edgehandles as any);
+cytoscape.use(edgehandles);
 
 declare global {
   interface HTMLDivElement {
@@ -17,32 +17,6 @@ declare global {
   }
 }
 
-/**
- * Initializes and renders a Cytoscape graph instance
- * 
- * @param container - The HTML container element where the graph will be rendered
- * @param width - Container width in pixels. Required for proper Cytoscape initialization
- *               even though we use CSS for responsive sizing. Removing this parameter
- *               will cause the graph to fail to render properly.
- * @param height - Container height in pixels. Required for proper Cytoscape initialization
- *                even though we use CSS for responsive sizing. Removing this parameter
- *                will cause the graph to fail to render properly.
- * @param data - The ontology data containing nodes and relationships to display
- * @param onClose - Callback function to handle closing/cleanup actions
- * @param setSelectedNodeId - Callback to update the selected node ID
- * @param setSelectedNode - Callback to update the selected node data
- * @param setIsPanelOpen - Callback to control panel visibility
- * @param setSelectedRelationship - Callback to update the selected relationship
- * @param layout - Cytoscape layout configuration
- * @param onCreateRelationship - Callback to handle relationship creation
- * 
- * @returns Cleanup function to remove event listeners and destroy the Cytoscape instance
- * 
- * @important The width and height parameters are crucial for proper graph initialization.
- * Even though the container uses CSS for responsive sizing, Cytoscape requires explicit
- * dimensions during initialization. Without these, the graph may appear invisible or
- * fail to render properly. Do not remove these parameters even if they appear unused.
- */
 export function initializeGraph(
   container: HTMLDivElement,
   width: number,
@@ -58,17 +32,13 @@ export function initializeGraph(
 ): () => void {
   // Validate input data
   if (!container || !data.nodes || !data.relationships) {
-    console.error('Invalid input for graph initialization');
     return () => {};
   }
 
   // If there's already a Cytoscape instance, don't reinitialize
   if (container.__cy) {
-    console.warn('Graph already initialized, skipping initialization');
     return () => {};
   }
-
-  console.log('Creating new Cytoscape instance'); // Debug log
 
   // Set container dimensions explicitly - required for proper Cytoscape initialization
   container.style.width = `${width}px`;
@@ -241,7 +211,6 @@ export function initializeGraph(
         fit: true,
         padding: 50
       },
-      wheelSensitivity: 0.2,
       minZoom: 0.1,
       maxZoom: 3,
       autoungrabify: false,
@@ -249,16 +218,14 @@ export function initializeGraph(
       userPanningEnabled: true
     });
 
-    // Add this code after the initial layout
-    // Check if there's only one node and adjust zoom accordingly
+    // Handle single node case
     if (data.nodes.length === 1) {
       cy.zoom({
-        level: 1, // Set a reasonable default zoom level
+        level: 1,
         position: cy.nodes().first().position()
       });
       cy.center(cy.nodes().first());
     } else {
-      // Run the second layout as before for multi-node cases
       cy.layout({
         ...layout,
         animate: false,
@@ -270,9 +237,7 @@ export function initializeGraph(
     // Store the instance on the container
     container.__cy = cy;
 
-    // Initialize edge handles with debug logs
-    console.log('Initializing edge handles...');
-    
+    // Initialize edge handles
     const ehOptions: EdgeHandlesOptions = {
       snap: true,
       noEdgeEventsInDraw: true,
@@ -293,29 +258,17 @@ export function initializeGraph(
     };
 
     const eh = cy.edgehandles(ehOptions);
-    console.log('Edge handles initialized:', eh);
-
-    // Store the edgehandles instance
     container.ehInstance = eh;
 
-    // Bind to the ehcomplete event on the Cytoscape instance
+    // Handle edge creation
     cy.on('ehcomplete', (event, sourceNode, targetNode, addedEles) => {
-      console.log('Edge creation completed!', {
-        sourceId: sourceNode.id(),
-        targetId: targetNode.id()
-      });
-      
-      // Remove the temporary edge
       addedEles.remove();
       
       const sourceId = sourceNode.id();
       const targetId = targetNode.id();
       
-      // Call the provided callback to create the relationship
       onCreateRelationship(sourceId, targetId, 'PARENT_CHILD')
         .then(() => {
-          console.log('Relationship created successfully');
-          // Add the edge to the graph after successful API call
           cy.add({
             group: 'edges',
             data: {
@@ -331,27 +284,22 @@ export function initializeGraph(
         });
     });
 
-    // Function to lock all nodes
+    // Node management functions
     const lockNodes = () => {
-      console.log('Locking nodes and enabling draw mode');
       cy.nodes().ungrabify();
-      // Enable edge handles when nodes are locked
       if (container.ehInstance) {
         container.ehInstance.enableDrawMode();
       }
     };
 
-    // Function to unlock all nodes
     const unlockNodes = () => {
-      console.log('Unlocking nodes and disabling draw mode');
       cy.nodes().grabify();
-      // Disable edge handles when nodes are unlocked
       if (container.ehInstance) {
         container.ehInstance.disableDrawMode();
       }
     };
 
-    // Update click handlers
+    // Event handlers
     cy.on('tap', 'node', (event) => {
       const node = event.target;
       const nodeId = node.id();
@@ -380,16 +328,12 @@ export function initializeGraph(
         lockNodes();
       }
       
-      // Reset styles
       cy.elements().removeClass('highlighted faded selected');
-      
-      // Highlight selected node and its connections
       node.addClass('selected');
       node.neighborhood().addClass('highlighted');
       cy.elements().not(node.neighborhood()).not(node).addClass('faded');
     });
 
-    // Background click handler
     cy.on('tap', (evt) => {
       if (evt.target === cy) {
         onClose();
@@ -398,80 +342,46 @@ export function initializeGraph(
       }
     });
 
-    // Add cleanup function
     container.unlockNodes = unlockNodes;
 
-    // Replace the zoom handlers with animated viewport-centered zoom
-    const zoomIn = () => {
-      cy.animate({
-        zoom: cy.zoom() * 1.3,
-        duration: 200
-      });
-    };
-
-    const zoomOut = () => {
-      cy.animate({
-        zoom: cy.zoom() * 0.7,
-        duration: 200
-      });
-    };
-
-    document.getElementById('zoom-in')?.addEventListener('click', zoomIn);
-    document.getElementById('zoom-out')?.addEventListener('click', zoomOut);
-
-    // Add this function to handle legend filtering
     const filterByNodeType = (nodeType: string | null) => {
       if (!cy) return;
       
       if (!nodeType) {
-        // Reset all nodes to their original state
         cy.elements().removeClass('faded');
         return;
       }
 
-      // Find all nodes of the selected type
       const matchingNodes = cy.nodes(`[type = "${nodeType}"]`);
       const connectedEdges = matchingNodes.connectedEdges();
       
-      // Fade all elements first
       cy.elements().addClass('faded');
-      
-      // Remove faded class from matching nodes and their edges
       matchingNodes.removeClass('faded');
       connectedEdges.removeClass('faded');
     };
 
-    // Store the filter function on the container
     container.filterByNodeType = filterByNodeType;
 
-    // Add this to the existing click handlers section
     cy.on('tap', 'edge', (event) => {
       const edge = event.target;
       const sourceId = edge.source().id();
       const targetId = edge.target().id();
       const relationType = edge.data('relationType');
 
-      // Find the complete node data
       const sourceNode = data.nodes.find(n => n.id === sourceId);
       const targetNode = data.nodes.find(n => n.id === targetId);
 
       if (sourceNode && targetNode) {
-        // Reset styles
         cy.elements().removeClass('highlighted faded selected');
-        
-        // Highlight the edge and connected nodes
         edge.addClass('selected');
         edge.source().addClass('highlighted');
         edge.target().addClass('highlighted');
-        
-        // Fade other elements
         cy.elements()
           .not(edge)
           .not(edge.source())
           .not(edge.target())
           .addClass('faded');
 
-        // Update the selected relationship state
         setSelectedRelationship({
           sourceNode,
           targetNode,
@@ -482,8 +392,6 @@ export function initializeGraph(
 
     return () => {
       if (container.__cy) {
-        document.getElementById('zoom-in')?.removeEventListener('click', zoomIn);
-        document.getElementById('zoom-out')?.removeEventListener('click', zoomOut);
         if (container.ehInstance) {
           container.ehInstance.destroy();
           delete container.ehInstance;
