@@ -26,8 +26,6 @@ export function Graph() {
 
   // Initialize graph only once when data is ready
   useEffect(() => {
-    let cleanup: (() => void) | undefined;
-
     if (
       !graphInitializedRef.current &&
       containerRef.current && 
@@ -38,7 +36,7 @@ export function Graph() {
       containerRef.current.offsetHeight > 0
     ) {
       try {
-        cleanup = initializeGraph(
+        initializeGraph(
           containerRef.current,
           containerRef.current.offsetWidth,
           containerRef.current.offsetHeight,
@@ -59,12 +57,6 @@ export function Graph() {
         console.error('Graph initialization error:', error);
       }
     }
-
-    return () => {
-      if (cleanup) {
-        cleanup();
-      }
-    };
   }, [isDataReady, ontologyData, currentLayout]);
 
   // Handle data updates
@@ -151,18 +143,20 @@ export function Graph() {
     containerRef.current.filterByNodeType(selectedType);
   }, [selectedType]);
 
-  // Cleanup on unmount
+  // Cleanup only on component unmount
   useEffect(() => {
-    // Only run cleanup when component unmounts AND graph was initialized
     return () => {
       if (graphInitializedRef.current && containerRef.current?.__cy) {
-        console.log('Cleaning up initialized graph...');
+        if (containerRef.current.ehInstance) {
+          containerRef.current.ehInstance.destroy();
+          delete containerRef.current.ehInstance;
+        }
         containerRef.current.__cy.destroy();
         delete containerRef.current.__cy;
         graphInitializedRef.current = false;
       }
     };
-  }, []);
+  }, []); // Empty dependency array ensures cleanup only runs on unmount
 
   return (
     <>
