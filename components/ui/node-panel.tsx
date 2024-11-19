@@ -210,66 +210,69 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                       ? "Choose Deletion Strategy" 
                       : "Confirm Deletion"}
                   </AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {selectedNode && hasChildren(selectedNode) ? (
-                      <div className="space-y-4">
-                        <div>Please select how you want to handle the node deletion:</div>
-                        
-                        <div className="space-y-2">
-                          <Button 
-                            variant="outline" 
-                            className="w-full justify-start"
-                            onClick={() => handleDeleteNode('orphan')}
-                          >
-                            <div className="text-left">
-                              <div className="font-semibold">Leave Children as Orphans</div>
-                              <div className="text-sm text-gray-500">Delete only this node, leaving child nodes independent</div>
-                            </div>
-                          </Button>
-
-                          <Button 
-                            variant="outline" 
-                            className="w-full justify-start"
-                            onClick={() => handleDeleteNode('cascade')}
-                          >
-                            <div className="text-left">
-                              <div className="font-semibold">Delete Entire Subtree</div>
-                              <div className="text-sm text-gray-500">Delete this node and all its descendants</div>
-                            </div>
-                          </Button>
-
-                          <Button 
-                            variant="outline" 
-                            className="w-full justify-start"
-                            onClick={() => handleDeleteNode('reconnect')}
-                          >
-                            <div className="text-left">
-                              <div className="font-semibold">Reconnect Children</div>
-                              <div className="text-sm text-gray-500">Delete this node and connect its children to its parent</div>
-                            </div>
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div>Are you sure you want to delete this node?</div>
-                        <div className="flex justify-end space-x-2">
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <Button 
-                            variant="destructive"
-                            onClick={() => handleDeleteNode('orphan')}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </AlertDialogDescription>
                 </AlertDialogHeader>
-                {selectedNode && hasChildren(selectedNode) && (
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  </AlertDialogFooter>
+
+                {selectedNode && hasChildren(selectedNode) ? (
+                  <>
+                    <AlertDialogDescription className="mb-4">
+                      Please select how you want to handle the node deletion:
+                    </AlertDialogDescription>
+                    
+                    <div className="space-y-2">
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => handleDeleteNode('orphan')}
+                      >
+                        <div className="text-left">
+                          <div className="font-semibold">Leave Children as Orphans</div>
+                          <div className="text-sm text-gray-500">Delete only this node, leaving child nodes independent</div>
+                        </div>
+                      </Button>
+
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => handleDeleteNode('cascade')}
+                      >
+                        <div className="text-left">
+                          <div className="font-semibold">Delete Entire Subtree</div>
+                          <div className="text-sm text-gray-500">Delete this node and all its descendants</div>
+                        </div>
+                      </Button>
+
+                      <Button 
+                        variant="outline" 
+                        className="w-full justify-start"
+                        onClick={() => handleDeleteNode('reconnect')}
+                      >
+                        <div className="text-left">
+                          <div className="font-semibold">Reconnect Children</div>
+                          <div className="text-sm text-gray-500">Delete this node and connect its children to its parent</div>
+                        </div>
+                      </Button>
+                    </div>
+
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    </AlertDialogFooter>
+                  </>
+                ) : (
+                  <>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this node?
+                    </AlertDialogDescription>
+                    
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <Button 
+                        variant="destructive"
+                        onClick={() => handleDeleteNode('orphan')}
+                      >
+                        Delete
+                      </Button>
+                    </AlertDialogFooter>
+                  </>
                 )}
               </AlertDialogContent>
             </AlertDialog>
