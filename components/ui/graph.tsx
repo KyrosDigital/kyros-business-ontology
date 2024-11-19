@@ -10,7 +10,6 @@ import type { Core } from 'cytoscape';
 export function Graph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphInitializedRef = useRef(false);
-  const cyRef = useRef<Core | null>(null);
   
   const {
     ontologyData,
@@ -56,7 +55,6 @@ export function Graph() {
 
         if (containerRef.current.__cy) {
           graphInitializedRef.current = true;
-          cyRef.current = containerRef.current.__cy;
         }
       } catch (error) {
         console.error('Graph initialization error:', error);
@@ -72,11 +70,11 @@ export function Graph() {
 
   // Handle data updates
   useEffect(() => {
-    if (!ontologyData || !isDataReady || !graphInitializedRef.current || !cyRef.current) {
+    if (!ontologyData || !isDataReady || !graphInitializedRef.current || !containerRef.current?.__cy) {
       return;
     }
 
-    const cy = cyRef.current;
+    const cy = containerRef.current.__cy;
     const zoom = cy.zoom();
     const pan = cy.pan();
     
@@ -146,7 +144,7 @@ export function Graph() {
       zoom: zoom,
       pan: pan
     });
-  }, [ontologyData]);
+  }, [ontologyData, isDataReady, currentLayout]);
 
   // Handle node filtering based on selected type
   useEffect(() => {
@@ -156,10 +154,12 @@ export function Graph() {
 
   // Cleanup on unmount
   useEffect(() => {
+    // Only run cleanup when component unmounts AND graph was initialized
     return () => {
-      if (cyRef.current) {
-        cyRef.current.destroy();
-        cyRef.current = null;
+      if (graphInitializedRef.current && containerRef.current?.__cy) {
+        console.log('Cleaning up initialized graph...');
+        containerRef.current.__cy.destroy();
+        delete containerRef.current.__cy;
         graphInitializedRef.current = false;
       }
     };
