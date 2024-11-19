@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import { Download } from "lucide-react";
 import { initializeGraph } from '@/lib/graphInitializer';
 import { useGraph } from '@/contexts/GraphContext';
-import type { Core } from 'cytoscape';
 
 export function Graph() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -201,7 +200,6 @@ export function Graph() {
         ref={containerRef}
         className="w-full h-full"
         style={{ 
-          visibility: 'visible',
           position: 'absolute',
           top: 0,
           left: 0,
