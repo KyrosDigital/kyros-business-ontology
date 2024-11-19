@@ -17,6 +17,38 @@ declare global {
   }
 }
 
+// Add this helper function at the top of the file
+function detectCircularDependencies(relationships: any[]): boolean {
+  const graph: Record<string, string[]> = {};
+  
+  // Build adjacency list
+  relationships.forEach(rel => {
+    if (!graph[rel.fromNodeId]) graph[rel.fromNodeId] = [];
+    graph[rel.fromNodeId].push(rel.toNodeId);
+  });
+
+  const visited = new Set();
+  const recursionStack = new Set();
+
+  function hasCycle(nodeId: string): boolean {
+    if (recursionStack.has(nodeId)) return true;
+    if (visited.has(nodeId)) return false;
+
+    visited.add(nodeId);
+    recursionStack.add(nodeId);
+
+    const neighbors = graph[nodeId] || [];
+    for (const neighbor of neighbors) {
+      if (hasCycle(neighbor)) return true;
+    }
+
+    recursionStack.delete(nodeId);
+    return false;
+  }
+
+  return Object.keys(graph).some(nodeId => hasCycle(nodeId));
+}
+
 export function initializeGraph(
   container: HTMLDivElement,
   width: number,
@@ -64,6 +96,20 @@ export function initializeGraph(
   };
 
   try {
+    // Check for circular dependencies and use appropriate layout
+    const hasCircular = detectCircularDependencies(data.relationships);
+    const safeLayout = hasCircular ? {
+      name: 'circle',
+      padding: 50,
+      animate: false,
+      fit: true
+    } : {
+      ...layout,
+      animate: false,
+      fit: true,
+      padding: 50
+    };
+
     // Initialize Cytoscape with modified layout options
     const cy = cytoscape({
       container,
@@ -205,12 +251,7 @@ export function initializeGraph(
           }
         }
       ],
-      layout: {
-        ...layout,
-        animate: false,
-        fit: true,
-        padding: 50
-      },
+      layout: safeLayout,
       minZoom: 0.1,
       maxZoom: 3,
       autoungrabify: false,
@@ -226,12 +267,7 @@ export function initializeGraph(
       });
       cy.center(cy.nodes().first());
     } else {
-      cy.layout({
-        ...layout,
-        animate: false,
-        fit: true,
-        padding: 50
-      }).run();
+      cy.layout(safeLayout).run();
     }
 
     // Store the instance on the container
