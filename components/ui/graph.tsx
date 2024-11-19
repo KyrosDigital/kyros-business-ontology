@@ -24,10 +24,9 @@ export function Graph() {
     handleCreateRelationship,
   } = useGraph();
 
-  // Initialize graph only once when data is ready
+  // Initialize or reinitialize graph when data changes
   useEffect(() => {
     if (
-      !graphInitializedRef.current &&
       containerRef.current && 
       ontologyData && 
       isDataReady && 
@@ -36,6 +35,18 @@ export function Graph() {
       containerRef.current.offsetHeight > 0
     ) {
       try {
+        // Clean up previous instance if it exists
+        if (containerRef.current.__cy) {
+          if (containerRef.current.ehInstance) {
+            containerRef.current.ehInstance.destroy();
+            delete containerRef.current.ehInstance;
+          }
+          containerRef.current.__cy.destroy();
+          delete containerRef.current.__cy;
+          graphInitializedRef.current = false;
+        }
+
+        // Initialize new instance with updated data
         initializeGraph(
           containerRef.current,
           containerRef.current.offsetWidth,
@@ -57,7 +68,7 @@ export function Graph() {
         console.error('Graph initialization error:', error);
       }
     }
-  }, [isDataReady, ontologyData, currentLayout]);
+  }, [ontologyData, isDataReady, currentLayout]);
 
   // Handle data updates
   useEffect(() => {

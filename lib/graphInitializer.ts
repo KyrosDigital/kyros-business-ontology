@@ -305,6 +305,7 @@ export function initializeGraph(
       const nodeId = node.id();
       
       const nodeData = data.nodes.find(n => n.id === nodeId);
+
       if (nodeData) {
         const completeNodeData: NodeData = {
           ...nodeData,
@@ -321,7 +322,7 @@ export function initializeGraph(
               relationType: rel.relationType
             }))
         };
-        
+
         setSelectedNode(completeNodeData);
         setSelectedNodeId(nodeId);
         setIsPanelOpen(true);

@@ -110,6 +110,8 @@ export function GraphProvider({ children }: GraphProviderProps) {
       if (!response.ok) throw new Error('Failed to create node');
       
       const newNode = await response.json();
+			// auto open the node panel for the newly created child node
+			setSelectedNode(newNode)
       
       setOntologyData(prevData => {
         if (!prevData) return prevData;

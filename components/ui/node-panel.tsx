@@ -37,7 +37,7 @@ interface ConnectedNode {
   direction: 'incoming' | 'outgoing';
 }
 
-export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode, onNodeUpdate, onDeleteNode, refreshGraph }: NodePanelProps) {
+export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode, onNodeUpdate, onDeleteNode }: NodePanelProps) {
   const [noteContent, setNoteContent] = useState('')
   const [isAddingNote, setIsAddingNote] = useState(false)
   const [isEditingDescription, setIsEditingDescription] = useState(false);
