@@ -2,7 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X, Plus, Pencil } from "lucide-react";
 import { NodeData, Note, NodeType, DeletionStrategy } from '@/types/graph';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { NODE_TYPES } from './legend';
@@ -160,8 +160,9 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const handleUpdateType = async () => {
     if (!selectedNode) return;
     try {
-      await onNodeUpdate(selectedNode.id, { type: editedType });
+      const updatedNode = await onNodeUpdate(selectedNode.id, { type: editedType });
       setIsEditingType(false);
+      setEditedType(updatedNode.type);
     } catch (error) {
       console.error('Error updating type:', error);
     }
@@ -176,6 +177,13 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
       console.error('Error deleting node:', error);
     }
   };
+
+  // When the selectedNode changes, update the editedType
+  useEffect(() => {
+    if (selectedNode) {
+      setEditedType(selectedNode.type);
+    }
+  }, [selectedNode]);
 
   return (
     <div

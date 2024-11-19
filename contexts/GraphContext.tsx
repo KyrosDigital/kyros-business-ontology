@@ -151,6 +151,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
       
       const updatedNode = await response.json();
       
+      // Update both the ontology data and the selected node
       setOntologyData(prevData => {
         if (!prevData) return prevData;
         return {
@@ -158,8 +159,14 @@ export function GraphProvider({ children }: GraphProviderProps) {
           nodes: addOrUpdateNode(prevData.nodes, updatedNode)
         };
       });
+      
+      // Update the selected node state
+      setSelectedNode(updatedNode);
+      
+      return updatedNode; // Return the updated node for the component to use
     } catch (error) {
       console.error('Error updating node:', error);
+      throw error; // Rethrow to let components handle the error
     }
   };
 
