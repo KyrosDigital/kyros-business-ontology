@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { X, Plus, Edit, Trash2, Link as LinkIcon } from "lucide-react";
 import { NodeType } from '@prisma/client';
 import { NodeData, Note } from '@/types/graph';
+import { NODE_TYPES } from '@/components/ui/legend';
 
 interface NodesCategoryProps {
   isPanelOpen: boolean;
@@ -96,7 +97,7 @@ export function NodesCategoryPanel({
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">
-            {selectedType || 'Node Details'}
+            {selectedType ? `${NODE_TYPES.find(nt => nt.type === selectedType)?.label}'s` || selectedType : 'Node Details'}
           </h2>
           <Button
             variant="ghost"
@@ -111,14 +112,9 @@ export function NodesCategoryPanel({
         {selectedType && !selectedNode && (
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-medium">{selectedType} Nodes</h3>
-              <Button
-                size="sm"
-                onClick={() => onCreateNode({ type: selectedType })}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                New {selectedType}
-              </Button>
+              <h3 className="text-lg font-medium">
+                Total {NODE_TYPES.find(nt => nt.type === selectedType)?.label || selectedType} Nodes: {categoryNodes.length}
+              </h3>
             </div>
             
             <div className="space-y-3">
