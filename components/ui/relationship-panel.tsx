@@ -33,7 +33,7 @@ export function RelationshipPanel({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editedType.trim() && editedType !== relationType) {
-      await onUpdateRelationType(editedType.trim().toUpperCase());
+      await onUpdateRelationType(editedType.trim());
     }
   };
 
@@ -70,7 +70,7 @@ export function RelationshipPanel({
                     value={editedType}
                     onChange={(e) => setEditedType(e.target.value)}
                     className="w-full p-2 border rounded"
-                    placeholder="Enter relationship type..."
+                    placeholder="Uses, manages, completes, etc."
                   />
                   <Button 
                     type="submit"
@@ -80,7 +80,7 @@ export function RelationshipPanel({
                   </Button>
                 </div>
                 <p className="text-sm text-gray-500 mt-1">
-                  Common types: PARENT_CHILD, RELATED, DEPENDS_ON, USES
+                  Use a verb to describe how nodes relate <br/> (e.g., manages, uses, depends on, reports to)
                 </p>
               </div>
             </form>
