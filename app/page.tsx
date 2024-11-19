@@ -9,6 +9,9 @@ import { LayoutSelect } from '@/components/ui/layout-select';
 import { RelationshipPanel } from '@/components/ui/relationship-panel';
 import { Graph } from '@/components/ui/graph';
 import { GraphProvider, useGraph } from '@/contexts/GraphContext';
+import { Button } from '@/components/ui/button';
+import { useState } from 'react';
+import { CreateNodeModal } from '@/components/ui/create-node-modal';
 
 function HomeContent() {
   const {
@@ -33,13 +36,21 @@ function HomeContent() {
     refreshGraph,
   } = useGraph();
 
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
   return (
     <div className="relative w-screen h-screen overflow-hidden">
-      <Legend 
-        selectedType={selectedType} 
+      <Legend
+        selectedType={selectedType}
         onLegendClick={handleLegendClick}
         viewMode={viewMode}
         onViewModeChange={(checked) => setViewMode(checked ? 'table' : 'graph')}
+        setIsCreateModalOpen={setIsCreateModalOpen}
+      />
+
+      <CreateNodeModal 
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
       />
 
       {viewMode === 'graph' && (
@@ -63,6 +74,7 @@ function HomeContent() {
         onUpdateNode={handleUpdateNode}
         onDeleteNode={handleDeleteNode}
         onCreateRelationship={handleCreateRelationship}
+        onCreateNode={handleCreateNode}
       />
 
       <NodePanel 

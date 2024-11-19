@@ -94,6 +94,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
 
   // Graph Operations
+	// TODO: rename this to handleCreateChildNode
   const handleCreateNode = async (nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
       if (!selectedNode?.id) return;

@@ -1,6 +1,5 @@
 import { prisma } from '@/prisma/prisma-client'
 import { NodeType } from '@prisma/client'
-import { determineRelationType } from '@/types/graph'
 
 // Types
 type InputJsonValue = string | number | boolean | null | { [key: string]: InputJsonValue } | InputJsonValue[];
@@ -471,6 +470,26 @@ export async function deleteRelationship(sourceId: string, targetId: string) {
     where: {
       id: relationship.id,
     },
+  });
+}
+
+// Add this with the other type definitions at the top
+export type CreateNodeInput = {
+  type: NodeType
+  name: string
+  description?: string
+  metadata?: InputJsonValue
+}
+
+// Add this new function
+export async function createNode(data: CreateNodeInput) {
+  return prisma.node.create({
+    data: {
+      type: data.type,
+      name: data.name,
+      description: data.description
+    },
+    include: defaultIncludes
   });
 }
 

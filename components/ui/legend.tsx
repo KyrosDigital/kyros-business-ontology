@@ -1,12 +1,14 @@
 import { Card } from '@/components/ui/card';
 import { Switch } from "@/components/ui/switch"
 import { NodeType } from '@prisma/client';
+import { Button } from './button';
 
 interface LegendProps {
   selectedType: NodeType | null;
   onLegendClick: (type: NodeType) => void;
   viewMode: 'graph' | 'table';
   onViewModeChange: (checked: boolean) => void;
+  setIsCreateModalOpen: (open: boolean) => void;
 }
 
 type NodeTypeConfig = {
@@ -46,7 +48,8 @@ export function Legend({
   selectedType, 
   onLegendClick,
   viewMode,
-  onViewModeChange
+  onViewModeChange,
+  setIsCreateModalOpen
 }: LegendProps) {
   return (
     <div className="absolute top-4 left-4 z-20 flex flex-col gap-4">
@@ -78,6 +81,13 @@ export function Legend({
         />
         <span className="text-sm font-medium">Table</span>
       </div>
+
+      <Button
+        className="w-full bg-green-500 hover:bg-green-600 text-white"
+        onClick={() => setIsCreateModalOpen(true)}
+      >
+        New Node
+      </Button>
     </div>
   );
 }
