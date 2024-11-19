@@ -94,21 +94,6 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     onClose();
   };
 
-  const getChildTypeForParent = (parentType: string): NodeType[] => {
-    return [
-      NodeType.ORGANIZATION,
-      NodeType.DEPARTMENT,
-      NodeType.ROLE,
-      NodeType.PROCESS,
-      NodeType.TASK,
-      NodeType.INTEGRATION,
-      NodeType.SOFTWARE_TOOL,
-      NodeType.DATA_SOURCE,
-      NodeType.ANALYTICS,
-      NodeType.AI_COMPONENT
-    ];
-  };
-
   const handleCreateNode = async () => {
     if (!formData.name || !formData.type || !formData.relationType) return;
 
@@ -165,18 +150,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const handleUpdateDescription = async () => {
     if (!selectedNode) return;
     try {
-      const response = await fetch(`/api/v1/ontology/${selectedNode.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: editedDescription }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update description');
-      }
-
-      const updatedNode = await response.json();
-      onNodeUpdate(selectedNode.id, updatedNode);
+      await onNodeUpdate(selectedNode.id, { description: editedDescription });
       setIsEditingDescription(false);
     } catch (error) {
       console.error('Error updating description:', error);
@@ -186,18 +160,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const handleUpdateType = async () => {
     if (!selectedNode) return;
     try {
-      const response = await fetch(`/api/v1/ontology/${selectedNode.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: editedType }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update type');
-      }
-
-      const updatedNode = await response.json();
-      onNodeUpdate(selectedNode.id, updatedNode);
+      await onNodeUpdate(selectedNode.id, { type: editedType });
       setIsEditingType(false);
     } catch (error) {
       console.error('Error updating type:', error);

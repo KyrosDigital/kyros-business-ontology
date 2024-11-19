@@ -141,8 +141,8 @@ export function GraphProvider({ children }: GraphProviderProps) {
 
   const handleUpdateNode = async (nodeId: string, nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
-      const response = await fetch(`/api/v1/ontology/nodes/${nodeId}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/v1/ontology/${nodeId}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(nodeData),
       });
