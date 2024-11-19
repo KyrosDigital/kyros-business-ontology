@@ -52,6 +52,8 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     type: '',
     relationType: ''
   });
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editedName, setEditedName] = useState(selectedNode?.name || '');
   
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
@@ -178,10 +180,21 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     }
   };
 
+  const handleUpdateName = async () => {
+    if (!selectedNode) return;
+    try {
+      await onNodeUpdate(selectedNode.id, { name: editedName });
+      setIsEditingName(false);
+    } catch (error) {
+      console.error('Error updating name:', error);
+    }
+  };
+
   // When the selectedNode changes, update the editedType
   useEffect(() => {
     if (selectedNode) {
       setEditedType(selectedNode.type);
+      setEditedName(selectedNode.name);
     }
   }, [selectedNode]);
 
@@ -193,8 +206,49 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     >
       <div className="p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-semibold">
-            {selectedNode?.name || selectedNode?.id || 'Node Details'}
+          <h2 className="text-2xl font-semibold flex items-center gap-2">
+            {isEditingName ? (
+              <div className="flex items-center gap-2">
+                <Input
+                  value={editedName}
+                  onChange={(e) => setEditedName(e.target.value)}
+                  className="text-2xl font-semibold h-9"
+                />
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    onClick={handleUpdateName}
+                    disabled={!editedName.trim()}
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditingName(false);
+                      setEditedName(selectedNode?.name || '');
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {selectedNode?.name || selectedNode?.id || 'Node Details'}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditingName(true);
+                    setEditedName(selectedNode?.name || '');
+                  }}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </>
+            )}
           </h2>
           <div className="mb-6">
             <AlertDialog open={isAlertOpen} onOpenChange={setIsAlertOpen}>
