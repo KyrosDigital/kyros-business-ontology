@@ -24,6 +24,28 @@ export function Graph() {
     handleCreateRelationship,
   } = useGraph();
 
+  const handleZoomIn = () => {
+    if (containerRef.current?.__cy) {
+      const cy = containerRef.current.__cy;
+      const currentZoom = cy.zoom();
+      cy.animate({
+        zoom: currentZoom * 1.2,
+        duration: 200
+      });
+    }
+  };
+
+  const handleZoomOut = () => {
+    if (containerRef.current?.__cy) {
+      const cy = containerRef.current.__cy;
+      const currentZoom = cy.zoom();
+      cy.animate({
+        zoom: currentZoom / 1.2,
+        duration: 200
+      });
+    }
+  };
+
   // Initialize or reinitialize graph when data changes
   useEffect(() => {
     if (
@@ -178,6 +200,7 @@ export function Graph() {
             size="icon"
             className="w-8 h-8"
             id="zoom-in"
+            onClick={handleZoomIn}
           >
             +
           </Button>
@@ -186,6 +209,7 @@ export function Graph() {
             size="icon"
             className="w-8 h-8"
             id="zoom-out"
+            onClick={handleZoomOut}
           >
             -
           </Button>
