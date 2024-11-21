@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { sendMessage } from "@/lib/claude"
 import { X } from "lucide-react"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -17,11 +16,14 @@ interface ChatMessage {
   content: string
 }
 
-interface AiChatProps {
-  ontologyData: any
+interface MarkdownComponentProps {
+  children?: React.ReactNode;
+  className?: string;
+  inline?: boolean;
+  node?: unknown;
 }
 
-export function AiChat({ ontologyData }: AiChatProps) {
+export function AiChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [isOpen, setIsOpen] = useState(false)
@@ -32,13 +34,28 @@ export function AiChat({ ontologyData }: AiChatProps) {
     if (!input.trim() || isLoading) return
 
     setIsLoading(true)
-    const userMessage = { role: "user", content: input }
+    const userMessage: ChatMessage = { role: "user", content: input }
     setMessages(prev => [...prev, userMessage])
     setInput("")
 
     try {
-      const response = await sendMessage(input, messages, ontologyData)
-      setMessages(prev => [...prev, { role: "assistant", content: response }])
+      const response = await fetch('/api/v1/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: input,
+          previousMessages: messages
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      const data = await response.json();
+      setMessages(prev => [...prev, { role: "assistant", content: data.response }]);
     } catch (error) {
       console.error('Failed to get response:', error)
       setMessages(prev => [...prev, { 
@@ -51,7 +68,7 @@ export function AiChat({ ontologyData }: AiChatProps) {
   }
 
   const markdownComponents = {
-    code({node, inline, className, children, ...props}) {
+    code({ inline, className, children, ...props }: MarkdownComponentProps) {
       const match = /language-(\w+)/.exec(className || '')
       return !inline && match ? (
         <SyntaxHighlighter
@@ -68,12 +85,12 @@ export function AiChat({ ontologyData }: AiChatProps) {
         </code>
       )
     },
-    p: ({children}) => <p className="mb-4">{children}</p>,
-    h2: ({children}) => <h2 className="text-xl font-bold mt-6 mb-4">{children}</h2>,
-    h3: ({children}) => <h3 className="text-lg font-semibold mt-4 mb-2">{children}</h3>,
-    ul: ({children}) => <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>,
-    ol: ({children}) => <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>,
-    blockquote: ({children}) => (
+    p: ({ children }: MarkdownComponentProps) => <p className="mb-4">{children}</p>,
+    h2: ({ children }: MarkdownComponentProps) => <h2 className="text-xl font-bold mt-6 mb-4">{children}</h2>,
+    h3: ({ children }: MarkdownComponentProps) => <h3 className="text-lg font-semibold mt-4 mb-2">{children}</h3>,
+    ul: ({ children }: MarkdownComponentProps) => <ul className="list-disc pl-6 mb-4 space-y-2">{children}</ul>,
+    ol: ({ children }: MarkdownComponentProps) => <ol className="list-decimal pl-6 mb-4 space-y-2">{children}</ol>,
+    blockquote: ({ children }: MarkdownComponentProps) => (
       <blockquote className="border-l-4 border-primary pl-4 italic my-4">
         {children}
       </blockquote>
