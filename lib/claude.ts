@@ -35,7 +35,7 @@ async function getRelevantContext(query: string): Promise<RelevantContext[]> {
         content: match.metadata!.content as string,
         score: match.score!
       }))
-      .filter(context => context.score > 0.7);
+      .filter(context => context.score > 0.5);
   } catch (error) {
     console.error('Error getting relevant context:', error);
     throw new Error('Failed to generate embedding');
