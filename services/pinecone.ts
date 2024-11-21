@@ -12,18 +12,18 @@ export interface VectorMetadata extends RecordMetadata {
   type: 'NODE' | 'RELATIONSHIP' | 'NOTE';
   id: string;
   content: string;
-  nodeType?: NodeType;
-  nodeName?: string;
-  nodeDescription?: string;
-  nodeMetadataStr?: string;
-  relationType?: string;
-  fromNodeId?: string;
-  fromNodeType?: NodeType;
-  fromNodeName?: string;
-  toNodeId?: string;
-  toNodeType?: NodeType;
-  toNodeName?: string;
-  noteAuthor?: string;
+  nodeType?: any;
+  nodeName?: any;
+  nodeDescription?: any;
+  nodeMetadataStr?: any;
+  relationType?: any;
+  fromNodeId?: any;
+  fromNodeType?: any;
+  fromNodeName?: any;
+  toNodeId?: any;
+  toNodeType?: any;
+  toNodeName?: any;
+  noteAuthor?: any;
 }
 
 export class PineconeService {
@@ -134,7 +134,7 @@ export class PineconeService {
       metadata: {
         ...match.metadata,
         nodeMetadata: match.metadata?.nodeMetadataStr 
-          ? JSON.parse(match.metadata.nodeMetadataStr)
+          ? JSON.parse(match.metadata.nodeMetadataStr as string)
           : undefined
       }
     }));
