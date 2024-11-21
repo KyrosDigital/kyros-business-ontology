@@ -32,6 +32,7 @@ model Node {
   name          String
   description   String?
   metadata      Json?       // For any type-specific data we might need
+  vectorId      String?     // Added for Pinecone vector ID
   
   // Relationships
   fromRelations NodeRelationship[] @relation("FromNode")
@@ -51,6 +52,7 @@ model NodeRelationship {
   toNode        Node     @relation("ToNode", fields: [toNodeId], references: [id])
   toNodeId      String
   relationType  String   // e.g., "PARENT_CHILD", "USES", "DEPENDS_ON", etc.
+  vectorId      String?  // Added for Pinecone vector ID
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -65,6 +67,7 @@ model Note {
   author      String
   node        Node      @relation(fields: [nodeId], references: [id])
   nodeId      String
+  vectorId    String?   // Added for Pinecone vector ID
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
