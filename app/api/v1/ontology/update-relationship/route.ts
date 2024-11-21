@@ -1,5 +1,5 @@
-import { prisma } from '@/prisma/prisma-client';
 import { NextResponse } from 'next/server';
+import { updateRelationType } from '@/services/ontology';
 
 export async function PUT(request: Request) {
   try {
@@ -12,34 +12,12 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Find the existing relationship
-    const existingRelationship = await prisma.nodeRelationship.findFirst({
-      where: {
-        fromNodeId: sourceId,
-        toNodeId: targetId,
-      },
-    });
-
-    if (!existingRelationship) {
-      return NextResponse.json(
-        { error: 'Relationship not found' },
-        { status: 404 }
-      );
-    }
-
-    // Update the relationship
-    const updatedRelationship = await prisma.nodeRelationship.update({
-      where: {
-        id: existingRelationship.id,
-      },
-      data: {
-        relationType: newType,
-      },
-      include: {
-        fromNode: true,
-        toNode: true,
-      },
-    });
+    // Use the ontology service function which handles vector updates
+    const updatedRelationship = await updateRelationType(
+      sourceId,
+      targetId,
+      newType
+    );
 
     return NextResponse.json(updatedRelationship);
   } catch (error) {

@@ -713,11 +713,16 @@ export async function updateRelationType(
     throw new Error('Relationship or nodes not found');
   }
 
+  // Delete the old vector if it exists
+  if (relationship.vectorId) {
+    await pineconeService.deleteVector(relationship.vectorId);
+  }
+
   // Generate new embedding for updated relationship
   const relationshipText = `${fromNode.name} ${newType} ${toNode.name}`;
   const vector = await openAIService.generateEmbedding(relationshipText);
 
-  // Update vector in Pinecone
+  // Create new vector in Pinecone
   const vectorId = await pineconeService.upsertRelationshipVector(
     relationship.id,
     vector,

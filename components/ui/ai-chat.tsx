@@ -11,6 +11,8 @@ import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 
+type FilterType = 'NODE' | 'RELATIONSHIP' | 'NOTE';
+
 interface ChatMessage {
   role: "user" | "assistant"
   content: string
@@ -28,6 +30,19 @@ export function AiChat() {
   const [input, setInput] = useState("")
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(
+    new Set(['NODE', 'RELATIONSHIP', 'NOTE'] as FilterType[])
+  )
+
+  const toggleFilter = (filter: FilterType) => {
+    const newFilters = new Set(activeFilters);
+    if (newFilters.has(filter)) {
+      newFilters.delete(filter);
+    } else {
+      newFilters.add(filter);
+    }
+    setActiveFilters(newFilters);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -46,7 +61,8 @@ export function AiChat() {
         },
         body: JSON.stringify({
           message: input,
-          previousMessages: messages
+          previousMessages: messages,
+          activeFilters: Array.from(activeFilters)
         }),
       });
 
@@ -102,14 +118,31 @@ export function AiChat() {
       {isOpen ? (
         <Card>
           <CardHeader className="flex flex-row justify-between items-center">
-            <span className="text-lg font-bold">AI Assistant</span>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setIsOpen(false)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex flex-col space-y-2 w-full">
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-bold">AI Assistant</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2">
+                {(['NODE', 'RELATIONSHIP', 'NOTE'] as FilterType[]).map((filter) => (
+                  <Button
+                    key={filter}
+                    variant={activeFilters.has(filter) ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleFilter(filter)}
+                    className="text-xs"
+                  >
+                    {filter}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[300px] pr-4">

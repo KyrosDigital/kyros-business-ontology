@@ -3,8 +3,10 @@ import { sendMessage } from '@/lib/claude';
 
 export async function POST(request: Request) {
   try {
-    const { message, previousMessages } = await request.json();
-    const response = await sendMessage(message, previousMessages);
+    const { message, previousMessages, activeFilters } = await request.json();
+    const filtersSet = new Set(activeFilters as ('NODE' | 'RELATIONSHIP' | 'NOTE')[]);
+    
+    const response = await sendMessage(message, previousMessages, filtersSet);
     
     if (!response) {
       return NextResponse.json(

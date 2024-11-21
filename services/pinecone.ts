@@ -151,12 +151,18 @@ export class PineconeService {
   async querySimilar(
     vector: number[],
     topK: number = 5,
-    filter?: { type?: 'NODE' | 'RELATIONSHIP' | 'NOTE' }
+    activeFilters?: Set<'NODE' | 'RELATIONSHIP' | 'NOTE'>
   ) {
+    const filter = activeFilters && activeFilters.size > 0 ? {
+      type: { $in: Array.from(activeFilters) }
+    } : undefined;
+
+    console.log('Filter:', filter);
+
     const response = await this.index.query({
       vector,
       topK,
-      filter: filter,
+      filter,
       includeMetadata: true,
     });
 
