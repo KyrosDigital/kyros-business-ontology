@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { pineconeService } from '@/services/pinecone';
 import { openAIService } from '@/services/openai';
+import { VectorMetadata } from '@/services/pinecone';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -10,6 +11,7 @@ interface RelevantContext {
   type: 'NODE' | 'RELATIONSHIP' | 'NOTE';
   content: string;
   score: number;
+  metadata: VectorMetadata;
 }
 
 /**
@@ -31,11 +33,12 @@ async function getRelevantContext(query: string): Promise<RelevantContext[]> {
     return results
       .filter(match => match.metadata && match.score)
       .map(match => ({
-        type: match.metadata!.type as 'NODE' | 'RELATIONSHIP' | 'NOTE',
-        content: match.metadata!.content as string,
-        score: match.score!
+        type: match.metadata!.type,
+        content: match.metadata!.content,
+        score: match.score!,
+        metadata: match.metadata as VectorMetadata
       }))
-      .filter(context => context.score > 0.5);
+      .filter(context => context.score > 0.1);
   } catch (error) {
     console.error('Error getting relevant context:', error);
     throw new Error('Failed to generate embedding');
@@ -46,30 +49,47 @@ async function getRelevantContext(query: string): Promise<RelevantContext[]> {
  * Format context into a structured prompt
  */
 function formatContextForPrompt(contexts: RelevantContext[]): string {
-  const sections: { [key: string]: string[] } = {
-    NODE: [],
-    RELATIONSHIP: [],
-    NOTE: []
-  };
+  let prompt = "Here's the relevant information from the organization:\n\n";
 
   // Group contexts by type
-  contexts.forEach(context => {
-    sections[context.type].push(context.content);
-  });
+  const nodes = contexts.filter(c => c.type === 'NODE');
+  const relationships = contexts.filter(c => c.type === 'RELATIONSHIP');
+  const notes = contexts.filter(c => c.type === 'NOTE');
 
-  // Build prompt sections
-  let prompt = "Here's the relevant information from the organization:\n\n";
-  
-  if (sections.NODE.length > 0) {
-    prompt += "Entities:\n" + sections.NODE.map(c => `- ${c}`).join('\n') + '\n\n';
+  // Format Departments and other Nodes
+  if (nodes.length > 0) {
+    prompt += "Departments and Entities:\n";
+    nodes.forEach(node => {
+      const metadata = node.metadata as NodeMetadata;
+      prompt += `- ${metadata.nodeType}: ${metadata.name}\n`;
+      if (metadata.description) {
+        prompt += `  Description: ${metadata.description}\n`;
+      }
+      if (metadata.metadataStr && metadata.metadataStr !== '{}') {
+        prompt += `  Additional Info: ${metadata.metadataStr}\n`;
+      }
+      prompt += '\n';
+    });
   }
-  
-  if (sections.RELATIONSHIP.length > 0) {
-    prompt += "Relationships:\n" + sections.RELATIONSHIP.map(c => `- ${c}`).join('\n') + '\n\n';
+
+  // Format Relationships with more context
+  if (relationships.length > 0) {
+    prompt += "Relationships and Structure:\n";
+    relationships.forEach(rel => {
+      const metadata = rel.metadata as RelationshipMetadata;
+      prompt += `- ${metadata.fromNodeType} "${metadata.fromNodeName}" ${metadata.relationType} ${metadata.toNodeType} "${metadata.toNodeName}"\n`;
+    });
+    prompt += '\n';
   }
-  
-  if (sections.NOTE.length > 0) {
-    prompt += "Notes:\n" + sections.NOTE.map(c => `- ${c}`).join('\n') + '\n\n';
+
+  // Format Notes with attribution
+  if (notes.length > 0) {
+    prompt += "Relevant Notes:\n";
+    notes.forEach(note => {
+      const metadata = note.metadata as NoteMetadata;
+      prompt += `- From ${metadata.author}: ${metadata.content}\n`;
+    });
+    prompt += '\n';
   }
 
   return prompt;
