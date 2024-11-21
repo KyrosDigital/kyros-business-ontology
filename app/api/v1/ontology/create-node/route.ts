@@ -26,7 +26,7 @@ export async function POST(request: Request) {
       type: body.type,
       name: body.name,
       description: body.description,
-      metadata: body.metadata,
+      metadata: {}, // have empty metadata for now
     });
 
     return NextResponse.json(node);

@@ -164,7 +164,7 @@ export async function createChildNode(
       type: data.type,
       name: data.name,
       description: data.description,
-      metadata: data.metadata === null ? Prisma.JsonNull : data.metadata
+      metadata: {} // have empty metadata for now
     };
 
     const childNode = await tx.node.create({
