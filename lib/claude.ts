@@ -49,47 +49,88 @@ async function getRelevantContext(query: string): Promise<RelevantContext[]> {
  * Format context into a structured prompt
  */
 function formatContextForPrompt(contexts: RelevantContext[]): string {
-  let prompt = "Here's the relevant information from the organization:\n\n";
+  let prompt = "Here's the relevant information from the organizational structure:\n\n";
 
   // Group contexts by type
   const nodes = contexts.filter(c => c.type === 'NODE');
   const relationships = contexts.filter(c => c.type === 'RELATIONSHIP');
   const notes = contexts.filter(c => c.type === 'NOTE');
 
-  // Format Departments and other Nodes
-  if (nodes.length > 0) {
-    prompt += "Departments and Entities:\n";
-    nodes.forEach(node => {
-      const metadata = node.metadata as NodeMetadata;
-      prompt += `- ${metadata.nodeType}: ${metadata.name}\n`;
-      if (metadata.description) {
-        prompt += `  Description: ${metadata.description}\n`;
+  // Create a map of nodes by ID for easy reference
+  const nodeMap = new Map();
+  nodes.forEach(node => {
+    const metadata = node.metadata as NodeMetadata;
+    nodeMap.set(metadata.id, {
+      type: metadata.nodeType,
+      name: metadata.name,
+      description: metadata.description,
+      metadata: metadata.metadataStr ? JSON.parse(metadata.metadataStr) : {},
+      relationships: []
+    });
+  });
+
+  // Add relationships to the node map
+  relationships.forEach(rel => {
+    const metadata = rel.metadata as RelationshipMetadata;
+    
+    // Add outgoing relationship
+    if (nodeMap.has(metadata.fromNodeId)) {
+      nodeMap.get(metadata.fromNodeId).relationships.push({
+        type: 'outgoing',
+        relationType: metadata.relationType,
+        targetType: metadata.toNodeType,
+        targetName: metadata.toNodeName
+      });
+    }
+
+    // Add incoming relationship
+    if (nodeMap.has(metadata.toNodeId)) {
+      nodeMap.get(metadata.toNodeId).relationships.push({
+        type: 'incoming',
+        relationType: metadata.relationType,
+        sourceType: metadata.fromNodeType,
+        sourceName: metadata.fromNodeName
+      });
+    }
+  });
+
+  // Format nodes with their relationships
+  if (nodeMap.size > 0) {
+    prompt += "## Entities and Their Relationships\n\n";
+    nodeMap.forEach((node, id) => {
+      prompt += `### ${node.type}: ${node.name}\n`;
+      if (node.description) {
+        prompt += `Description: ${node.description}\n`;
       }
-      if (metadata.metadataStr && metadata.metadataStr !== '{}') {
-        prompt += `  Additional Info: ${metadata.metadataStr}\n`;
+      if (Object.keys(node.metadata).length > 0) {
+        prompt += `Properties: ${JSON.stringify(node.metadata)}\n`;
       }
-      prompt += '\n';
+
+      // Format relationships
+      if (node.relationships.length > 0) {
+        prompt += "\nConnections:\n";
+        node.relationships.forEach(rel => {
+          if (rel.type === 'outgoing') {
+            prompt += `- ${rel.relationType} → ${rel.targetType} "${rel.targetName}"\n`;
+          } else {
+            prompt += `- ${rel.sourceType} "${rel.sourceName}" ${rel.relationType} → This Entity\n`;
+          }
+        });
+      }
+      prompt += "\n";
     });
   }
 
-  // Format Relationships with more context
-  if (relationships.length > 0) {
-    prompt += "Relationships and Structure:\n";
-    relationships.forEach(rel => {
-      const metadata = rel.metadata as RelationshipMetadata;
-      prompt += `- ${metadata.fromNodeType} "${metadata.fromNodeName}" ${metadata.relationType} ${metadata.toNodeType} "${metadata.toNodeName}"\n`;
-    });
-    prompt += '\n';
-  }
-
-  // Format Notes with attribution
+  // Add relevant notes with context
   if (notes.length > 0) {
-    prompt += "Relevant Notes:\n";
+    prompt += "## Related Notes\n\n";
     notes.forEach(note => {
       const metadata = note.metadata as NoteMetadata;
-      prompt += `- From ${metadata.author}: ${metadata.content}\n`;
+      const relatedNode = nodeMap.get(metadata.nodeId);
+      const nodeContext = relatedNode ? ` (regarding ${relatedNode.type} "${relatedNode.name}")` : '';
+      prompt += `- From ${metadata.author}${nodeContext}: ${metadata.content}\n`;
     });
-    prompt += '\n';
+    prompt += "\n";
   }
 
   return prompt;
