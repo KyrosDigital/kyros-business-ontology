@@ -63,7 +63,7 @@ async function main() {
 		}
 	});
 
-	// Generate rich content and store vector
+	// Generate embedding using the same pattern as the service
 	const orgContent = generateNodeEmbeddingContent(org);
 	const orgVector = await openAIService.generateEmbedding(orgContent);
 	const orgVectorId = await pineconeService.upsertNodeVector(
@@ -121,7 +121,6 @@ async function main() {
 
 	const departments = await Promise.all(
 		departmentData.map(async (dept) => {
-			// Create the department node
 			const node = await prisma.node.create({
 				data: dept,
 				include: {
@@ -151,7 +150,6 @@ async function main() {
 				}
 			});
 
-			// Generate rich content and store vector
 			const content = generateNodeEmbeddingContent(node);
 			const vector = await openAIService.generateEmbedding(content);
 			const vectorId = await pineconeService.upsertNodeVector(
@@ -589,7 +587,6 @@ async function main() {
 
 	await Promise.all(
 		relationshipData.map(async (rel) => {
-			// Create relationship based on input type
 			const relationship = await prisma.nodeRelationship.create({
 				data: {
 					fromNodeId: 'fromNode' in rel ? rel.fromNode.id : rel.fromNodeId,
@@ -602,21 +599,17 @@ async function main() {
 				}
 			});
 
-			// Generate relationship text based on input type
-			const relationshipText = 'fromNode' in rel 
-				? `${rel.fromNode.name} ${rel.relationType} ${rel.toNode.name}`
-				: rel.text;
-
+			// Generate relationship text like in ontology.ts
+			const relationshipText = `${relationship.fromNode.name} ${relationship.relationType} ${relationship.toNode.name}`;
 			const vector = await openAIService.generateEmbedding(relationshipText);
 			
-			// Create fromNode and toNode objects for vector storage
-			const fromNodeData = 'fromNode' in rel ? rel.fromNode : {
+			const fromNodeData = {
 				id: relationship.fromNode.id,
 				type: relationship.fromNode.type,
 				name: relationship.fromNode.name
 			};
 
-			const toNodeData = 'toNode' in rel ? rel.toNode : {
+			const toNodeData = {
 				id: relationship.toNode.id,
 				type: relationship.toNode.type,
 				name: relationship.toNode.name
@@ -627,7 +620,7 @@ async function main() {
 				vector,
 				fromNodeData,
 				toNodeData,
-				rel.relationType,
+				relationship.relationType,
 				relationshipText
 			);
 
@@ -671,12 +664,14 @@ async function main() {
 				}
 			});
 
-			// Generate and store vector for note
+			// Use note content directly for embedding like in ontology.ts
 			const vector = await openAIService.generateEmbedding(note.content);
 			const vectorId = await pineconeService.upsertNoteVector(
 				noteRecord.id,
 				vector,
-				note.content
+				note.content,
+				note.author,
+				note.nodeId
 			);
 
 			return prisma.note.update({

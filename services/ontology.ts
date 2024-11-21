@@ -63,39 +63,8 @@ export interface NodeWithRelations {
   }[];
 }
 
-export function generateNodeEmbeddingContent(node: NodeWithRelations): string {
-  let content = `Type: ${node.type}\nName: ${node.name}\n`;
-  
-  if (node.description) {
-    content += `Description: ${node.description}\n`;
-  }
-
-  if (node.metadata) {
-    content += `Additional Information: ${JSON.stringify(node.metadata)}\n`;
-  }
-
-  if (node.fromRelations?.length) {
-    content += '\nOutgoing Relationships:\n';
-    node.fromRelations.forEach(rel => {
-      content += `- ${rel.relationType} -> ${rel.toNode.type} "${rel.toNode.name}"\n`;
-    });
-  }
-
-  if (node.toRelations?.length) {
-    content += '\nIncoming Relationships:\n';
-    node.toRelations.forEach(rel => {
-      content += `- ${rel.fromNode.type} "${rel.fromNode.name}" ${rel.relationType} -> This Node\n`;
-    });
-  }
-
-  if (node.notes?.length) {
-    content += '\nNotes:\n';
-    node.notes.forEach(note => {
-      content += `- ${note.author}: ${note.content}\n`;
-    });
-  }
-
-  return content;
+export function generateNodeEmbeddingContent(node: NodeWithRelations | Partial<CreateNodeData>): string {
+  return JSON.stringify(node, null, 2);
 }
 
 export async function updateNode(nodeId: string, data: Partial<CreateNodeData>) {
@@ -108,10 +77,14 @@ export async function updateNode(nodeId: string, data: Partial<CreateNodeData>) 
     throw new Error('Node not found');
   }
 
-  const updatedName = data.name || existingNode.name;
-  const updatedDescription = data.description ?? existingNode.description;
+  const updatedNode = {
+    ...existingNode,
+    name: data.name || existingNode.name,
+    description: data.description ?? existingNode.description,
+    metadata: data.metadata === null ? null : (data.metadata || existingNode.metadata)
+  };
 
-  const textForEmbedding = `${updatedName} ${updatedDescription || ''}`.trim();
+  const textForEmbedding = generateNodeEmbeddingContent(updatedNode);
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
   const vectorId = await pineconeService.upsertNodeVector(
@@ -151,7 +124,9 @@ export async function addNote(data: CreateNoteData) {
   const vectorId = await pineconeService.upsertNoteVector(
     note.id,
     vector,
-    data.content
+    data.content,
+    data.author,
+    data.nodeId
   );
 
   // Update note with vector ID
@@ -182,7 +157,7 @@ export async function createChildNode(
   }
 
   return prisma.$transaction(async (tx) => {
-    const nodeTextForEmbedding = `${data.name} ${data.description || ''}`.trim();
+    const nodeTextForEmbedding = generateNodeEmbeddingContent(data);
     const nodeVector = await openAIService.generateEmbedding(nodeTextForEmbedding);
 
     const createData: Prisma.NodeCreateInput = {
@@ -812,7 +787,7 @@ export type CreateNodeInput = {
 
 // Add this new function
 export async function createNode(data: CreateNodeInput) {
-  const textForEmbedding = `${data.name} ${data.description || ''}`.trim();
+  const textForEmbedding = generateNodeEmbeddingContent(data);
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
   const createData: Prisma.NodeCreateInput = {
