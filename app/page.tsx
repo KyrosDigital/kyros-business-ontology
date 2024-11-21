@@ -98,7 +98,7 @@ function HomeContent() {
         onDeleteRelationship={handleDeleteRelationship}
       />
 
-      <AiChat ontologyData={ontologyData} />
+      <AiChat />
     </div>
   );
 }
