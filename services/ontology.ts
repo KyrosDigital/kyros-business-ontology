@@ -1,16 +1,14 @@
-import { prisma } from '@/prisma/prisma-client'
-import { NodeType } from '@prisma/client'
-import { openAIService } from '@/services/openai'
-import { pineconeService } from '@/services/pinecone'
+import { prisma } from '../prisma/prisma-client'
+import { NodeType, Prisma } from '@prisma/client'
+import { openAIService } from './openai'
+import { pineconeService } from './pinecone'
 
 // Types
-type InputJsonValue = string | number | boolean | null | { [key: string]: InputJsonValue } | InputJsonValue[];
-
 type CreateNodeData = {
   type: NodeType
   name: string
   description?: string
-  metadata?: InputJsonValue
+  metadata?: Prisma.JsonValue
 }
 
 type CreateNoteData = {
@@ -34,40 +32,104 @@ const defaultIncludes = {
   notes: true
 }
 
+export interface NodeWithRelations {
+  id: string;
+  type: NodeType;
+  name: string;
+  description?: string | null;
+  metadata?: Prisma.JsonValue;
+  fromRelations?: {
+    id: string;
+    relationType: string;
+    toNode: {
+      id: string;
+      type: NodeType;
+      name: string;
+    };
+  }[];
+  toRelations?: {
+    id: string;
+    relationType: string;
+    fromNode: {
+      id: string;
+      type: NodeType;
+      name: string;
+    };
+  }[];
+  notes?: {
+    id: string;
+    content: string;
+    author: string;
+  }[];
+}
+
+export function generateNodeEmbeddingContent(node: NodeWithRelations): string {
+  let content = `Type: ${node.type}\nName: ${node.name}\n`;
+  
+  if (node.description) {
+    content += `Description: ${node.description}\n`;
+  }
+
+  if (node.metadata) {
+    content += `Additional Information: ${JSON.stringify(node.metadata)}\n`;
+  }
+
+  if (node.fromRelations?.length) {
+    content += '\nOutgoing Relationships:\n';
+    node.fromRelations.forEach(rel => {
+      content += `- ${rel.relationType} -> ${rel.toNode.type} "${rel.toNode.name}"\n`;
+    });
+  }
+
+  if (node.toRelations?.length) {
+    content += '\nIncoming Relationships:\n';
+    node.toRelations.forEach(rel => {
+      content += `- ${rel.fromNode.type} "${rel.fromNode.name}" ${rel.relationType} -> This Node\n`;
+    });
+  }
+
+  if (node.notes?.length) {
+    content += '\nNotes:\n';
+    node.notes.forEach(note => {
+      content += `- ${note.author}: ${note.content}\n`;
+    });
+  }
+
+  return content;
+}
+
 export async function updateNode(nodeId: string, data: Partial<CreateNodeData>) {
-  // First fetch the existing node to merge with updates
   const existingNode = await prisma.node.findUnique({
-    where: { id: nodeId }
+    where: { id: nodeId },
+    include: defaultIncludes
   });
 
   if (!existingNode) {
     throw new Error('Node not found');
   }
 
-  // Merge existing and new data for embedding generation
   const updatedName = data.name || existingNode.name;
   const updatedDescription = data.description ?? existingNode.description;
-  const updatedType = data.type || existingNode.type;
 
-  // Generate embedding for updated content
   const textForEmbedding = `${updatedName} ${updatedDescription || ''}`.trim();
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
-  // Update vector in Pinecone
   const vectorId = await pineconeService.upsertNodeVector(
     nodeId,
     vector,
-    updatedType,
+    existingNode,
     textForEmbedding
   );
 
-  // Update node in database with new data and vector ID
+  const updateData: Prisma.NodeUpdateInput = {
+    ...data,
+    vectorId,
+    metadata: data.metadata === null ? Prisma.JsonNull : data.metadata
+  };
+
   return prisma.node.update({
     where: { id: nodeId },
-    data: {
-      ...data,
-      vectorId,
-    },
+    data: updateData,
     include: defaultIncludes
   });
 }
@@ -120,45 +182,55 @@ export async function createChildNode(
   }
 
   return prisma.$transaction(async (tx) => {
-    // Generate embedding for node content
     const nodeTextForEmbedding = `${data.name} ${data.description || ''}`.trim();
     const nodeVector = await openAIService.generateEmbedding(nodeTextForEmbedding);
 
-    // Create the child node
+    const createData: Prisma.NodeCreateInput = {
+      type: data.type,
+      name: data.name,
+      description: data.description,
+      metadata: data.metadata === null ? Prisma.JsonNull : data.metadata
+    };
+
     const childNode = await tx.node.create({
-      data: {
-        type: data.type,
-        name: data.name,
-        description: data.description,
-        metadata: data.metadata,
-      }
+      data: createData,
+      include: defaultIncludes
     });
 
-    // Store node vector in Pinecone
     const nodeVectorId = await pineconeService.upsertNodeVector(
       childNode.id,
       nodeVector,
-      data.type,
+      childNode,
       nodeTextForEmbedding
     );
 
-    // Update node with vector ID
     await tx.node.update({
       where: { id: childNode.id },
       data: { vectorId: nodeVectorId }
     });
 
-    // Get parent node for relationship embedding
     const parentNode = await tx.node.findUnique({
       where: { id: parentId },
-      select: { name: true }
+      include: {
+        ...defaultIncludes,
+        fromRelations: {
+          include: {
+            toNode: {
+              select: {
+                id: true,
+                type: true,
+                name: true
+              }
+            }
+          }
+        }
+      }
     });
 
     if (!parentNode) {
       throw new Error('Parent node not found');
     }
 
-    // Create the relationship
     const relationship = await tx.nodeRelationship.create({
       data: {
         fromNodeId: parentId,
@@ -167,23 +239,30 @@ export async function createChildNode(
       }
     });
 
-    // Generate and store embedding for relationship
     const relationshipText = `${parentNode.name} ${relationType} ${data.name}`;
     const relationshipVector = await openAIService.generateEmbedding(relationshipText);
     const relationshipVectorId = await pineconeService.upsertRelationshipVector(
       relationship.id,
       relationshipVector,
+      {
+        id: parentNode.id,
+        type: parentNode.type,
+        name: parentNode.name
+      },
+      {
+        id: childNode.id,
+        type: childNode.type,
+        name: childNode.name
+      },
       relationType,
       relationshipText
     );
 
-    // Update relationship with vector ID
     await tx.nodeRelationship.update({
       where: { id: relationship.id },
       data: { vectorId: relationshipVectorId }
     });
 
-    // Return the child node with all relationships included
     return tx.node.findUnique({
       where: { id: childNode.id },
       include: defaultIncludes
@@ -201,11 +280,11 @@ export async function connectNodes(
   const [fromNode, toNode] = await Promise.all([
     prisma.node.findUnique({ 
       where: { id: fromNodeId },
-      select: { id: true, name: true }
+      select: { id: true, name: true, type: true }
     }),
     prisma.node.findUnique({ 
       where: { id: toNodeId },
-      select: { id: true, name: true }
+      select: { id: true, name: true, type: true }
     })
   ]);
 
@@ -237,6 +316,16 @@ export async function connectNodes(
   const vectorId = await pineconeService.upsertRelationshipVector(
     relationship.id,
     vector,
+    {
+      id: fromNode.id,
+      type: fromNode.type,
+      name: fromNode.name
+    },
+    {
+      id: toNode.id,
+      type: toNode.type,
+      name: toNode.name
+    },
     relationType,
     relationshipText
   );
@@ -502,6 +591,16 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
               const vectorId = await pineconeService.upsertRelationshipVector(
                 newRelationship.id,
                 vector,
+                {
+                  id: parentRel.fromNode.id,
+                  type: parentRel.fromNode.type,
+                  name: parentRel.fromNode.name
+                },
+                {
+                  id: childRel.toNode.id,
+                  type: childRel.toNode.type,
+                  name: childRel.toNode.name
+                },
                 childRel.relationType,
                 relationshipText
               );
@@ -622,14 +721,16 @@ export async function updateRelationType(
         fromNodeId,
         toNodeId,
       },
+      include: {
+        fromNode: true,
+        toNode: true
+      }
     }),
     prisma.node.findUnique({
-      where: { id: fromNodeId },
-      select: { name: true }
+      where: { id: fromNodeId }
     }),
     prisma.node.findUnique({
-      where: { id: toNodeId },
-      select: { name: true }
+      where: { id: toNodeId }
     })
   ]);
 
@@ -645,6 +746,16 @@ export async function updateRelationType(
   const vectorId = await pineconeService.upsertRelationshipVector(
     relationship.id,
     vector,
+    {
+      id: fromNode.id,
+      type: fromNode.type,
+      name: fromNode.name
+    },
+    {
+      id: toNode.id,
+      type: toNode.type,
+      name: toNode.name
+    },
     newType,
     relationshipText
   );
@@ -696,23 +807,24 @@ export type CreateNodeInput = {
   type: NodeType
   name: string
   description?: string
-  metadata?: InputJsonValue
+  metadata?: Prisma.JsonValue
 }
 
 // Add this new function
 export async function createNode(data: CreateNodeInput) {
-  // Generate embedding for node content
   const textForEmbedding = `${data.name} ${data.description || ''}`.trim();
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
+  const createData: Prisma.NodeCreateInput = {
+    type: data.type,
+    name: data.name,
+    description: data.description,
+    metadata: data.metadata === null ? Prisma.JsonNull : data.metadata
+  };
+
   // Create node in database
   const node = await prisma.node.create({
-    data: {
-      type: data.type,
-      name: data.name,
-      description: data.description,
-      metadata: data.metadata
-    },
+    data: createData,
     include: defaultIncludes
   });
 
@@ -720,7 +832,7 @@ export async function createNode(data: CreateNodeInput) {
   const vectorId = await pineconeService.upsertNodeVector(
     node.id,
     vector,
-    data.type,
+    node, // Pass the full node object
     textForEmbedding
   );
 

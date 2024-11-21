@@ -1,4 +1,6 @@
 import { Pinecone, RecordMetadata, PineconeRecord } from '@pinecone-database/pinecone';
+import { NodeType, Prisma } from '@prisma/client';
+import { NodeWithRelations } from './ontology';
 
 const pinecone = new Pinecone({
   apiKey: process.env.PINECONE_API_KEY!
@@ -10,9 +12,18 @@ export interface VectorMetadata extends RecordMetadata {
   type: 'NODE' | 'RELATIONSHIP' | 'NOTE';
   id: string;
   content: string;
-  nodeType?: string;
+  nodeType?: NodeType;
+  nodeName?: string;
+  nodeDescription?: string;
+  nodeMetadataStr?: string;
   relationType?: string;
-  [key: string]: any; // Add index signature for RecordMetadata compatibility
+  fromNodeId?: string;
+  fromNodeType?: NodeType;
+  fromNodeName?: string;
+  toNodeId?: string;
+  toNodeType?: NodeType;
+  toNodeName?: string;
+  noteAuthor?: string;
 }
 
 export class PineconeService {
@@ -28,7 +39,7 @@ export class PineconeService {
   async upsertNodeVector(
     nodeId: string,
     vector: number[],
-    nodeType: string,
+    node: NodeWithRelations,
     content: string
   ): Promise<string> {
     const record: PineconeRecord<VectorMetadata> = {
@@ -37,7 +48,10 @@ export class PineconeService {
       metadata: {
         type: 'NODE',
         id: nodeId,
-        nodeType,
+        nodeType: node.type,
+        nodeName: node.name,
+        nodeDescription: node.description || '',
+        nodeMetadataStr: node.metadata ? JSON.stringify(node.metadata) : '',
         content,
       },
     };
@@ -52,6 +66,8 @@ export class PineconeService {
   async upsertRelationshipVector(
     relationshipId: string,
     vector: number[],
+    fromNode: { id: string; type: NodeType; name: string },
+    toNode: { id: string; type: NodeType; name: string },
     relationType: string,
     content: string
   ): Promise<string> {
@@ -62,6 +78,12 @@ export class PineconeService {
         type: 'RELATIONSHIP',
         id: relationshipId,
         relationType,
+        fromNodeId: fromNode.id,
+        fromNodeType: fromNode.type,
+        fromNodeName: fromNode.name,
+        toNodeId: toNode.id,
+        toNodeType: toNode.type,
+        toNodeName: toNode.name,
         content,
       },
     };
@@ -107,7 +129,15 @@ export class PineconeService {
       includeMetadata: true,
     });
 
-    return response.matches;
+    return response.matches?.map(match => ({
+      ...match,
+      metadata: {
+        ...match.metadata,
+        nodeMetadata: match.metadata?.nodeMetadataStr 
+          ? JSON.parse(match.metadata.nodeMetadataStr)
+          : undefined
+      }
+    }));
   }
 
   /**
