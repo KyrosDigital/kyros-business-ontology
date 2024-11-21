@@ -23,7 +23,7 @@ async function getRelevantContext(
 ): Promise<RelevantContext[]> {
   try {
     const embedding = await openAIService.generateEmbedding(query);
-    const results = await pineconeService.querySimilar(embedding, 10, activeFilters);
+    const results = await pineconeService.querySimilar(embedding, 20, activeFilters);
     
     if (!results) {
       return [];
