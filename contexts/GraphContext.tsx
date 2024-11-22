@@ -18,6 +18,7 @@ interface GraphContextType {
   currentLayout: LayoutOptions;
   viewMode: 'graph' | 'table';
   isPanelOpen: boolean;
+  ontologyId: string | null;
 
   // Graph Actions
   setSelectedNode: (node: NodeData | null) => void;
@@ -33,6 +34,7 @@ interface GraphContextType {
   setIsPanelOpen: (isOpen: boolean) => void;
   setOntologyData: (data: OntologyData | null) => void;
   setIsDataReady: (isReady: boolean) => void;
+  setOntologyId: (id: string | null) => void;
 
   // Graph Operations
   handleCreateNode: (nodeData: Partial<Omit<NodeData, 'id'>>) => Promise<void>;
@@ -92,6 +94,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
   const [currentLayout, setCurrentLayout] = useState<LayoutOptions>(LAYOUT_OPTIONS.breadthfirst);
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [ontologyId, setOntologyId] = useState<string | null>(null);
 
   // Graph Operations
 	// TODO: rename this to handleCreateChildNode
@@ -345,8 +348,10 @@ export function GraphProvider({ children }: GraphProviderProps) {
   };
 
   const loadOntologyData = async () => {
+    if (!ontologyId) return;
+
     try {
-      const response = await fetch(`/api/v1/ontology/graph?t=${Date.now()}`);
+      const response = await fetch(`/api/v1/ontology/graph?ontologyId=${ontologyId}&t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch ontology data');
       const data = await response.json();
       console.log('data', data);
@@ -359,8 +364,10 @@ export function GraphProvider({ children }: GraphProviderProps) {
   };
 
   useEffect(() => {
-    loadOntologyData();
-  }, []);
+    if (ontologyId) {
+      loadOntologyData();
+    }
+  }, [ontologyId]);
 
   const value = {
     // Graph Data
@@ -373,6 +380,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
     currentLayout,
     viewMode,
     isPanelOpen,
+    ontologyId,
 
     // Graph Actions
     setSelectedNode,
@@ -384,6 +392,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
     setIsPanelOpen,
     setOntologyData,
     setIsDataReady,
+    setOntologyId,
 
     // Graph Operations
     handleCreateNode,

@@ -368,9 +368,12 @@ export async function connectNodes(
 }
 
 // Add this new function for graph-specific data
-export async function getGraphData() {
+export async function getGraphData(ontologyId: string) {
   // Get all nodes with their relationships
   const nodes = await prisma.node.findMany({
+    where: {
+      ontologyId: ontologyId
+    },
     include: {
       notes: {
         orderBy: {
@@ -398,8 +401,11 @@ export async function getGraphData() {
     }
   });
 
-  // Get all relationships
+  // Get all relationships for this ontology
   const relationships = await prisma.nodeRelationship.findMany({
+    where: {
+      ontologyId: ontologyId
+    },
     include: {
       fromNode: true,
       toNode: true
@@ -935,5 +941,34 @@ export async function createNode(data: CreateNodeData) {
     data: { vectorId },
     include: defaultIncludes
   });
+}
+
+export async function listOntologies(organizationId: string) {
+  try {
+    const ontologies = await prisma.ontology.findMany({
+      where: {
+        organizationId: organizationId
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        _count: {
+          select: {
+            nodes: true,
+            relationships: true
+          }
+        }
+      }
+    });
+
+    return { success: true, data: ontologies };
+  } catch (error) {
+    console.error('Error listing ontologies:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to list ontologies' 
+    };
+  }
 }
 
