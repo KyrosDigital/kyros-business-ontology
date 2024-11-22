@@ -2,6 +2,18 @@ import { createContext, useContext, ReactNode, useState, useEffect } from 'react
 import type { LayoutOptions } from 'cytoscape';
 import type { NodeData, OntologyData, NodeType } from '@/types/graph';
 import { LAYOUT_OPTIONS } from '@/components/ui/layout-select';
+import { useOrganization } from '@/contexts/OrganizationContext';
+
+// Add these type definitions at the top of the file
+interface NodeRelationship {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  relationType: string;
+  fromNode: NodeData;
+  toNode: NodeData;
+  vectorId?: string;
+}
 
 interface GraphContextType {
   // Graph Data
@@ -18,6 +30,7 @@ interface GraphContextType {
   currentLayout: LayoutOptions;
   viewMode: 'graph' | 'table';
   isPanelOpen: boolean;
+  ontologyId: string | null;
 
   // Graph Actions
   setSelectedNode: (node: NodeData | null) => void;
@@ -33,9 +46,10 @@ interface GraphContextType {
   setIsPanelOpen: (isOpen: boolean) => void;
   setOntologyData: (data: OntologyData | null) => void;
   setIsDataReady: (isReady: boolean) => void;
+  setOntologyId: (id: string | null) => void;
 
   // Graph Operations
-  handleCreateNode: (nodeData: Partial<Omit<NodeData, 'id'>>) => Promise<void>;
+  handleCreateChildNode: (nodeData: Partial<Omit<NodeData, 'id'>>) => Promise<void>;
   handleUpdateNode: (nodeId: string, nodeData: Partial<Omit<NodeData, 'id'>>) => Promise<void>;
   handleDeleteNode: (nodeId: string, strategy?: 'orphan' | 'cascade' | 'reconnect') => Promise<void>;
   handleCreateRelationship: (sourceId: string, targetId: string, relationType: string) => Promise<void>;
@@ -92,19 +106,24 @@ export function GraphProvider({ children }: GraphProviderProps) {
   const [currentLayout, setCurrentLayout] = useState<LayoutOptions>(LAYOUT_OPTIONS.breadthfirst);
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   const [isPanelOpen, setIsPanelOpen] = useState(false);
+  const [ontologyId, setOntologyId] = useState<string | null>(null);
+  const { organization } = useOrganization();
 
   // Graph Operations
-	// TODO: rename this to handleCreateChildNode
-  const handleCreateNode = async (nodeData: Partial<Omit<NodeData, 'id'>>) => {
+  const handleCreateChildNode = async (nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
-      if (!selectedNode?.id) return;
+      if (!selectedNode?.id || !organization?.id || !ontologyId) return;
 
       const response = await fetch('/api/v1/ontology/create-child', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           parentId: selectedNode.id,
-          nodeData: nodeData,
+          nodeData: {
+            ...nodeData,
+            organizationId: organization.id,
+            ontologyId: ontologyId
+          },
         }),
       });
       
@@ -142,10 +161,16 @@ export function GraphProvider({ children }: GraphProviderProps) {
 
   const handleUpdateNode = async (nodeId: string, nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
+      if (!organization?.id || !ontologyId) return;
+
       const response = await fetch(`/api/v1/ontology/${nodeId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nodeData),
+        body: JSON.stringify({
+          ...nodeData,
+          organizationId: organization.id,
+          ontologyId: ontologyId
+        }),
       });
       
       if (!response.ok) throw new Error('Failed to update node');
@@ -284,7 +309,8 @@ export function GraphProvider({ children }: GraphProviderProps) {
         return {
           ...prevData,
           relationships: prevData.relationships.filter(r => 
-            r.fromNodeId !== selectedRelationship.sourceNode.id && r.toNodeId !== selectedRelationship.targetNode.id
+            r.fromNodeId !== selectedRelationship?.sourceNode?.id || 
+            r.toNodeId !== selectedRelationship?.targetNode?.id
           )
         };
       });
@@ -306,8 +332,10 @@ export function GraphProvider({ children }: GraphProviderProps) {
   };
 
   const refreshGraph = async () => {
+    if (!ontologyId) return;
+
     try {
-      const response = await fetch(`/api/v1/ontology/graph?t=${Date.now()}`);
+      const response = await fetch(`/api/v1/ontology/graph?ontologyId=${ontologyId}&t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch graph data');
       const newData = await response.json();
       setOntologyData(newData);
@@ -345,11 +373,12 @@ export function GraphProvider({ children }: GraphProviderProps) {
   };
 
   const loadOntologyData = async () => {
+    if (!ontologyId) return;
+
     try {
-      const response = await fetch(`/api/v1/ontology/graph?t=${Date.now()}`);
+      const response = await fetch(`/api/v1/ontology/graph?ontologyId=${ontologyId}&t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch ontology data');
       const data = await response.json();
-      console.log('data', data);
       setOntologyData(data);
       setIsDataReady(true);
     } catch (error) {
@@ -359,8 +388,10 @@ export function GraphProvider({ children }: GraphProviderProps) {
   };
 
   useEffect(() => {
-    loadOntologyData();
-  }, []);
+    if (ontologyId) {
+      loadOntologyData();
+    }
+  }, [ontologyId]);
 
   const value = {
     // Graph Data
@@ -373,6 +404,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
     currentLayout,
     viewMode,
     isPanelOpen,
+    ontologyId,
 
     // Graph Actions
     setSelectedNode,
@@ -384,9 +416,10 @@ export function GraphProvider({ children }: GraphProviderProps) {
     setIsPanelOpen,
     setOntologyData,
     setIsDataReady,
+    setOntologyId,
 
     // Graph Operations
-    handleCreateNode,
+    handleCreateChildNode,
     handleUpdateNode,
     handleDeleteNode,
     handleCreateRelationship,

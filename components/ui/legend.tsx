@@ -2,6 +2,8 @@ import { Card } from '@/components/ui/card';
 import { Switch } from "@/components/ui/switch"
 import { NodeType } from '@prisma/client';
 import { Button } from './button';
+import { ArrowLeft } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 interface LegendProps {
   selectedType: NodeType | null;
@@ -51,8 +53,19 @@ export function Legend({
   onViewModeChange,
   setIsCreateModalOpen
 }: LegendProps) {
+  const router = useRouter();
+
   return (
     <div className="absolute top-4 left-4 z-20 flex flex-col gap-4">
+      <Button
+        variant="outline"
+        className="w-full bg-background/80 backdrop-blur-sm"
+        onClick={() => router.push('/')}
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Ontology List
+      </Button>
+
       <Card className="bg-white/80 backdrop-blur-sm p-4 rounded-lg border">
         <div className="space-y-2">
           {NODE_TYPES.map(({ type, color, label }) => (

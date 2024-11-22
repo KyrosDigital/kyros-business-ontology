@@ -6,7 +6,7 @@ export async function POST(request: Request) {
 	try {
 		const { parentId, nodeData } = await request.json();
 
-		if (!parentId || !nodeData || !nodeData.type || !nodeData.relationType) {
+		if (!parentId || !nodeData || !nodeData.type || !nodeData.relationType || !nodeData.organizationId || !nodeData.ontologyId) {
 			return NextResponse.json(
 				{ error: 'Missing required fields' },
 				{ status: 400 }

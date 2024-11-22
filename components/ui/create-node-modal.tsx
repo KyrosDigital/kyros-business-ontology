@@ -15,16 +15,15 @@ interface CreateNodeModalProps {
 }
 
 export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
-  const { refreshGraph } = useGraph();
+  const { refreshGraph, ontologyId } = useGraph();
   const [nodeType, setNodeType] = useState<NodeType | ''>('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-	// TODO: move the API call to the GraphContext
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nodeType || !name) return;
+    if (!nodeType || !name || !ontologyId) return;
 
     setIsLoading(true);
     try {
@@ -37,6 +36,7 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
           type: nodeType,
           name,
           description: description || undefined,
+          ontologyId
         }),
       });
 
@@ -112,7 +112,7 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
             <Button 
               type="submit" 
               className="bg-green-500 hover:bg-green-600"
-              disabled={isLoading || !nodeType || !name}
+              disabled={isLoading || !nodeType || !name || !ontologyId}
             >
               {isLoading ? 'Creating...' : 'Create'}
             </Button>

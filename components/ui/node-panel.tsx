@@ -8,6 +8,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { NODE_TYPES } from './legend';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { formatNodeType, hasChildren } from '@/lib/utils';
+import { useOrganization } from '@/contexts/OrganizationContext';
+import { useGraph } from '@/contexts/GraphContext';
 
 interface NodePanelProps {
   isPanelOpen: boolean;
@@ -54,6 +56,8 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   });
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(selectedNode?.name || '');
+  const { organization } = useOrganization();
+  const { ontologyId } = useGraph();
   
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
@@ -120,7 +124,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   };
 
   const handleAddNote = async () => {
-    if (!selectedNode) return;
+    if (!selectedNode || !organization?.id || !ontologyId) return;
     try {
       const response = await fetch('/api/v1/ontology/add-note', {
         method: 'POST',
@@ -130,7 +134,9 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
         body: JSON.stringify({
           nodeId: selectedNode.id,
           content: noteContent,
-          author: 'User'
+          author: 'User',
+          organizationId: organization.id,
+          ontologyId: ontologyId
         }),
       });
 
@@ -164,7 +170,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     try {
       const updatedNode = await onNodeUpdate(selectedNode.id, { type: editedType });
       setIsEditingType(false);
-      setEditedType(updatedNode.type);
+      setEditedType(editedType);
     } catch (error) {
       console.error('Error updating type:', error);
     }
@@ -382,7 +388,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                     variant="outline"
                     onClick={() => {
                       setIsEditingType(false);
-                      setEditedType(selectedNode.type);
+                      setEditedType(selectedNode?.type || NodeType.ORGANIZATION);
                     }}
                   >
                     Cancel

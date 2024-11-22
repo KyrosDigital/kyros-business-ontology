@@ -1,7 +1,7 @@
 import { prisma } from '../prisma/prisma-client'
-import { NodeType, Prisma } from '@prisma/client'
+import { NodeType, Prisma, Organization, Ontology } from '@prisma/client'
 import { openAIService } from './openai'
-import { pineconeService } from './pinecone'
+import { createPineconeService } from './pinecone'
 
 // Types
 type CreateNodeData = {
@@ -9,12 +9,16 @@ type CreateNodeData = {
   name: string
   description?: string
   metadata?: Prisma.JsonValue
+  organizationId: string
+  ontologyId: string
 }
 
 type CreateNoteData = {
   content: string
   author: string
   nodeId: string
+  organizationId: string
+  ontologyId: string
 }
 
 // Default includes for consistent node queries
@@ -67,7 +71,29 @@ export function generateNodeEmbeddingContent(node: NodeWithRelations | Partial<C
   return JSON.stringify(node, null, 2);
 }
 
-export async function updateNode(nodeId: string, data: Partial<CreateNodeData>) {
+// Helper function to get organization and ontology
+async function getOrgAndOntology(organizationId: string, ontologyId: string) {
+  const [organization, ontology] = await Promise.all([
+    prisma.organization.findUnique({ where: { id: organizationId } }),
+    prisma.ontology.findUnique({ where: { id: ontologyId } })
+  ]);
+
+  if (!organization || !ontology) {
+    throw new Error('Organization or Ontology not found');
+  }
+
+  return { organization, ontology };
+}
+
+export async function updateNode(
+  nodeId: string, 
+  data: Partial<CreateNodeData>
+) {
+  const { organization, ontology } = await getOrgAndOntology(
+    data.organizationId!,
+    data.ontologyId!
+  );
+
   const existingNode = await prisma.node.findUnique({
     where: { id: nodeId },
     include: defaultIncludes
@@ -81,21 +107,33 @@ export async function updateNode(nodeId: string, data: Partial<CreateNodeData>) 
     ...existingNode,
     name: data.name || existingNode.name,
     description: data.description ?? existingNode.description,
+    type: data.type || existingNode.type,
     metadata: data.metadata === null ? null : (data.metadata || existingNode.metadata)
   };
 
   const textForEmbedding = generateNodeEmbeddingContent(updatedNode);
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
+  const pineconeService = createPineconeService(organization, ontology);
+  
+  // Delete the old vector if it exists
+  if (existingNode.vectorId) {
+    await pineconeService.deleteVector(existingNode.vectorId);
+  }
+
+  // Create new vector
   const vectorId = await pineconeService.upsertNodeVector(
     nodeId,
     vector,
-    existingNode,
+    updatedNode,
     textForEmbedding
   );
 
+  const { organizationId, ontologyId, ...updateFields } = data;
+
   const updateData: Prisma.NodeUpdateInput = {
-    ...data,
+    ...updateFields,
+    type: data.type,
     vectorId,
     metadata: data.metadata === null ? Prisma.JsonNull : data.metadata
   };
@@ -109,18 +147,26 @@ export async function updateNode(nodeId: string, data: Partial<CreateNodeData>) 
 
 // Note Operations
 export async function addNote(data: CreateNoteData) {
-  // Generate embedding for note content
+  const { organization, ontology } = await getOrgAndOntology(
+    data.organizationId,
+    data.ontologyId
+  );
+
   const vector = await openAIService.generateEmbedding(data.content);
 
-  // Create note in database
   const note = await prisma.note.create({
-    data: data,
+    data: {
+      content: data.content,
+      author: data.author,
+      nodeId: data.nodeId,
+      ontologyId: data.ontologyId
+    },
     include: {
       node: true
     }
   });
 
-  // Store vector in Pinecone and get vector ID
+  const pineconeService = createPineconeService(organization, ontology);
   const vectorId = await pineconeService.upsertNoteVector(
     note.id,
     vector,
@@ -129,7 +175,6 @@ export async function addNote(data: CreateNoteData) {
     data.nodeId
   );
 
-  // Update note with vector ID
   return prisma.note.update({
     where: { id: note.id },
     data: { vectorId },
@@ -152,9 +197,12 @@ export async function createChildNode(
   data: CreateNodeData,
   relationType: string
 ) {
-  if (!parentId) {
-    throw new Error('Parent ID is required');
-  }
+  const { organization, ontology } = await getOrgAndOntology(
+    data.organizationId,
+    data.ontologyId
+  );
+
+  const pineconeService = createPineconeService(organization, ontology);
 
   return prisma.$transaction(async (tx) => {
     const nodeTextForEmbedding = generateNodeEmbeddingContent(data);
@@ -164,7 +212,10 @@ export async function createChildNode(
       type: data.type,
       name: data.name,
       description: data.description,
-      metadata: {} // have empty metadata for now
+      metadata: data.metadata || {},
+      ontology: {
+        connect: { id: data.ontologyId }
+      }
     };
 
     const childNode = await tx.node.create({
@@ -210,7 +261,8 @@ export async function createChildNode(
       data: {
         fromNodeId: parentId,
         toNodeId: childNode.id,
-        relationType
+        relationType,
+        ontologyId: data.ontologyId
       }
     });
 
@@ -249,8 +301,17 @@ export async function createChildNode(
 export async function connectNodes(
   fromNodeId: string,
   toNodeId: string,
-  relationType: string = 'PARENT_CHILD'
+  relationType: string = 'PARENT_CHILD',
+  organizationId: string,
+  ontologyId: string
 ) {
+  const { organization, ontology } = await getOrgAndOntology(
+    organizationId,
+    ontologyId
+  );
+
+  const pineconeService = createPineconeService(organization, ontology);
+
   // Verify both nodes exist and get their names for the embedding
   const [fromNode, toNode] = await Promise.all([
     prisma.node.findUnique({ 
@@ -275,7 +336,8 @@ export async function connectNodes(
     data: {
       fromNodeId,
       toNodeId,
-      relationType
+      relationType,
+      ontologyId
     },
     include: {
       fromNode: true,
@@ -317,9 +379,12 @@ export async function connectNodes(
 }
 
 // Add this new function for graph-specific data
-export async function getGraphData() {
+export async function getGraphData(ontologyId: string) {
   // Get all nodes with their relationships
   const nodes = await prisma.node.findMany({
+    where: {
+      ontologyId: ontologyId
+    },
     include: {
       notes: {
         orderBy: {
@@ -347,8 +412,11 @@ export async function getGraphData() {
     }
   });
 
-  // Get all relationships
+  // Get all relationships for this ontology
   const relationships = await prisma.nodeRelationship.findMany({
+    where: {
+      ontologyId: ontologyId
+    },
     include: {
       fromNode: true,
       toNode: true
@@ -411,19 +479,31 @@ export async function getNodeWithDetails(nodeId: string) {
 
 // Add these new functions to handle different deletion strategies
 export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' | 'cascade' | 'reconnect') {
-  // First verify the node exists before starting any transaction
+  // Get node and create pinecone service first
   const nodeExists = await prisma.node.findUnique({
     where: { id: nodeId },
     include: {
       fromRelations: true,
       toRelations: true,
-      notes: true
+      notes: true,
+      ontology: true
     }
   });
 
-  if (!nodeExists) {
+  if (!nodeExists || !nodeExists.ontology) {
     return null;
   }
+
+  // Get organization for pinecone service
+  const organization = await prisma.organization.findFirst({
+    where: { ontologies: { some: { id: nodeExists.ontology.id } } }
+  });
+
+  if (!organization) {
+    throw new Error('Organization not found');
+  }
+
+  const pineconeService = createPineconeService(organization, nodeExists.ontology);
 
   switch (strategy) {
     case 'orphan':
@@ -457,7 +537,10 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
 
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          await pineconeService.deleteVectors(vectorIds);
+          // Delete each vector individually to ensure proper cleanup
+          for (const vectorId of vectorIds) {
+            await pineconeService.deleteVector(vectorId);
+          }
         }
 
         return deletedNode;
@@ -470,6 +553,7 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
         // Collect all vector IDs to delete
         const vectorIds: string[] = [];
         if (nodeExists.vectorId) vectorIds.push(nodeExists.vectorId);
+        nodeExists.notes.forEach(note => note.vectorId && vectorIds.push(note.vectorId));
         
         // Get vector IDs from descendants and their relationships
         for (const descendant of descendants) {
@@ -519,7 +603,10 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
 
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          await pineconeService.deleteVectors(vectorIds);
+          // Delete each vector individually to ensure proper cleanup
+          for (const vectorId of vectorIds) {
+            await pineconeService.deleteVector(vectorId);
+          }
         }
 
         return deletedNode;
@@ -556,7 +643,8 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
                 data: {
                   fromNodeId: parentRel.fromNode.id,
                   toNodeId: childRel.toNode.id,
-                  relationType: childRel.relationType
+                  relationType: childRel.relationType,
+                  ontologyId: nodeExists.ontology.id
                 }
               });
 
@@ -611,7 +699,10 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
 
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          await pineconeService.deleteVectors(vectorIds);
+          // Delete each vector individually to ensure proper cleanup
+          for (const vectorId of vectorIds) {
+            await pineconeService.deleteVector(vectorId);
+          }
         }
 
         return deletedNode;
@@ -697,7 +788,11 @@ export async function updateRelationType(
         toNodeId,
       },
       include: {
-        fromNode: true,
+        fromNode: {
+          include: {
+            ontology: true // Include ontology to get its ID
+          }
+        },
         toNode: true
       }
     }),
@@ -712,6 +807,22 @@ export async function updateRelationType(
   if (!relationship || !fromNode || !toNode) {
     throw new Error('Relationship or nodes not found');
   }
+
+  // Get the organization for the ontology
+  const organization = await prisma.organization.findFirst({
+    where: {
+      ontologies: {
+        some: { id: relationship.fromNode.ontology.id }
+      }
+    }
+  });
+
+  if (!organization) {
+    throw new Error('Organization not found');
+  }
+
+  // Create pinecone service instance
+  const pineconeService = createPineconeService(organization, relationship.fromNode.ontology);
 
   // Delete the old vector if it exists
   if (relationship.vectorId) {
@@ -757,17 +868,40 @@ export async function updateRelationType(
 }
 
 export async function deleteRelationship(sourceId: string, targetId: string) {
-  // Find the relationship first
+  // Find the relationship first with the ontology info
   const relationship = await prisma.nodeRelationship.findFirst({
     where: {
       fromNodeId: sourceId,
       toNodeId: targetId,
     },
+    include: {
+      fromNode: {
+        include: {
+          ontology: true
+        }
+      }
+    }
   });
 
   if (!relationship) {
     throw new Error('Relationship not found');
   }
+
+  // Get the organization for the ontology
+  const organization = await prisma.organization.findFirst({
+    where: {
+      ontologies: {
+        some: { id: relationship.fromNode.ontology.id }
+      }
+    }
+  });
+
+  if (!organization) {
+    throw new Error('Organization not found');
+  }
+
+  // Create pinecone service instance
+  const pineconeService = createPineconeService(organization, relationship.fromNode.ontology);
 
   // Delete vector from Pinecone if it exists
   if (relationship.vectorId) {
@@ -791,7 +925,12 @@ export type CreateNodeInput = {
 }
 
 // Add this new function
-export async function createNode(data: CreateNodeInput) {
+export async function createNode(data: CreateNodeData) {
+  const { organization, ontology } = await getOrgAndOntology(
+    data.organizationId,
+    data.ontologyId
+  );
+
   const textForEmbedding = generateNodeEmbeddingContent(data);
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
@@ -799,28 +938,90 @@ export async function createNode(data: CreateNodeInput) {
     type: data.type,
     name: data.name,
     description: data.description,
-    metadata: data.metadata === null ? Prisma.JsonNull : data.metadata
+    metadata: data.metadata || {},
+    ontology: {
+      connect: { id: data.ontologyId }
+    }
   };
 
-  // Create node in database
   const node = await prisma.node.create({
     data: createData,
     include: defaultIncludes
   });
 
-  // Store vector in Pinecone
+  const pineconeService = createPineconeService(organization, ontology);
   const vectorId = await pineconeService.upsertNodeVector(
     node.id,
     vector,
-    node, // Pass the full node object
+    node,
     textForEmbedding
   );
 
-  // Update node with vector ID
   return prisma.node.update({
     where: { id: node.id },
     data: { vectorId },
     include: defaultIncludes
   });
+}
+
+export async function listOntologies(organizationId: string) {
+  try {
+    const ontologies = await prisma.ontology.findMany({
+      where: {
+        organizationId: organizationId
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      include: {
+        _count: {
+          select: {
+            nodes: true,
+            relationships: true
+          }
+        }
+      }
+    });
+
+    return { success: true, data: ontologies };
+  } catch (error) {
+    console.error('Error listing ontologies:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to list ontologies' 
+    };
+  }
+}
+
+export async function createOntology(data: { 
+  name: string; 
+  description?: string; 
+  organizationId: string;
+}) {
+  try {
+    const ontology = await prisma.ontology.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        organizationId: data.organizationId,
+      },
+      include: {
+        _count: {
+          select: {
+            nodes: true,
+            relationships: true
+          }
+        }
+      }
+    });
+
+    return { success: true, data: ontology };
+  } catch (error) {
+    console.error('Error creating ontology:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to create ontology' 
+    };
+  }
 }
 
