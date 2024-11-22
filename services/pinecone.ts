@@ -66,15 +66,19 @@ export class PineconeService {
 
     // Check if index exists
     const indexes = await pinecone.listIndexes();
-    const existingIndex = indexes.find(index => index.name === indexName);
+    const existingIndex = indexes.indexes?.find(index => index.name === indexName);
     
     if (!existingIndex) {
       // Create index with appropriate dimensions for your embeddings
       await pinecone.createIndex({
         name: indexName,
+        metric: 'cosine',
+        dimension: 1536, // Adjust based on your embedding model
         spec: {
-          dimension: 1536, // Adjust based on your embedding model
-          metric: 'cosine'
+          serverless: {
+            cloud: 'aws',
+            region: 'us-east-1'
+          }
         }
       });
     }

@@ -250,7 +250,8 @@ export async function createChildNode(
       data: {
         fromNodeId: parentId,
         toNodeId: childNode.id,
-        relationType
+        relationType,
+        ontologyId: data.ontologyId
       }
     });
 
@@ -324,7 +325,8 @@ export async function connectNodes(
     data: {
       fromNodeId,
       toNodeId,
-      relationType
+      relationType,
+      ontologyId
     },
     include: {
       fromNode: true,
@@ -617,7 +619,8 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
                 data: {
                   fromNodeId: parentRel.fromNode.id,
                   toNodeId: childRel.toNode.id,
-                  relationType: childRel.relationType
+                  relationType: childRel.relationType,
+                  ontologyId: nodeExists.ontology.id
                 }
               });
 

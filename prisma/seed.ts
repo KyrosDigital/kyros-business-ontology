@@ -3,6 +3,34 @@ import { NodeType } from "@prisma/client"
 import { openAIService } from "../services/openai"
 import { PineconeService, createPineconeService } from "../services/pinecone"
 import { generateNodeEmbeddingContent } from "../services/ontology"
+import { Pinecone } from '@pinecone-database/pinecone';
+
+// Add helper function to wait for index to be ready
+async function waitForIndex(indexName: string, maxAttempts = 10): Promise<void> {
+	const pinecone = new Pinecone({
+		apiKey: process.env.PINECONE_API_KEY!
+	});
+
+	for (let i = 0; i < maxAttempts; i++) {
+		try {
+			const indexes = await pinecone.listIndexes();
+			const index = indexes.indexes?.find(idx => idx.name === indexName);
+			
+			if (index?.status?.ready) {
+				console.log(`Index ${indexName} is ready`);
+				return;
+			}
+			
+			console.log(`Waiting for index ${indexName} to be ready (attempt ${i + 1}/${maxAttempts})...`);
+			await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds between checks
+		} catch (error) {
+			console.log(`Error checking index status (attempt ${i + 1}/${maxAttempts}):`, error);
+			await new Promise(resolve => setTimeout(resolve, 10000));
+		}
+	}
+	
+	throw new Error(`Index ${indexName} not ready after ${maxAttempts} attempts`);
+}
 
 async function main() {
 	// Create the organization
@@ -16,6 +44,9 @@ async function main() {
 
 	// Create Pinecone index for the organization
 	await PineconeService.createOrgIndex(organization.pineconeIndex);
+
+	// Wait for index to be ready before proceeding
+	await waitForIndex(organization.pineconeIndex);
 
 	// Create a user in the organization
 	const user = await prisma.user.create({
@@ -43,14 +74,33 @@ async function main() {
 		{
 			type: NodeType.DEPARTMENT,
 			name: "Engineering",
-				description: "Core software development and technical operations",
-				metadata: {
-					headcount: 25,
-					location: "Hybrid"
-				},
-				ontologyId: ontology.id
+			description: "Core software development and technical operations",
+			metadata: {
+				headcount: 25,
+				location: "Hybrid"
+			},
+			ontologyId: ontology.id
 		},
-		// ... other departments
+		{
+			type: NodeType.DEPARTMENT,
+			name: "Product",
+			description: "Product management and design",
+			metadata: {
+				headcount: 15,
+				location: "Remote"
+			},
+			ontologyId: ontology.id
+		},
+		{
+			type: NodeType.DEPARTMENT,
+			name: "Operations",
+			description: "Business operations and administration",
+			metadata: {
+				headcount: 10,
+				location: "Office"
+			},
+			ontologyId: ontology.id
+		}
 	];
 
 	const departments = await Promise.all(
@@ -108,8 +158,14 @@ async function main() {
 			relationType: "COLLABORATES_WITH",
 			ontologyId: ontology.id,
 			text: "Engineering COLLABORATES_WITH Product"
+		},
+		{
+			fromNodeId: departments[1].id,
+			toNodeId: departments[2].id,
+			relationType: "REPORTS_TO",
+			ontologyId: ontology.id,
+			text: "Product REPORTS_TO Operations"
 		}
-		// ... other relationships
 	];
 
 	await Promise.all(

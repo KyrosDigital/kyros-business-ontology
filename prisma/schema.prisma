@@ -49,9 +49,6 @@ model Ontology {
   name          String
   description   String?
   
-  // Pinecone configuration
-  pineconeNamespace String? // Optional namespace within the index
-  
   // Relationships
   organization   Organization @relation(fields: [organizationId], references: [id])
   organizationId String
