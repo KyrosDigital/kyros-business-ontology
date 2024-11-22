@@ -537,7 +537,10 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
 
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          await pineconeService.deleteVectors(vectorIds);
+          // Delete each vector individually to ensure proper cleanup
+          for (const vectorId of vectorIds) {
+            await pineconeService.deleteVector(vectorId);
+          }
         }
 
         return deletedNode;
@@ -550,6 +553,7 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
         // Collect all vector IDs to delete
         const vectorIds: string[] = [];
         if (nodeExists.vectorId) vectorIds.push(nodeExists.vectorId);
+        nodeExists.notes.forEach(note => note.vectorId && vectorIds.push(note.vectorId));
         
         // Get vector IDs from descendants and their relationships
         for (const descendant of descendants) {
@@ -599,7 +603,10 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
 
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          await pineconeService.deleteVectors(vectorIds);
+          // Delete each vector individually to ensure proper cleanup
+          for (const vectorId of vectorIds) {
+            await pineconeService.deleteVector(vectorId);
+          }
         }
 
         return deletedNode;
@@ -692,7 +699,10 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
 
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          await pineconeService.deleteVectors(vectorIds);
+          // Delete each vector individually to ensure proper cleanup
+          for (const vectorId of vectorIds) {
+            await pineconeService.deleteVector(vectorId);
+          }
         }
 
         return deletedNode;
