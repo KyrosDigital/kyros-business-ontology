@@ -198,7 +198,8 @@ export class PineconeService {
   }
 
   async deleteVector(vectorId: string) {
-    await this.index.namespace(this.namespace).deleteOne(vectorId);
+    const result = await this.index.namespace(this.namespace).deleteOne(vectorId);
+    console.log('deleteVector', result);
   }
 
   async deleteVectors(vectorIds: string[]) {

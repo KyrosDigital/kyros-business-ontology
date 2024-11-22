@@ -107,6 +107,7 @@ export async function updateNode(
     ...existingNode,
     name: data.name || existingNode.name,
     description: data.description ?? existingNode.description,
+    type: data.type || existingNode.type,
     metadata: data.metadata === null ? null : (data.metadata || existingNode.metadata)
   };
 
@@ -114,15 +115,25 @@ export async function updateNode(
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
   const pineconeService = createPineconeService(organization, ontology);
+  
+  // Delete the old vector if it exists
+  if (existingNode.vectorId) {
+    await pineconeService.deleteVector(existingNode.vectorId);
+  }
+
+  // Create new vector
   const vectorId = await pineconeService.upsertNodeVector(
     nodeId,
     vector,
-    existingNode,
+    updatedNode,
     textForEmbedding
   );
 
+  const { organizationId, ontologyId, ...updateFields } = data;
+
   const updateData: Prisma.NodeUpdateInput = {
-    ...data,
+    ...updateFields,
+    type: data.type,
     vectorId,
     metadata: data.metadata === null ? Prisma.JsonNull : data.metadata
   };

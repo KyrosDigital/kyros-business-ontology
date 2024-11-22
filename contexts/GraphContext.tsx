@@ -161,10 +161,16 @@ export function GraphProvider({ children }: GraphProviderProps) {
 
   const handleUpdateNode = async (nodeId: string, nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
+      if (!organization?.id || !ontologyId) return;
+
       const response = await fetch(`/api/v1/ontology/${nodeId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(nodeData),
+        body: JSON.stringify({
+          ...nodeData,
+          organizationId: organization.id,
+          ontologyId: ontologyId
+        }),
       });
       
       if (!response.ok) throw new Error('Failed to update node');
