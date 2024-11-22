@@ -13,6 +13,78 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Organization {
+  id          String      @id @default(uuid())
+  name        String
+  description String?
+  
+  // Pinecone configuration
+  pineconeIndex String      // Name of the Pinecone index
+
+  // Relationships
+  users       User[]
+  ontologies  Ontology[]
+  
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("organizations")
+}
+
+model User {
+  id             String       @id @default(uuid())
+  email          String       @unique
+  name           String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("users")
+}
+
+model Ontology {
+  id            String       @id @default(uuid())
+  name          String
+  description   String?
+  
+  // Pinecone configuration
+  pineconeNamespace String? // Optional namespace within the index
+  
+  // Relationships
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  
+  nodes         Node[]
+  relationships NodeRelationship[]
+  notes         Note[]
+  
+  // Self-referential many-to-many relationship for linked ontologies
+  linkedFrom    OntologyLink[] @relation("LinkedFrom")
+  linkedTo      OntologyLink[] @relation("LinkedTo")
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("ontologies")
+}
+
+model OntologyLink {
+  id            String   @id @default(uuid())
+  fromOntology  Ontology @relation("LinkedFrom", fields: [fromOntologyId], references: [id])
+  fromOntologyId String
+  toOntology    Ontology @relation("LinkedTo", fields: [toOntologyId], references: [id])
+  toOntologyId  String
+  description   String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([fromOntologyId, toOntologyId])
+  @@map("ontology_links")
+}
+
 enum NodeType {
   ORGANIZATION
   DEPARTMENT
@@ -31,8 +103,12 @@ model Node {
   type          NodeType
   name          String
   description   String?
-  metadata      Json?       // For any type-specific data we might need
-  vectorId      String?     // Added for Pinecone vector ID
+  metadata      Json?
+  vectorId      String?
+  
+  // Add relationship to Ontology
+  ontology      Ontology    @relation(fields: [ontologyId], references: [id])
+  ontologyId    String
   
   // Relationships
   fromRelations NodeRelationship[] @relation("FromNode")
@@ -51,8 +127,12 @@ model NodeRelationship {
   fromNodeId    String
   toNode        Node     @relation("ToNode", fields: [toNodeId], references: [id])
   toNodeId      String
-  relationType  String   // e.g., "PARENT_CHILD", "USES", "DEPENDS_ON", etc.
-  vectorId      String?  // Added for Pinecone vector ID
+  relationType  String
+  vectorId      String?
+  
+  // Add relationship to Ontology
+  ontology      Ontology @relation(fields: [ontologyId], references: [id])
+  ontologyId    String
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -67,7 +147,11 @@ model Note {
   author      String
   node        Node      @relation(fields: [nodeId], references: [id])
   nodeId      String
-  vectorId    String?   // Added for Pinecone vector ID
+  vectorId    String?
+  
+  // Add relationship to Ontology
+  ontology    Ontology  @relation(fields: [ontologyId], references: [id])
+  ontologyId  String
   
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt

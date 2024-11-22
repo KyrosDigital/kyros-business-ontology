@@ -1,62 +1,87 @@
 import { Pinecone, RecordMetadata, PineconeRecord } from '@pinecone-database/pinecone';
-import { NodeType, Prisma } from '@prisma/client';
+import { NodeType, Prisma, Organization, Ontology } from '@prisma/client';
 import { NodeWithRelations } from './ontology';
 
-const pinecone = new Pinecone({
-  apiKey: process.env.PINECONE_API_KEY!
-});
-
-const INDEX_NAME = process.env.PINECONE_INDEX_NAME || 'ontology';
-
-// Update RecordMetadata to accept null values
-interface BaseMetadata {
+// Define metadata types that conform to RecordMetadata constraints
+type BaseMetadata = {
   id: string;
   type: 'NODE' | 'RELATIONSHIP' | 'NOTE';
   content: string;
 }
 
-interface NodeMetadata extends Omit<BaseMetadata, 'type'> {
+type NodeMetadata = BaseMetadata & {
   type: 'NODE';
-  nodeType: string;
+  nodeType: NodeType;
   name: string;
-  description: string | null;
-  metadataStr: string | null;
   relationshipIds: string[];
   fromRelationIds: string[];
   toRelationIds: string[];
 }
 
-interface RelationshipMetadata extends Omit<BaseMetadata, 'type'> {
+type RelationshipMetadata = BaseMetadata & {
   type: 'RELATIONSHIP';
   relationType: string;
   fromNodeId: string;
-  fromNodeType: string;
+  fromNodeType: NodeType;
   fromNodeName: string;
   toNodeId: string;
-  toNodeType: string;
+  toNodeType: NodeType;
   toNodeName: string;
 }
 
-interface NoteMetadata extends Omit<BaseMetadata, 'type'> {
+type NoteMetadata = BaseMetadata & {
   type: 'NOTE';
   author: string;
   nodeId: string;
 }
 
-export type VectorMetadata = NodeMetadata | RelationshipMetadata | NoteMetadata;
-
-// Add type guard to ensure metadata matches RecordMetadata constraints
-function sanitizeMetadata<T extends VectorMetadata>(metadata: T): T & RecordMetadata {
-  return {
-    ...metadata,
-  } as T & RecordMetadata;
-}
+type VectorMetadata = NodeMetadata | RelationshipMetadata | NoteMetadata;
 
 export class PineconeService {
-  private index;
+  private pinecone: Pinecone;
+  private indexName: string;
+  private namespace: string;
 
-  constructor() {
-    this.index = pinecone.index(INDEX_NAME);
+  constructor(organization: Organization, ontology: Ontology) {
+    this.pinecone = new Pinecone({
+      apiKey: process.env.PINECONE_API_KEY!
+    });
+    this.indexName = organization.pineconeIndex;
+    this.namespace = PineconeService.generateNamespace(organization.id, ontology.id);
+  }
+
+  static generateNamespace(organizationId: string, ontologyId: string): string {
+    return `org_${organizationId}_ont_${ontologyId}`;
+  }
+
+  private get index() {
+    return this.pinecone.index(this.indexName);
+  }
+
+  // New methods for managing namespaces
+  static async createOrgIndex(indexName: string) {
+    const pinecone = new Pinecone({
+      apiKey: process.env.PINECONE_API_KEY!
+    });
+
+    // Check if index exists
+    const indexes = await pinecone.listIndexes();
+    const existingIndex = indexes.find(index => index.name === indexName);
+    
+    if (!existingIndex) {
+      // Create index with appropriate dimensions for your embeddings
+      await pinecone.createIndex({
+        name: indexName,
+        spec: {
+          dimension: 1536, // Adjust based on your embedding model
+          metric: 'cosine'
+        }
+      });
+    }
+  }
+
+  async deleteNamespace() {
+    await this.index.namespace(this.namespace).deleteAll();
   }
 
   async upsertNodeVector(
@@ -69,26 +94,24 @@ export class PineconeService {
     const toRelationIds = node.toRelations?.map(rel => rel.id) || [];
     const relationshipIds = [...fromRelationIds, ...toRelationIds];
 
-    const metadata = sanitizeMetadata({
-      type: 'NODE' as const,
+    const metadata: NodeMetadata = {
+      type: 'NODE',
       id: nodeId,
       nodeType: node.type,
       name: node.name,
-      description: node.description || null,
-      metadataStr: node.metadata ? JSON.stringify(node.metadata) : null,
       content,
       relationshipIds,
       fromRelationIds,
       toRelationIds,
-    });
+    };
 
-    const record: PineconeRecord<RecordMetadata> = {
+    const record: PineconeRecord = {
       id: `node_${nodeId}`,
       values: vector,
       metadata,
     };
 
-    await this.index.upsert([record]);
+    await this.index.namespace(this.namespace).upsert([record]);
     return record.id;
   }
 
@@ -100,8 +123,8 @@ export class PineconeService {
     relationType: string,
     content: string
   ): Promise<string> {
-    const metadata = sanitizeMetadata({
-      type: 'RELATIONSHIP' as const,
+    const metadata: RelationshipMetadata = {
+      type: 'RELATIONSHIP',
       id: relationshipId,
       relationType,
       fromNodeId: fromNode.id,
@@ -111,15 +134,15 @@ export class PineconeService {
       toNodeType: toNode.type,
       toNodeName: toNode.name,
       content,
-    });
+    };
 
-    const record: PineconeRecord<RecordMetadata> = {
+    const record: PineconeRecord = {
       id: `rel_${relationshipId}`,
       values: vector,
       metadata,
     };
 
-    await this.index.upsert([record]);
+    await this.index.namespace(this.namespace).upsert([record]);
     return record.id;
   }
 
@@ -130,21 +153,21 @@ export class PineconeService {
     author: string,
     nodeId: string
   ): Promise<string> {
-    const metadata = sanitizeMetadata({
-      type: 'NOTE' as const,
+    const metadata: NoteMetadata = {
+      type: 'NOTE',
       id: noteId,
       content,
       author,
       nodeId,
-    });
+    };
 
-    const record: PineconeRecord<RecordMetadata> = {
+    const record: PineconeRecord = {
       id: `note_${noteId}`,
       values: vector,
       metadata,
     };
 
-    await this.index.upsert([record]);
+    await this.index.namespace(this.namespace).upsert([record]);
     return record.id;
   }
 
@@ -157,28 +180,29 @@ export class PineconeService {
       type: { $in: Array.from(activeFilters) }
     } : undefined;
 
-    console.log('Filter:', filter);
-
-    const response = await this.index.query({
+    const response = await this.index.namespace(this.namespace).query({
       vector,
       topK,
       filter,
-      includeMetadata: true,
+      includeMetadata: true
     });
 
     return response.matches?.map(match => ({
       ...match,
-      metadata: match.metadata as RecordMetadata,
+      metadata: match.metadata as VectorMetadata,
     }));
   }
 
   async deleteVector(vectorId: string) {
-    await this.index.deleteOne(vectorId);
+    await this.index.namespace(this.namespace).deleteOne(vectorId);
   }
 
   async deleteVectors(vectorIds: string[]) {
-    await this.index.deleteMany(vectorIds);
+    await this.index.namespace(this.namespace).deleteMany(vectorIds);
   }
 }
 
-export const pineconeService = new PineconeService();
+// Helper function to create a new PineconeService instance
+export function createPineconeService(organization: Organization, ontology: Ontology) {
+  return new PineconeService(organization, ontology);
+}

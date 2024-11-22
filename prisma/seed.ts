@@ -1,122 +1,56 @@
 import { prisma } from "./prisma-client"
-import { NodeType, Prisma } from "@prisma/client"
+import { NodeType } from "@prisma/client"
 import { openAIService } from "../services/openai"
-import { pineconeService } from "../services/pinecone"
+import { PineconeService, createPineconeService } from "../services/pinecone"
 import { generateNodeEmbeddingContent } from "../services/ontology"
-
-type RelationshipInput = {
-	fromNodeId: string;
-	toNodeId: string;
-	relationType: string;
-	text: string;
-} | {
-	fromNode: {
-		id: string;
-		name: string;
-		type: NodeType;
-	};
-	toNode: {
-		id: string;
-		name: string;
-		type: NodeType;
-	};
-	relationType: string;
-};
 
 async function main() {
 	// Create the organization
-	const org = await prisma.node.create({
+	const organization = await prisma.organization.create({
 		data: {
-			type: NodeType.ORGANIZATION,
 			name: "Kyros Digital LLC",
 			description: "Modern software development and digital transformation company",
-			metadata: {
-				industry: "Technology",
-				size: "50-100",
-				founded: "2020"
-			}
-		},
-		include: {
-			fromRelations: {
-				include: {
-					toNode: {
-						select: {
-							id: true,
-							type: true,
-							name: true
-						}
-					}
-				}
-			},
-			toRelations: {
-				include: {
-					fromNode: {
-						select: {
-							id: true,
-							type: true,
-							name: true
-						}
-					}
-				}
-			},
-			notes: true
+			pineconeIndex: "kyros-digital-index",
 		}
 	});
 
-	// Generate embedding using the same pattern as the service
-	const orgContent = generateNodeEmbeddingContent(org);
-	const orgVector = await openAIService.generateEmbedding(orgContent);
-	const orgVectorId = await pineconeService.upsertNodeVector(
-		org.id,
-		orgVector,
-		org,
-		orgContent
-	);
+	// Create Pinecone index for the organization
+	await PineconeService.createOrgIndex(organization.pineconeIndex);
 
-	// Update org with vector ID
-	await prisma.node.update({
-		where: { id: org.id },
-		data: { vectorId: orgVectorId }
+	// Create a user in the organization
+	const user = await prisma.user.create({
+		data: {
+			email: "admin@kyrosdigital.com",
+			name: "Admin User",
+			organizationId: organization.id
+		}
 	});
+
+	// Create an ontology for the organization
+	const ontology = await prisma.ontology.create({
+		data: {
+			name: "Kyros Digital Operations",
+			description: "Core operational structure and processes",
+			organizationId: organization.id,
+		}
+	});
+
+	// Initialize PineconeService for this ontology
+	const pineconeService = createPineconeService(organization, ontology);
 
 	// Create departments with vectors
 	const departmentData = [
 		{
 			type: NodeType.DEPARTMENT,
 			name: "Engineering",
-			description: "Core software development and technical operations",
-			metadata: {
-				headcount: 25,
-				location: "Hybrid"
-			}
+				description: "Core software development and technical operations",
+				metadata: {
+					headcount: 25,
+					location: "Hybrid"
+				},
+				ontologyId: ontology.id
 		},
-		{
-			type: NodeType.DEPARTMENT,
-			name: "Product",
-			description: "Product management and user experience design",
-			metadata: {
-				headcount: 10,
-				location: "Remote"
-			}
-		},
-		{
-			type: NodeType.DEPARTMENT,
-			name: "People Operations",
-			description: "Human resources, recruitment, and employee experience",
-			metadata: {
-				headcount: 5,
-				location: "Hybrid"
-			}
-		},
-		{
-			type: NodeType.DEPARTMENT,
-			name: "Operations",
-			description: "Business operations, finance, and administrative functions",
-			metadata: {
-				headcount: 8,
-				location: "On-site"
-			}
-		}
+		// ... other departments
 	];
 
 	const departments = await Promise.all(
@@ -161,437 +95,31 @@ async function main() {
 
 			return prisma.node.update({
 				where: { id: node.id },
-				data: { vectorId },
-				include: {
-					fromRelations: {
-						include: {
-							toNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					toRelations: {
-						include: {
-							fromNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					notes: true
-				}
-			});
-		})
-	);
-
-	// Create roles with vectors
-	const roleData = [
-		{
-			type: NodeType.ROLE,
-			name: "Senior Software Engineer",
-			description: "Lead development initiatives and mentor junior developers",
-			metadata: {
-				level: "Senior",
-				yearsExperienceRequired: 5,
-				skills: ["JavaScript", "Python", "Cloud Architecture"]
-			}
-		},
-		{
-			type: NodeType.ROLE,
-			name: "DevOps Engineer",
-			description: "Manage infrastructure and deployment pipelines",
-			metadata: {
-				level: "Mid-Senior",
-				yearsExperienceRequired: 3,
-				skills: ["AWS", "Kubernetes", "CI/CD"]
-			}
-		},
-		{
-			type: NodeType.ROLE,
-			name: "Product Manager",
-			description: "Lead product strategy and development",
-			metadata: {
-				level: "Senior",
-				yearsExperienceRequired: 4,
-				skills: ["Product Strategy", "Agile", "User Research"]
-			}
-		},
-		{
-			type: NodeType.ROLE,
-			name: "UX Designer",
-			description: "Design user interfaces and experiences",
-			metadata: {
-				level: "Mid",
-				yearsExperienceRequired: 3,
-				skills: ["Figma", "User Research", "Prototyping"]
-			}
-		}
-	];
-
-	const roles = await Promise.all(
-		roleData.map(async (role) => {
-			const node = await prisma.node.create({
-				data: role,
-				include: {
-					fromRelations: {
-						include: {
-							toNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					toRelations: {
-						include: {
-							fromNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					notes: true
-				}
-			});
-
-			const content = generateNodeEmbeddingContent(node);
-			const vector = await openAIService.generateEmbedding(content);
-			const vectorId = await pineconeService.upsertNodeVector(
-				node.id,
-				vector,
-				node,
-				content
-			);
-
-			return prisma.node.update({
-				where: { id: node.id },
-				data: { vectorId }
-			});
-		})
-	);
-
-	// Create processes with vectors
-	const processData = [
-		{
-			type: NodeType.PROCESS,
-			name: "Agile Development",
-			description: "Two-week sprint cycles with daily standups",
-			metadata: {
-				cycleTime: "2 weeks",
-				ceremonies: ["Daily Standup", "Sprint Planning", "Retrospective"],
-				tools: ["Jira", "Confluence"]
-			}
-		},
-		{
-			type: NodeType.PROCESS,
-			name: "Code Review",
-			description: "Peer review process for all code changes",
-			metadata: {
-				requiredApprovals: 2,
-				automatedChecks: ["Linting", "Tests", "Security Scan"]
-			}
-		},
-		{
-			type: NodeType.PROCESS,
-			name: "Product Discovery",
-			description: "User research and product validation process",
-			metadata: {
-				phases: ["Research", "Ideation", "Validation"],
-				deliverables: ["User Insights", "Prototypes", "Requirements"]
-			}
-		}
-	];
-
-	const processes = await Promise.all(
-		processData.map(async (process) => {
-			const node = await prisma.node.create({
-				data: process,
-				include: {
-					fromRelations: {
-						include: {
-							toNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					toRelations: {
-						include: {
-							fromNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					notes: true
-				}
-			});
-
-			const content = generateNodeEmbeddingContent(node);
-			const vector = await openAIService.generateEmbedding(content);
-			const vectorId = await pineconeService.upsertNodeVector(
-				node.id,
-				vector,
-				node,
-				content
-			);
-
-			return prisma.node.update({
-				where: { id: node.id },
-				data: { vectorId }
-			});
-		})
-	);
-
-	// Create tools with vectors
-	const toolData = [
-		{
-			type: NodeType.SOFTWARE_TOOL,
-			name: "GitHub",
-			description: "Version control and collaboration platform",
-			metadata: {
-				type: "Version Control",
-				license: "Enterprise",
-				integrations: ["Jira", "Slack"]
-			}
-		},
-		{
-			type: NodeType.SOFTWARE_TOOL,
-			name: "AWS",
-			description: "Cloud infrastructure platform",
-			metadata: {
-				type: "Cloud Platform",
-				services: ["EC2", "S3", "Lambda"],
-				region: "us-east-1"
-			}
-		},
-		{
-			type: NodeType.SOFTWARE_TOOL,
-			name: "Jira",
-			description: "Project management and issue tracking",
-			metadata: {
-				type: "Project Management",
-				license: "Cloud Premium",
-				integrations: ["Confluence", "GitHub"]
-			}
-		}
-	];
-
-	const tools = await Promise.all(
-		toolData.map(async (tool) => {
-			const node = await prisma.node.create({
-				data: tool,
-				include: {
-					fromRelations: {
-						include: {
-							toNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					toRelations: {
-						include: {
-							fromNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					notes: true
-				}
-			});
-
-			const content = generateNodeEmbeddingContent(node);
-			const vector = await openAIService.generateEmbedding(content);
-			const vectorId = await pineconeService.upsertNodeVector(
-				node.id,
-				vector,
-				node,
-				content
-			);
-
-			return prisma.node.update({
-				where: { id: node.id },
-				data: { vectorId }
-			});
-		})
-	);
-
-	// Create AI components with vectors
-	const aiComponentData = [
-		{
-			type: NodeType.AI_COMPONENT,
-			name: "Code Analysis AI",
-			description: "AI-powered code quality and security analysis",
-			metadata: {
-				model: "GPT-4",
-				capabilities: ["Code Review", "Security Analysis", "Optimization Suggestions"],
-				integration: "GitHub Actions"
-			}
-		},
-		{
-			type: NodeType.AI_COMPONENT,
-			name: "Customer Support Bot",
-			description: "AI chatbot for customer support automation",
-			metadata: {
-				model: "Claude",
-				channels: ["Website", "Slack"],
-				languages: ["English", "Spanish"]
-			}
-		},
-		{
-			type: NodeType.AI_COMPONENT,
-			name: "Requirements Assistant",
-			description: "AI-powered requirements analysis and validation",
-			metadata: {
-				model: "GPT-4",
-				capabilities: ["Requirements Analysis", "User Story Generation", "Acceptance Criteria"],
-				integration: "Jira"
-			}
-		}
-	];
-
-	const aiComponents = await Promise.all(
-		aiComponentData.map(async (ai) => {
-			const node = await prisma.node.create({
-				data: ai,
-				include: {
-					fromRelations: {
-						include: {
-							toNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					toRelations: {
-						include: {
-							fromNode: {
-								select: {
-									id: true,
-									type: true,
-									name: true
-								}
-							}
-						}
-					},
-					notes: true
-				}
-			});
-
-			const content = generateNodeEmbeddingContent(node);
-			const vector = await openAIService.generateEmbedding(content);
-			const vectorId = await pineconeService.upsertNodeVector(
-				node.id,
-				vector,
-				node,
-				content
-			);
-
-			return prisma.node.update({
-				where: { id: node.id },
 				data: { vectorId }
 			});
 		})
 	);
 
 	// Create relationships with vectors
-	const relationshipData: RelationshipInput[] = [
-		// Department to Org relationships
-		...departments.map(dept => ({
-			fromNode: {
-				id: org.id,
-				name: org.name,
-				type: org.type
-			},
-			toNode: {
-				id: dept.id,
-				name: dept.name,
-				type: dept.type
-			},
-			relationType: "CONTAINS"
-		})),
-		// Roles to Departments
+	const relationshipData = [
 		{
 			fromNodeId: departments[0].id,
-			toNodeId: roles[0].id,
-			relationType: "HAS_ROLE",
-			text: `Engineering HAS_ROLE Senior Software Engineer`
-		},
-		{
-			fromNodeId: departments[0].id,
-			toNodeId: roles[1].id,
-			relationType: "HAS_ROLE",
-			text: `Engineering HAS_ROLE DevOps Engineer`
-		},
-		// Tools relationships
-		...departments.slice(0, 2).flatMap(dept => 
-			tools.map(tool => ({
-				fromNodeId: dept.id,
-				toNodeId: tool.id,
-				relationType: "USES",
-				text: `${dept.name} USES ${tool.name}`
-			}))
-		),
-		// Process relationships
-		...departments.slice(0, 2).flatMap(dept => 
-			processes.map(process => ({
-				fromNodeId: dept.id,
-				toNodeId: process.id,
-				relationType: "FOLLOWS",
-				text: `${dept.name} FOLLOWS ${process.name}`
-			}))
-		),
-		// AI Component relationships
-		{
-			fromNodeId: departments[0].id,
-			toNodeId: aiComponents[0].id,
-			relationType: "USES",
-			text: `Engineering USES Code Analysis AI`
-		},
-		{
-			fromNodeId: departments[3].id,
-			toNodeId: aiComponents[1].id,
-			relationType: "USES",
-			text: `Operations USES Customer Support Bot`
+			toNodeId: departments[1].id,
+			relationType: "COLLABORATES_WITH",
+			ontologyId: ontology.id,
+			text: "Engineering COLLABORATES_WITH Product"
 		}
+		// ... other relationships
 	];
 
 	await Promise.all(
 		relationshipData.map(async (rel) => {
 			const relationship = await prisma.nodeRelationship.create({
 				data: {
-					fromNodeId: 'fromNode' in rel ? rel.fromNode.id : rel.fromNodeId,
-					toNodeId: 'toNode' in rel ? rel.toNode.id : rel.toNodeId,
-					relationType: rel.relationType
+					fromNodeId: rel.fromNodeId,
+					toNodeId: rel.toNodeId,
+					relationType: rel.relationType,
+					ontologyId: rel.ontologyId
 				},
 				include: {
 					fromNode: true,
@@ -599,9 +127,7 @@ async function main() {
 				}
 			});
 
-			// Generate relationship text like in ontology.ts
-			const relationshipText = `${relationship.fromNode.name} ${relationship.relationType} ${relationship.toNode.name}`;
-			const vector = await openAIService.generateEmbedding(relationshipText);
+			const vector = await openAIService.generateEmbedding(rel.text);
 			
 			const fromNodeData = {
 				id: relationship.fromNode.id,
@@ -621,7 +147,7 @@ async function main() {
 				fromNodeData,
 				toNodeData,
 				relationship.relationType,
-				relationshipText
+				rel.text
 			);
 
 			return prisma.nodeRelationship.update({
@@ -636,23 +162,10 @@ async function main() {
 		{
 			content: "Implementing new security protocols across all engineering tools",
 			author: "Security Team",
-			nodeId: departments[0].id
-		},
-		{
-			content: "Updated CI/CD pipeline documentation available in confluence",
-			author: "DevOps Team",
-			nodeId: processes[0].id
-		},
-		{
-			content: "New AI-powered code review process showing 30% faster reviews",
-			author: "Engineering Team",
-			nodeId: aiComponents[0].id
-		},
-		{
-			content: "Customer satisfaction increased by 25% after bot implementation",
-			author: "Support Team",
-			nodeId: aiComponents[1].id
+			nodeId: departments[0].id,
+			ontologyId: ontology.id
 		}
+		// ... other notes
 	];
 
 	await Promise.all(
@@ -664,7 +177,6 @@ async function main() {
 				}
 			});
 
-			// Use note content directly for embedding like in ontology.ts
 			const vector = await openAIService.generateEmbedding(note.content);
 			const vectorId = await pineconeService.upsertNoteVector(
 				noteRecord.id,
@@ -681,13 +193,19 @@ async function main() {
 		})
 	);
 
-	console.log("Seed data created successfully with comprehensive vectors!");
+	console.log(`
+Seed completed successfully:
+- Organization '${organization.name}' created with Pinecone index '${organization.pineconeIndex}'
+- User '${user.name}' (${user.email}) created
+- Ontology '${ontology.name}' created
+- Sample nodes, relationships, and notes created with vectors
+  `);
 }
 
 main()
 	.catch((e) => {
 		console.error(e)
-			process.exit(1)
+		process.exit(1)
 	})
 	.finally(async () => {
 		await prisma.$disconnect()

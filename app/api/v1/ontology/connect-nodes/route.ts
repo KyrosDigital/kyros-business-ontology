@@ -3,11 +3,11 @@ import * as ontologyService from '@/services/ontology'
 
 export async function POST(req: Request) {
   try {
-    const { fromNodeId, toNodeId, relationType } = await req.json();
+    const { fromNodeId, toNodeId, relationType, organizationId, ontologyId } = await req.json();
     
-    if (!fromNodeId || !toNodeId) {
+    if (!fromNodeId || !toNodeId || !organizationId || !ontologyId) {
       return NextResponse.json(
-        { error: 'Missing required node IDs' },
+        { error: 'fromNodeId, toNodeId, organizationId, and ontologyId are required fields' },
         { status: 400 }
       )
     }
@@ -15,11 +15,14 @@ export async function POST(req: Request) {
     const result = await ontologyService.connectNodes(
       fromNodeId,
       toNodeId,
-      relationType || 'PARENT_CHILD'
+      relationType || 'PARENT_CHILD',
+      organizationId,
+      ontologyId
     )
     
     return NextResponse.json(result)
   } catch (error) {
+    console.error('Error connecting nodes:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to connect nodes' },
       { status: 500 }

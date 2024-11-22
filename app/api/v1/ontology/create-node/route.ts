@@ -7,9 +7,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     
     // Validate required fields
-    if (!body.type || !body.name) {
+    if (!body.type || !body.name || !body.organizationId || !body.ontologyId) {
       return NextResponse.json(
-        { error: 'Type and name are required fields' },
+        { error: 'Type, name, organizationId, and ontologyId are required fields' },
         { status: 400 }
       );
     }
@@ -27,6 +27,8 @@ export async function POST(request: Request) {
       name: body.name,
       description: body.description,
       metadata: {}, // have empty metadata for now
+      organizationId: body.organizationId,
+      ontologyId: body.ontologyId
     });
 
     return NextResponse.json(node);
