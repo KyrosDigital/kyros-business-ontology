@@ -4,9 +4,10 @@ import { useEffect, useState } from 'react';
 import { Ontology } from '@prisma/client';
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, LogIn, LogOut } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { CreateOntologyModal } from '@/components/ui/create-ontology-modal';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface OntologyWithCounts extends Ontology {
   _count: {
@@ -75,20 +76,46 @@ const LoadingSkeleton = () => {
 
 export default function OntologiesPage() {
   const [ontologies, setOntologies] = useState<OntologyWithCounts[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const router = useRouter();
+
+  const { 
+    organization, 
+    isLoading: orgLoading, 
+    error: orgError,
+    fetchOrganization,
+    clearOrganization 
+  } = useOrganization();
+
+  const TEMP_USER_ID = "67d15784-9e92-477e-ae84-b3c3295f333c";
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      clearOrganization();
+      setOntologies([]);
+      setError(null);
+    } else {
+      fetchOrganization(TEMP_USER_ID);
+    }
+  }, [isLoggedIn]);
 
   useEffect(() => {
     const fetchOntologies = async () => {
+      if (!organization || !isLoggedIn) {
+        return;
+      }
+
+      setLoading(true);
       try {
-        const response = await fetch('/api/v1/ontology/list');
-        if (!response.ok) {
+        const ontologiesResponse = await fetch('/api/v1/ontology/list');
+        if (!ontologiesResponse.ok) {
           throw new Error('Failed to fetch ontologies');
         }
-        const data = await response.json();
-        setOntologies(data);
+        const ontologiesData = await ontologiesResponse.json();
+        setOntologies(ontologiesData);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -97,7 +124,7 @@ export default function OntologiesPage() {
     };
 
     fetchOntologies();
-  }, []);
+  }, [organization?.id, isLoggedIn]);
 
   const handleCreateOntology = async (data: { name: string; description: string }) => {
     try {
@@ -129,12 +156,40 @@ export default function OntologiesPage() {
       <div className="max-w-4xl mx-auto p-6">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Your Ontologies</h1>
-          <Button disabled>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Create New
-          </Button>
+          <div className="flex gap-2">
+            <Button disabled>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Create New
+            </Button>
+            <Button disabled variant="outline">
+              <LogIn className="mr-2 h-4 w-4" />
+              Login
+            </Button>
+          </div>
         </div>
         <LoadingSkeleton />
+      </div>
+    );
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Your Ontologies</h1>
+          <Button onClick={() => setIsLoggedIn(true)} variant="outline">
+            <LogIn className="mr-2 h-4 w-4" />
+            Login
+          </Button>
+        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Please Log In</CardTitle>
+            <CardDescription>
+              You need to be logged in to view and manage ontologies
+            </CardDescription>
+          </CardHeader>
+        </Card>
       </div>
     );
   }
@@ -155,11 +210,24 @@ export default function OntologiesPage() {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Your Ontologies</h1>
-        <Button onClick={() => setIsCreateModalOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Create New
-        </Button>
+        <div>
+          <h1 className="text-3xl font-bold">Your Ontologies</h1>
+          {organization && (
+            <p className="text-muted-foreground">
+              Organization: {organization.name}
+            </p>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button onClick={() => setIsCreateModalOpen(true)}>
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create New
+          </Button>
+          <Button onClick={() => setIsLoggedIn(false)} variant="outline">
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </Button>
+        </div>
       </div>
 
       <CreateOntologyModal
