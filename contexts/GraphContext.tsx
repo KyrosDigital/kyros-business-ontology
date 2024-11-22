@@ -379,7 +379,6 @@ export function GraphProvider({ children }: GraphProviderProps) {
       const response = await fetch(`/api/v1/ontology/graph?ontologyId=${ontologyId}&t=${Date.now()}`);
       if (!response.ok) throw new Error('Failed to fetch ontology data');
       const data = await response.json();
-      console.log('data', data);
       setOntologyData(data);
       setIsDataReady(true);
     } catch (error) {
