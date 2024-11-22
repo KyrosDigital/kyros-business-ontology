@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { PlusCircle } from "lucide-react";
 import { useRouter } from 'next/navigation';
+import { CreateOntologyModal } from '@/components/ui/create-ontology-modal';
 
 interface OntologyWithCounts extends Ontology {
   _count: {
@@ -76,12 +77,13 @@ export default function OntologiesPage() {
   const [ontologies, setOntologies] = useState<OntologyWithCounts[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
     const fetchOntologies = async () => {
       try {
-        const response = await fetch('/api/v1/ontologies');
+        const response = await fetch('/api/v1/ontology/list');
         if (!response.ok) {
           throw new Error('Failed to fetch ontologies');
         }
@@ -96,6 +98,31 @@ export default function OntologiesPage() {
 
     fetchOntologies();
   }, []);
+
+  const handleCreateOntology = async (data: { name: string; description: string }) => {
+    try {
+      const response = await fetch('/api/v1/ontology/new', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create ontology');
+      }
+
+      const newOntology = await response.json();
+      
+      // Update the local state with the new ontology
+      setOntologies(prev => [newOntology, ...prev]);
+      setIsCreateModalOpen(false);
+    } catch (error) {
+      console.error('Error creating ontology:', error);
+      // You might want to show an error toast or message here
+    }
+  };
 
   if (loading) {
     return (
@@ -129,11 +156,17 @@ export default function OntologiesPage() {
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">Your Ontologies</h1>
-        <Button onClick={() => router.push('/ontologies/new')}>
+        <Button onClick={() => setIsCreateModalOpen(true)}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Create New
         </Button>
       </div>
+
+      <CreateOntologyModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleCreateOntology}
+      />
 
       {ontologies.length === 0 ? (
         <Card>
@@ -145,7 +178,7 @@ export default function OntologiesPage() {
           </CardHeader>
           <CardFooter>
             <Button
-              onClick={() => router.push('/ontologies/new')}
+              onClick={() => setIsCreateModalOpen(true)}
               variant="outline"
             >
               <PlusCircle className="mr-2 h-4 w-4" />

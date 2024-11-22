@@ -45,7 +45,7 @@ function OntologyGraph() {
 
 	useEffect(() => {
 		if (!ontologyId) {
-			router.push('/ontologies');
+			router.push('/');
 			return;
 		}
 		setOntologyId(ontologyId);

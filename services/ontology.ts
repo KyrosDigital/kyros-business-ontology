@@ -972,3 +972,35 @@ export async function listOntologies(organizationId: string) {
   }
 }
 
+export async function createOntology(data: { 
+  name: string; 
+  description?: string; 
+  organizationId: string;
+}) {
+  try {
+    const ontology = await prisma.ontology.create({
+      data: {
+        name: data.name,
+        description: data.description,
+        organizationId: data.organizationId,
+      },
+      include: {
+        _count: {
+          select: {
+            nodes: true,
+            relationships: true
+          }
+        }
+      }
+    });
+
+    return { success: true, data: ontology };
+  } catch (error) {
+    console.error('Error creating ontology:', error);
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to create ontology' 
+    };
+  }
+}
+
