@@ -2,6 +2,18 @@ import { createContext, useContext, ReactNode, useState, useEffect } from 'react
 import type { LayoutOptions } from 'cytoscape';
 import type { NodeData, OntologyData, NodeType } from '@/types/graph';
 import { LAYOUT_OPTIONS } from '@/components/ui/layout-select';
+import { useOrganization } from '@/contexts/OrganizationContext';
+
+// Add these type definitions at the top of the file
+interface NodeRelationship {
+  id: string;
+  fromNodeId: string;
+  toNodeId: string;
+  relationType: string;
+  fromNode: NodeData;
+  toNode: NodeData;
+  vectorId?: string;
+}
 
 interface GraphContextType {
   // Graph Data
@@ -37,7 +49,7 @@ interface GraphContextType {
   setOntologyId: (id: string | null) => void;
 
   // Graph Operations
-  handleCreateNode: (nodeData: Partial<Omit<NodeData, 'id'>>) => Promise<void>;
+  handleCreateChildNode: (nodeData: Partial<Omit<NodeData, 'id'>>) => Promise<void>;
   handleUpdateNode: (nodeId: string, nodeData: Partial<Omit<NodeData, 'id'>>) => Promise<void>;
   handleDeleteNode: (nodeId: string, strategy?: 'orphan' | 'cascade' | 'reconnect') => Promise<void>;
   handleCreateRelationship: (sourceId: string, targetId: string, relationType: string) => Promise<void>;
@@ -95,19 +107,23 @@ export function GraphProvider({ children }: GraphProviderProps) {
   const [viewMode, setViewMode] = useState<'graph' | 'table'>('graph');
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [ontologyId, setOntologyId] = useState<string | null>(null);
+  const { organization } = useOrganization();
 
   // Graph Operations
-	// TODO: rename this to handleCreateChildNode
-  const handleCreateNode = async (nodeData: Partial<Omit<NodeData, 'id'>>) => {
+  const handleCreateChildNode = async (nodeData: Partial<Omit<NodeData, 'id'>>) => {
     try {
-      if (!selectedNode?.id) return;
+      if (!selectedNode?.id || !organization?.id || !ontologyId) return;
 
       const response = await fetch('/api/v1/ontology/create-child', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           parentId: selectedNode.id,
-          nodeData: nodeData,
+          nodeData: {
+            ...nodeData,
+            organizationId: organization.id,
+            ontologyId: ontologyId
+          },
         }),
       });
       
@@ -287,7 +303,8 @@ export function GraphProvider({ children }: GraphProviderProps) {
         return {
           ...prevData,
           relationships: prevData.relationships.filter(r => 
-            r.fromNodeId !== selectedRelationship.sourceNode.id && r.toNodeId !== selectedRelationship.targetNode.id
+            r.fromNodeId !== selectedRelationship?.sourceNode?.id || 
+            r.toNodeId !== selectedRelationship?.targetNode?.id
           )
         };
       });
@@ -397,7 +414,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
     setOntologyId,
 
     // Graph Operations
-    handleCreateNode,
+    handleCreateChildNode,
     handleUpdateNode,
     handleDeleteNode,
     handleCreateRelationship,

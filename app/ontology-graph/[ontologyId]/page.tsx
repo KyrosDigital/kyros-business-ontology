@@ -30,7 +30,7 @@ function OntologyGraph() {
 		setCurrentLayout,
 		handleLegendClick,
 		handleClosePanel,
-		handleCreateNode,
+		handleCreateChildNode,
 		handleUpdateNode,
 		handleDeleteNode,
 		handleCreateRelationship,
@@ -91,14 +91,14 @@ function OntologyGraph() {
 				onUpdateNode={handleUpdateNode}
 				onDeleteNode={handleDeleteNode}
 				onCreateRelationship={handleCreateRelationship}
-				onCreateNode={handleCreateNode}
+				onCreateNode={handleCreateChildNode}
 			/>
 
 			<NodePanel
 				isPanelOpen={isPanelOpen && !!selectedNode}
 				selectedNode={selectedNode}
 				onClose={handleClosePanel}
-				onCreateNode={handleCreateNode}
+				onCreateNode={handleCreateChildNode}
 				refreshNode={refreshNode}
 				onNodeUpdate={handleUpdateNode}
 				onDeleteNode={handleDeleteNode}
