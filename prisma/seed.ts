@@ -5,6 +5,30 @@ import { PineconeService, createPineconeService } from "../services/pinecone"
 import { generateNodeEmbeddingContent } from "../services/ontology"
 import { Pinecone } from '@pinecone-database/pinecone';
 
+// Add helper function to check and delete existing index
+async function cleanupExistingIndex(indexName: string): Promise<void> {
+	const pinecone = new Pinecone({
+		apiKey: process.env.PINECONE_API_KEY!
+	});
+
+	try {
+		const indexes = await pinecone.listIndexes();
+		const existingIndex = indexes.indexes?.find(idx => idx.name === indexName);
+		
+		if (existingIndex) {
+			console.log(`Found existing index '${indexName}', deleting...`);
+			await pinecone.deleteIndex(indexName);
+			console.log(`Index '${indexName}' deleted successfully`);
+			
+			// Wait a bit to ensure the deletion is processed
+			await new Promise(resolve => setTimeout(resolve, 20000));
+		}
+	} catch (error) {
+		console.error('Error cleaning up existing index:', error);
+		throw error;
+	}
+}
+
 // Add helper function to wait for index to be ready
 async function waitForIndex(indexName: string, maxAttempts = 10): Promise<void> {
 	const pinecone = new Pinecone({
@@ -33,6 +57,8 @@ async function waitForIndex(indexName: string, maxAttempts = 10): Promise<void> 
 }
 
 async function main() {
+	console.log('Starting seed process...');
+
 	// Create the organization
 	const organization = await prisma.organization.create({
 		data: {
@@ -42,10 +68,18 @@ async function main() {
 		}
 	});
 
-	// Create Pinecone index for the organization
+	console.log('Organization created:', organization.name);
+
+	// Clean up existing index if it exists
+	console.log('Checking for existing Pinecone index...');
+	await cleanupExistingIndex(organization.pineconeIndex);
+
+	// Create new Pinecone index for the organization
+	console.log('Creating new Pinecone index...');
 	await PineconeService.createOrgIndex(organization.pineconeIndex);
 
 	// Wait for index to be ready before proceeding
+	console.log('Waiting for index to be ready...');
 	await waitForIndex(organization.pineconeIndex);
 
 	// Create a user in the organization
@@ -252,15 +286,14 @@ async function main() {
 	console.log(`
 Seed completed successfully:
 - Organization '${organization.name}' created with Pinecone index '${organization.pineconeIndex}'
-- User '${user.name}' (${user.email}) created
-- Ontology '${ontology.name}' created
-- Sample nodes, relationships, and notes created with vectors
+- Pinecone index cleaned up and recreated
+- All sample data created with vectors
   `);
 }
 
 main()
 	.catch((e) => {
-		console.error(e)
+		console.error('Seed process failed:', e)
 		process.exit(1)
 	})
 	.finally(async () => {
