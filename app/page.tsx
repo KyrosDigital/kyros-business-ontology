@@ -20,8 +20,35 @@ interface OntologyListItemProps {
   ontology: OntologyWithCounts;
 }
 
-const OntologyListItem = ({ ontology }: OntologyListItemProps) => {
+const OntologyListItem = ({ ontology, onDelete }: OntologyListItemProps & { onDelete: (updatedOntologies: OntologyWithCounts[]) => void }) => {
   const router = useRouter();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this ontology?')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      const response = await fetch(`/api/v1/ontology/${ontology.id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete ontology');
+      }
+
+      const { updatedOntologies } = await response.json();
+      onDelete(updatedOntologies);
+    } catch (error) {
+      console.error('Error deleting ontology:', error);
+      alert(error instanceof Error ? error.message : 'Failed to delete ontology');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <Card className="hover:shadow-md transition-shadow">
@@ -38,7 +65,14 @@ const OntologyListItem = ({ ontology }: OntologyListItemProps) => {
           <span>Relationships: {ontology._count.relationships}</span>
         </div>
       </CardContent>
-      <CardFooter className="flex justify-end">
+      <CardFooter className="flex justify-between">
+        <Button
+          variant="destructive"
+          onClick={handleDelete}
+          disabled={isDeleting}
+        >
+          {isDeleting ? 'Deleting...' : 'Delete'}
+        </Button>
         <Button
           onClick={() => router.push(`/ontology-graph/${ontology.id}`)}
         >
@@ -151,6 +185,10 @@ export default function OntologiesPage() {
     }
   };
 
+  const handleOntologyDelete = (updatedOntologies: OntologyWithCounts[]) => {
+    setOntologies(updatedOntologies);
+  };
+
   if (loading) {
     return (
       <div className="max-w-4xl mx-auto p-6">
@@ -257,7 +295,11 @@ export default function OntologiesPage() {
       ) : (
         <div className="space-y-4">
           {ontologies.map((ontology) => (
-            <OntologyListItem key={ontology.id} ontology={ontology} />
+            <OntologyListItem 
+              key={ontology.id} 
+              ontology={ontology} 
+              onDelete={handleOntologyDelete}
+            />
           ))}
         </div>
       )}

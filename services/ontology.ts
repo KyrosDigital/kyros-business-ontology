@@ -1025,3 +1025,88 @@ export async function createOntology(data: {
   }
 }
 
+export async function deleteOntology(ontologyId: string) {
+  try {
+    // First get the ontology and organization details
+    const ontology = await prisma.ontology.findUnique({
+      where: { id: ontologyId },
+      include: {
+        organization: true
+      }
+    });
+
+    if (!ontology) {
+      return { 
+        success: false, 
+        error: 'Ontology not found' 
+      };
+    }
+
+    // Create pinecone service for vector cleanup
+    const pineconeService = createPineconeService(ontology.organization, ontology);
+
+    // Use a transaction to ensure all database operations succeed or fail together
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete all notes and their vectors
+      const notes = await tx.note.findMany({
+        where: { ontologyId }
+      });
+      
+      for (const note of notes) {
+        if (note.vectorId) {
+          await pineconeService.deleteVector(note.vectorId);
+        }
+      }
+      await tx.note.deleteMany({ where: { ontologyId } });
+
+      // 2. Delete all relationships and their vectors
+      const relationships = await tx.nodeRelationship.findMany({
+        where: { ontologyId }
+      });
+      
+      for (const rel of relationships) {
+        if (rel.vectorId) {
+          await pineconeService.deleteVector(rel.vectorId);
+        }
+      }
+      await tx.nodeRelationship.deleteMany({ where: { ontologyId } });
+
+      // 3. Delete all nodes and their vectors
+      const nodes = await tx.node.findMany({
+        where: { ontologyId }
+      });
+      
+      for (const node of nodes) {
+        if (node.vectorId) {
+          await pineconeService.deleteVector(node.vectorId);
+        }
+      }
+      await tx.node.deleteMany({ where: { ontologyId } });
+
+      // 4. Delete the ontology itself
+      await tx.ontology.delete({
+        where: { id: ontologyId }
+      });
+    });
+
+    // 5. Delete the entire namespace in Pinecone
+    await pineconeService.deleteNamespace();
+
+    // 6. Get updated list of ontologies
+    const { data: updatedOntologies } = await listOntologies(ontology.organizationId);
+
+    return {
+      success: true,
+      message: 'Ontology and all related data deleted successfully',
+      data: updatedOntologies
+    };
+
+  } catch (error) {
+    console.error('Error deleting ontology:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to delete ontology'
+    };
+  }
+}
+

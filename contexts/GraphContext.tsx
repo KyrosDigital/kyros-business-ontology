@@ -163,7 +163,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
     try {
       if (!organization?.id || !ontologyId) return;
 
-      const response = await fetch(`/api/v1/ontology/${nodeId}`, {
+      const response = await fetch(`/api/v1/ontology/nodes/${nodeId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -177,7 +177,6 @@ export function GraphProvider({ children }: GraphProviderProps) {
       
       const updatedNode = await response.json();
       
-      // Update both the ontology data and the selected node
       setOntologyData(prevData => {
         if (!prevData) return prevData;
         return {
@@ -186,19 +185,18 @@ export function GraphProvider({ children }: GraphProviderProps) {
         };
       });
       
-      // Update the selected node state
       setSelectedNode(updatedNode);
       
-      return updatedNode; // Return the updated node for the component to use
+      return updatedNode;
     } catch (error) {
       console.error('Error updating node:', error);
-      throw error; // Rethrow to let components handle the error
+      throw error;
     }
   };
 
   const handleDeleteNode = async (nodeId: string, strategy: 'orphan' | 'cascade' | 'reconnect' = 'orphan') => {
     try {
-      const response = await fetch(`/api/v1/ontology/${nodeId}`, {
+      const response = await fetch(`/api/v1/ontology/nodes/${nodeId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ strategy })
@@ -322,7 +320,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
 
   const refreshNode = async (nodeId: string) => {
     try {
-      const response = await fetch(`/api/v1/ontology/${nodeId}`);
+      const response = await fetch(`/api/v1/ontology/nodes/${nodeId}`);
       if (!response.ok) throw new Error('Failed to fetch node');
       const updatedNode = await response.json();
       setSelectedNode(updatedNode);
