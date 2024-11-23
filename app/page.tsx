@@ -90,7 +90,7 @@ export default function OntologiesPage() {
     clearOrganization 
   } = useOrganization();
 
-  const TEMP_USER_ID = "67d15784-9e92-477e-ae84-b3c3295f333c";
+  const TEMP_USER_ID = "d4dd1361-7018-4c46-913d-88e6111028ee";
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -110,7 +110,7 @@ export default function OntologiesPage() {
 
       setLoading(true);
       try {
-        const ontologiesResponse = await fetch('/api/v1/ontology/list');
+        const ontologiesResponse = await fetch(`/api/v1/ontology/list?organizationId=${organization.id}`);
         if (!ontologiesResponse.ok) {
           throw new Error('Failed to fetch ontologies');
         }
