@@ -312,6 +312,13 @@ export async function connectNodes(
 
   const pineconeService = createPineconeService(organization, ontology);
 
+  if (!fromNodeId) {
+    throw new Error(`Node with ID ${fromNodeId} not found`);
+  }
+  if (!toNodeId) {
+    throw new Error(`Node with ID ${toNodeId} not found`);
+  }
+
   // Verify both nodes exist and get their names for the embedding
   const [fromNode, toNode] = await Promise.all([
     prisma.node.findUnique({ 
