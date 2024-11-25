@@ -1,12 +1,50 @@
 import { NextResponse } from 'next/server';
 import { sendMessage } from '@/lib/claude';
+import { prisma } from '@/prisma/prisma-client';
 
 export async function POST(request: Request) {
   try {
-    const { message, previousMessages, activeFilters } = await request.json();
+    const { 
+      message, 
+      previousMessages, 
+      activeFilters,
+      organizationId,
+      ontologyId
+    } = await request.json();
+
+    if (!organizationId || !ontologyId) {
+      return NextResponse.json(
+        { message: 'Missing organization or ontology ID' },
+        { status: 400 }
+      );
+    }
+
+    // Fetch organization and ontology
+    const [organization, ontology] = await Promise.all([
+      prisma.organization.findUnique({
+        where: { id: organizationId }
+      }),
+      prisma.ontology.findUnique({
+        where: { id: ontologyId }
+      })
+    ]);
+
+    if (!organization || !ontology) {
+      return NextResponse.json(
+        { message: 'Organization or ontology not found' },
+        { status: 404 }
+      );
+    }
+
     const filtersSet = new Set(activeFilters as ('NODE' | 'RELATIONSHIP' | 'NOTE')[]);
     
-    const response = await sendMessage(message, previousMessages, filtersSet);
+    const response = await sendMessage(
+      message,
+      organization,
+      ontology,
+      previousMessages,
+      filtersSet
+    );
     
     if (!response) {
       return NextResponse.json(

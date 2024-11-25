@@ -10,6 +10,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { useGraph } from "@/contexts/GraphContext"
+import { useOrganization } from "@/contexts/OrganizationContext"
 
 type FilterType = 'NODE' | 'RELATIONSHIP' | 'NOTE';
 
@@ -26,6 +28,8 @@ interface MarkdownComponentProps {
 }
 
 export function AiChat() {
+  const { ontologyId, refreshGraph } = useGraph();
+  const { organization } = useOrganization();
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [isOpen, setIsOpen] = useState(false)
@@ -44,9 +48,44 @@ export function AiChat() {
     setActiveFilters(newFilters);
   };
 
+  const handleToolCalls = async (toolCalls: any[]) => {
+    for (const call of toolCalls) {
+      if (call.tool === 'create_node') {
+        try {
+          const response = await fetch('/api/v1/ontology/create-node', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...call.input,
+              ontologyId,
+              organizationId: organization?.id
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create node');
+          }
+
+          // Refresh the graph to show the new node
+          await refreshGraph();
+
+        } catch (error) {
+          console.error('Error executing create_node tool:', error);
+          setMessages(prev => [...prev, {
+            role: "assistant",
+            content: "I encountered an error while trying to create the node. Please try again."
+          }]);
+        }
+      }
+      // TODO: Handle other tool types (create_relationship, etc.)
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading) return
+    if (!input.trim() || isLoading || !organization?.id || !ontologyId) return
 
     setIsLoading(true)
     const userMessage: ChatMessage = { role: "user", content: input }
@@ -62,7 +101,9 @@ export function AiChat() {
         body: JSON.stringify({
           message: input,
           previousMessages: messages,
-          activeFilters: Array.from(activeFilters)
+          activeFilters: Array.from(activeFilters),
+          organizationId: organization.id,
+          ontologyId
         }),
       });
 
@@ -71,7 +112,14 @@ export function AiChat() {
       }
 
       const data = await response.json();
-      setMessages(prev => [...prev, { role: "assistant", content: data.response }]);
+      const aiResponse = data.response.text;
+      
+      // Handle tool calls if they exist
+      if (data.response.toolCalls) {
+        await handleToolCalls(data.response.toolCalls);
+      }
+
+      setMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
     } catch (error) {
       console.error('Failed to get response:', error)
       setMessages(prev => [...prev, { 
