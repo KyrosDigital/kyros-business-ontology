@@ -3,16 +3,17 @@ import { PineconeService, type VectorMetadata } from '@/services/pinecone';
 import { openAIService } from '@/services/openai';
 import { NodeType } from '@prisma/client';
 import type { Organization, Ontology } from '@prisma/client';
+import { Tool } from '@anthropic-ai/sdk/resources/messages.mjs';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
 // Define tool schemas
-const tools = [
+const tools: Tool[] = [
   {
     name: 'create_node',
-    description: "Create a new node in the graph. Use this when you need to add a new entity to the organizational structure.",
+    description: "Creates a new node in the graph. It should be used when the user wants to create a new node in the ontology graph. Nodes represent entities like departments, roles, processes, etc.",
     input_schema: {
       type: "object",
       properties: {
@@ -35,7 +36,7 @@ const tools = [
   },
   {
     name: 'create_relationship',
-    description: "Create a relationship between two existing nodes. Use this to establish connections in the organizational structure.",
+    description: "Creates a relationship between two existing nodes. It should be used when the user wants to create a relationship or connection between two nodes in the ontology graph.",
     input_schema: {
       type: "object",
       properties: {
@@ -49,7 +50,7 @@ const tools = [
         },
         relationType: {
           type: "string",
-          description: "The type of relationship (e.g., 'PARENT_CHILD', 'USES', 'REPORTS_TO', 'MANAGES')"
+          description: "The type of relationship (e.g., 'Uses', 'Reports to', 'Manages', 'Has')"
         }
       },
       required: ["fromNodeId", "toNodeId", "relationType"]
@@ -112,16 +113,33 @@ function formatContextForPrompt(contexts: RelevantContext[]): string {
   if (nodes.length > 0) {
     // Group nodes by their nodeType
     const nodesByType = nodes.reduce((acc, node) => {
-      const metadata = node.metadata as NodeMetadata;
+      const metadata = node.metadata;
       const nodeType = metadata.nodeType;
+      
+      // Parse the content string to get full node data
+      let nodeData = {};
+      try {
+        nodeData = JSON.parse(metadata.content);
+      } catch (error) {
+        console.error('Error parsing node content:', error);
+      }
+
       if (!acc[nodeType]) {
         acc[nodeType] = [];
       }
+
       acc[nodeType].push({
+        id: metadata.id,
         name: metadata.name,
-        description: metadata.description,
-        metadata: metadata.metadataStr ? JSON.parse(metadata.metadataStr) : {}
+        description: nodeData.description,
+        fromRelations: nodeData.fromRelations || [],
+        toRelations: nodeData.toRelations || [],
+        notes: nodeData.notes || [],
+        createdAt: nodeData.createdAt,
+        updatedAt: nodeData.updatedAt,
+        metadata: nodeData.metadata || {}
       });
+
       return acc;
     }, {} as Record<string, any[]>);
 
@@ -129,15 +147,42 @@ function formatContextForPrompt(contexts: RelevantContext[]): string {
     Object.entries(nodesByType).forEach(([type, nodes]) => {
       prompt += `## ${type}s\n\n`;
       nodes.forEach(node => {
-        prompt += `- **${node.name}**\n`;
+        prompt += `- **${node.name}** (ID: ${node.id})\n`;
         if (node.description) {
           prompt += `  - Description: ${node.description}\n`;
         }
-        if (Object.keys(node.metadata).length > 0) {
-          Object.entries(node.metadata).forEach(([key, value]) => {
-            prompt += `  - ${key}: ${JSON.stringify(value)}\n`;
+        
+        // Add relationships information
+        if (node.fromRelations.length > 0) {
+          prompt += `  - Outgoing Relationships:\n`;
+          node.fromRelations.forEach(rel => {
+            prompt += `    → ${rel.toNode.name} (${rel.relationType})\n`;
           });
         }
+        
+        if (node.toRelations.length > 0) {
+          prompt += `  - Incoming Relationships:\n`;
+          node.toRelations.forEach(rel => {
+            prompt += `    ← ${rel.fromNode.name} (${rel.relationType})\n`;
+          });
+        }
+
+        // Add notes if any
+        if (node.notes.length > 0) {
+          prompt += `  - Notes:\n`;
+          node.notes.forEach(note => {
+            prompt += `    • ${note.content}\n`;
+          });
+        }
+
+        // Add metadata if any
+        if (Object.keys(node.metadata).length > 0) {
+          prompt += `  - Additional Metadata:\n`;
+          Object.entries(node.metadata).forEach(([key, value]) => {
+            prompt += `    • ${key}: ${JSON.stringify(value)}\n`;
+          });
+        }
+
         prompt += '\n';
       });
     });
@@ -147,7 +192,7 @@ function formatContextForPrompt(contexts: RelevantContext[]): string {
   if (relationships.length > 0) {
     prompt += `## Relationships\n\n`;
     relationships.forEach(rel => {
-      const metadata = rel.metadata as RelationshipMetadata;
+      const metadata = rel.metadata;
       prompt += `- ${metadata.fromNodeName} (${metadata.fromNodeType}) ${metadata.relationType} ${metadata.toNodeName} (${metadata.toNodeType})\n`;
     });
     prompt += '\n';
@@ -157,7 +202,7 @@ function formatContextForPrompt(contexts: RelevantContext[]): string {
   if (notes.length > 0) {
     prompt += `## Notes\n\n`;
     notes.forEach(note => {
-      const metadata = note.metadata as NoteMetadata;
+      const metadata = note.metadata;
       prompt += `- From ${metadata.author}: ${metadata.content}\n`;
     });
     prompt += '\n';
@@ -178,26 +223,28 @@ export async function sendMessage(
     const contextPrompt = formatContextForPrompt(relevantContext);
 
     const systemPrompt = `You are an AI assistant helping users understand and modify their business structure and processes. 
-    Users will ask you questions pertaining to the graph they see.
+    Users will ask you questions pertaining to the graph they see. The graph represents an ontology the user has created.
     Users in this application are able to document an ontology by adding nodes and relationships to the graph.
     Nodes represent entities like departments, roles, processes, etc. Relationships represent connections between nodes.
-    You have access to relevant information about the organization that has been retrieved based on the user's query.
+    If a user asks you to create a new node (organization, department, role, process, etc.), you should use the create_node tool.
+    If a user asks you to connect or create an relationship, you should use the create_relationship tool.
 
-${contextPrompt}
+    ${contextPrompt}
 
-When responding:
-1. Always use markdown formatting for your responses
-- Use headers (##) for main sections
-- Use bullet points for lists
-- Use **bold** for emphasis
-- Use \`code blocks\` for technical terms
-- Use > for important quotes or callouts
-- Break up long responses into clear sections
-2. If the user is asking for information, provide clear explanations using the available context
-3. If the user wants to modify the graph:
-   - First explain your reasoning in markdown
-   - Then use the appropriate tool(s)
-   - Finally, summarize the proposed changes
+    When responding:
+    1. Always use markdown formatting for your responses
+    - Use headers (##) for main sections
+    - Use bullet points for lists
+    - Use **bold** for emphasis
+    - Use \`code blocks\` for technical terms
+    - Use > for important quotes or callouts
+    - Break up long responses into clear sections
+
+    2. If the user is asking for information, provide clear explanations using the available context
+   3. If the user wants to modify the graph:
+- First explain your reasoning in markdown
+  - Then use the appropriate tool(s)
+  - Finally, summarize the proposed changes
 
 Available Tools:
 1. create_node: Create a new node
@@ -207,8 +254,8 @@ Available Tools:
 
 2. create_relationship: Connect nodes
    - Required: fromNodeId, toNodeId, relationType
-   - Common relationships: PARENT_CHILD, USES, REPORTS_TO, MANAGES
-   - Example: Connecting Marketing to CEO with REPORTS_TO
+   - Common relationships: "Uses", "Report to", "Manages"
+   - Example: Connecting Marketing to CEO with "Reports To"
 
 Guidelines:
 - Use clear, professional names for nodes
@@ -225,6 +272,8 @@ Guidelines:
       })),
       { role: 'user' as const, content: message }
     ];
+
+    console.log(messages)
 
     const response = await anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',

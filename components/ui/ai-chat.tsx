@@ -50,8 +50,8 @@ export function AiChat() {
 
   const handleToolCalls = async (toolCalls: any[]) => {
     for (const call of toolCalls) {
-      if (call.tool === 'create_node') {
-        try {
+      try {
+        if (call.tool === 'create_node') {
           const response = await fetch('/api/v1/ontology/create-node', {
             method: 'POST',
             headers: {
@@ -68,18 +68,38 @@ export function AiChat() {
             throw new Error('Failed to create node');
           }
 
-          // Refresh the graph to show the new node
           await refreshGraph();
-
-        } catch (error) {
-          console.error('Error executing create_node tool:', error);
-          setMessages(prev => [...prev, {
-            role: "assistant",
-            content: "I encountered an error while trying to create the node. Please try again."
-          }]);
         }
+        
+        else if (call.tool === 'create_relationship') {
+          const response = await fetch('/api/v1/ontology/connect-nodes', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              fromNodeId: call.input.fromNodeId,
+              toNodeId: call.input.toNodeId,
+              relationType: call.input.relationType,
+              ontologyId,
+              organizationId: organization?.id
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create relationship');
+          }
+
+          await refreshGraph();
+        }
+
+      } catch (error) {
+        console.error(`Error executing ${call.tool} tool:`, error);
+        setMessages(prev => [...prev, {
+          role: "assistant",
+          content: `I encountered an error while trying to ${call.tool === 'create_node' ? 'create the node' : 'create the relationship'}. Please try again.`
+        }]);
       }
-      // TODO: Handle other tool types (create_relationship, etc.)
     }
   };
 
