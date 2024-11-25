@@ -3,7 +3,7 @@ import { createNode } from '@/services/ontology';
 import { NodeType } from '@prisma/client';
 
 // TODO: Replace with proper auth when implemented
-const TEMP_ORGANIZATION_ID = "b3336752-09b2-4b12-8ab2-27fe2fd77e0c";
+const TEMP_ORGANIZATION_ID = "5bfe17ac-9566-49a6-b748-9dfd0a621e34";
 
 export async function POST(request: Request) {
   try {

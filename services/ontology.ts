@@ -41,6 +41,7 @@ export interface NodeWithRelations {
   type: NodeType;
   name: string;
   description?: string | null;
+  ontologyId: string;
   metadata?: Prisma.JsonValue;
   fromRelations?: {
     id: string;

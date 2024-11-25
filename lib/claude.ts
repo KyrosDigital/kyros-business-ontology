@@ -105,110 +105,39 @@ async function getRelevantContext(
  * Format context into a structured prompt
  */
 function formatContextForPrompt(contexts: RelevantContext[]): string {
-  let prompt = "Here's the relevant information from the organizational structure:\n\n";
+  let prompt = "Relevant ontology context data based on the user's prompt:\n\n";
 
   // Group contexts by type
   const nodes = contexts.filter(c => c.type === 'NODE');
   const relationships = contexts.filter(c => c.type === 'RELATIONSHIP');
   const notes = contexts.filter(c => c.type === 'NOTE');
 
-  // Format Nodes by their type
+  // Format Nodes
   if (nodes.length > 0) {
-    // Group nodes by their nodeType
-    const nodesByType = nodes.reduce((acc, node) => {
-      const metadata = node.metadata;
-      const nodeType = metadata.nodeType;
-      
-      // Parse the content string to get full node data
-      let nodeData = {};
-      try {
-        nodeData = JSON.parse(metadata.content);
-      } catch (error) {
-        console.error('Error parsing node content:', error);
-      }
-
-      if (!acc[nodeType]) {
-        acc[nodeType] = [];
-      }
-
-      acc[nodeType].push({
-        id: metadata.id,
-        name: metadata.name,
-        description: nodeData.description,
-        fromRelations: nodeData.fromRelations || [],
-        toRelations: nodeData.toRelations || [],
-        notes: nodeData.notes || [],
-        createdAt: nodeData.createdAt,
-        updatedAt: nodeData.updatedAt,
-        metadata: nodeData.metadata || {}
-      });
-
-      return acc;
-    }, {} as Record<string, any[]>);
-
-    // Format each node type group
-    Object.entries(nodesByType).forEach(([type, nodes]) => {
-      prompt += `## ${type}s\n\n`;
-      nodes.forEach(node => {
-        prompt += `- **${node.name}** (ID: ${node.id})\n`;
-        if (node.description) {
-          prompt += `  - Description: ${node.description}\n`;
-        }
-        
-        // Add relationships information
-        if (node.fromRelations.length > 0) {
-          prompt += `  - Outgoing Relationships:\n`;
-          node.fromRelations.forEach(rel => {
-            prompt += `    → ${rel.toNode.name} (${rel.relationType})\n`;
-          });
-        }
-        
-        if (node.toRelations.length > 0) {
-          prompt += `  - Incoming Relationships:\n`;
-          node.toRelations.forEach(rel => {
-            prompt += `    ← ${rel.fromNode.name} (${rel.relationType})\n`;
-          });
-        }
-
-        // Add notes if any
-        if (node.notes.length > 0) {
-          prompt += `  - Notes:\n`;
-          node.notes.forEach(note => {
-            prompt += `    • ${note.content}\n`;
-          });
-        }
-
-        // Add metadata if any
-        if (Object.keys(node.metadata).length > 0) {
-          prompt += `  - Additional Metadata:\n`;
-          Object.entries(node.metadata).forEach(([key, value]) => {
-            prompt += `    • ${key}: ${JSON.stringify(value)}\n`;
-          });
-        }
-
-        prompt += '\n';
-      });
+    prompt += `## Nodes\n\n`;
+    nodes.forEach(node => {
+      delete node.metadata.content; // Don't include the embedded content in the prompt
+      const json = JSON.stringify(node.metadata).replace(/\\n/g, ' ').trim();
+      prompt += `${json}\n\n`;
     });
   }
 
-  // Format Relationships if any
+  // Format Relationships
   if (relationships.length > 0) {
     prompt += `## Relationships\n\n`;
     relationships.forEach(rel => {
-      const metadata = rel.metadata;
-      prompt += `- ${metadata.fromNodeName} (${metadata.fromNodeType}) ${metadata.relationType} ${metadata.toNodeName} (${metadata.toNodeType})\n`;
+      const json = JSON.stringify(rel.metadata).replace(/\\n/g, ' ').trim();
+      prompt += `${json}\n\n`;
     });
-    prompt += '\n';
   }
 
-  // Format Notes if any
+  // Format Notes
   if (notes.length > 0) {
     prompt += `## Notes\n\n`;
     notes.forEach(note => {
-      const metadata = note.metadata;
-      prompt += `- From ${metadata.author}: ${metadata.content}\n`;
+      const json = JSON.stringify(note.metadata).replace(/\\n/g, ' ').trim();
+      prompt += `${json}\n\n`;
     });
-    prompt += '\n';
   }
 
   return prompt;
@@ -316,6 +245,8 @@ async function handleSequentialTools(
         toolMessage = `Tool execution failed: ${result.error}`;
       }
 
+      console.log("TOOL MESSAGE", toolMessage)
+
       // Add the tool result to previous messages
       previousMessages.push({ role: 'user', content: toolMessage });
 
@@ -357,16 +288,27 @@ export async function sendMessage(
     const relevantContext = await getRelevantContext(message, organization, ontology, activeFilters);
     const contextPrompt = formatContextForPrompt(relevantContext);
 
-    const systemPrompt = `You are an AI assistant helping users understand and modify their business structure and processes. 
-    Users will ask you questions pertaining to the graph they see. The graph represents an ontology the user has created.
+    const systemPrompt = `You are an AI assistant helping users understand, improve, and modify their business structure and processes. 
+    Users will ask you questions pertaining to the knowledge graph they see. The knowledge graph represents an ontology the user has created.
+    Ontologies are used to describe the structure of an organization, including its departments, roles, processes, and the relationships between them.
     Users in this application are able to document an ontology by adding nodes and relationships to the graph.
     Nodes represent entities like departments, roles, processes, etc. Relationships represent connections between nodes.
-    If a user asks you to create a new node (organization, department, role, process, etc.), you should use the create_node tool.
-    If a user asks you to connect or create a relationship, you should use the create_relationship tool.
-    If a user asks you to create a new node, then connect it to another node, you should first use the create_node tool, then use the create_relationship tool.
-    If a user asks you to create multiple nodes and relationships (example: "Create an organization with departments A, B, and C, with department A reporting to department B, and department C reporting to department B"), you should first use the create_node tool for each node, then use the create_relationship tool for each relationship.
+    
+    Your Purpose: 
+    - (Insights): To help the user better understand the ontology and the relationships between the nodes.
+    - (Modification): To help the user modify their ontology by adding or removing nodes and relationships.
+    - (Recommendations): To provide recommendations based on the ontology and the relationships between the nodes.
 
-    ${contextPrompt}
+    Your Expertise: 
+    - You are an expert Business Analyst with deep knowledge of business processes and organizational structures.
+    - You have a strong understanding of the domain of the ontology and the terminology used in the ontology.
+    - You are able to understand the user's prompt and the context of the ontology to provide insightful and actionable responses.
+
+    Tool Usage Guidelines:
+    - If a user asks you to create a new node (organization, department, role, process, etc.), you should use the create_node tool.
+    - If a user asks you to connect nodes or create a relationship, you should use the create_relationship tool.
+    - If a user asks you to create a new node, then connect it to another node, you should first use the create_node tool, then use the create_relationship tool.
+    - If a user asks you to create multiple nodes and relationships (example: "Create an organization with departments A, B, and C, with department A reporting to department B, and department C reporting to department B"), you should first use the create_node tool for each node, then use the create_relationship tool for each relationship.
 
     When responding:
     1. Always use markdown formatting for your responses
@@ -376,30 +318,36 @@ export async function sendMessage(
     - Use \`code blocks\` for technical terms
     - Use > for important quotes or callouts
     - Break up long responses into clear sections
-
     2. If the user is asking for information, provide clear explanations using the available context
-   3. If the user wants to modify the graph:
-- First explain your reasoning in markdown
-  - Then use the appropriate tool(s)
-  - Finally, summarize the proposed changes
+    3. If the user wants to modify the graph:
+      - First explain your reasoning in markdown
+      - Then use the appropriate tool(s)
+      - Finally, summarize the proposed changes
 
-Available Tools:
-1. create_node: Create a new node
-   - Required: type (${Object.values(NodeType).join(', ')}), name
+    Available Tools:
+    1. create_node: Create a new node
+       - Required: type (${Object.values(NodeType).join(', ')}), name
    - Optional: description
    - Example: Creating a Marketing department node
 
-2. create_relationship: Connect nodes
-   - Required: fromNodeId, toNodeId, relationType
-   - Common relationships: "Uses", "Report to", "Manages"
-   - Example: Connecting Marketing to CEO with "Reports To"
+    2. create_relationship: Connect nodes
+       - Required: fromNodeId, toNodeId, relationType
+       - Common relationships: "Uses", "Report to", "Manages"
+       - Example: Connecting Marketing to CEO with "Reports To"
 
-Guidelines:
-- Use clear, professional names for nodes
-- Write concise but informative descriptions
-- Choose appropriate relationship types
-- If uncertain, ask for clarification
-- Explain your reasoning before making changes`;
+    Guidelines:
+    - Use clear, professional names for nodes
+    - Write concise but informative descriptions
+    - Choose appropriate relationship types
+    - If uncertain, ask for clarification
+    - If context provided lacks required information, ask for clarification before using a tool.
+    - Explain your reasoning before making changes
+    - Do not fabricate information
+    - Do not include ID's in your final response
+
+${contextPrompt}
+
+`;
 
     const messages = [
       { role: 'assistant' as const, content: systemPrompt },
