@@ -157,10 +157,11 @@ async function executeToolCall(
 ): Promise<ToolCallResult> {
   try {
     if (tool === 'create_node') {
+      console.log("NODE TOOL INPUT ============", input)
       const node = await createNode({
-        type: input.type,
-        name: input.name,
-        description: input.description,
+        type: input.properties.type,
+        name: input.properties.name,
+        description: input.properties.description,
         organizationId: organization.id,
         ontologyId: ontology.id
       });
@@ -169,13 +170,14 @@ async function executeToolCall(
     }
     
     else if (tool === 'create_relationship') {
+      console.log("RELATIONSHIP TOOL INPUT ============", input)
       const relationship = await connectNodes(
-        input.fromNodeId,
-        input.toNodeId,
-        input.relationType,
+        input.properties.fromNodeId,
+        input.properties.toNodeId,
+        input.properties.relationType,
         organization.id,
         ontology.id
-      );
+      );  
       console.log("RELATIONSHIP CREATED WITH TOOL USE", relationship)
       return { success: true, data: relationship };
     }
@@ -201,8 +203,8 @@ async function handleSequentialTools(
   let currentResponse = initialResponse;
   let allToolCalls: any[] = [];
   let finalTextContent = '';
+  let createdNodes: Record<string, string> = {}; // Track created nodes: name -> id
   
-  // Keep processing while we get tool_use stop reasons
   while (currentResponse.stop_reason === 'tool_use') {
     const toolCalls = currentResponse.content
       .filter(block => block.type === 'tool_use')
@@ -211,13 +213,11 @@ async function handleSequentialTools(
         input: block.input
       }));
 
-    // Get any text content from the current response
     const currentTextContent = currentResponse.content
       .filter(block => block.type === 'text')
       .map(block => (block as MessageContentText).text)
       .join('\n');
 
-    // Only add assistant message if there's actual text content
     if (currentTextContent.trim()) {
       previousMessages.push({ 
         role: 'assistant', 
@@ -230,27 +230,24 @@ async function handleSequentialTools(
       const result = await executeToolCall(call.tool, call.input, organization, ontology);
       allToolCalls.push(call);
 
-      // Prepare the message about tool execution for Claude
       let toolMessage: string;
       if (result.success) {
         if (call.tool === 'create_node') {
           const node = result.data as NodeWithRelations;
-          toolMessage = `Successfully created ${call.input.type.toLowerCase()} node "${node.name}" with ID: ${node.id}`;
+          // Store the created node's ID
+          createdNodes[node.name] = node.id;
+          toolMessage = `Successfully created ${call.input.properties.type.toLowerCase()} node "${node.name}" with ID: ${node.id}. You can use this ID to create relationships with this node.`;
         } else if (call.tool === 'create_relationship') {
-          toolMessage = `Successfully created relationship of type "${call.input.relationType}" between the nodes`;
+          toolMessage = `Successfully created relationship of type "${call.input.properties.relationType}" between the nodes`;
         } else {
           toolMessage = 'Tool executed successfully';
         }
       } else {
-        toolMessage = `Tool execution failed: ${result.error}`;
+        toolMessage = `Tool execution failed: ${result.error}. Available node IDs: ${JSON.stringify(createdNodes)}`;
       }
 
-      console.log("TOOL MESSAGE", toolMessage)
-
-      // Add the tool result to previous messages
       previousMessages.push({ role: 'user', content: toolMessage });
 
-      // Get next response from Claude
       currentResponse = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
         max_tokens: 1024,
@@ -262,7 +259,6 @@ async function handleSequentialTools(
       });
     }
 
-    // Collect text content from the response
     const textBlocks = currentResponse.content
       .filter(block => block.type === 'text')
       .map(block => (block as MessageContentText).text);
@@ -270,7 +266,6 @@ async function handleSequentialTools(
     finalTextContent = textBlocks.join('\n');
   }
 
-  // Return the final response with all tool calls
   return {
     text: finalTextContent || "Changes have been applied successfully.",
     toolCalls: allToolCalls.length > 0 ? allToolCalls : null
@@ -368,6 +363,11 @@ ${contextPrompt}
     });
 
     console.log("INITIAL RESPONSE", initialResponse)
+    initialResponse.content.forEach(block => {
+      if (block.type === 'tool_use') {
+        console.log("TOOL INPUT", block.input)
+      }
+    })
 
     // If the response indicates tool use, handle it sequentially
     if (initialResponse.stop_reason === 'tool_use') {
