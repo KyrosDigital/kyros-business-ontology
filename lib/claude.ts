@@ -282,6 +282,20 @@ async function handleSequentialTools(
         input: block.input
       }));
 
+    // Get any text content from the current response
+    const currentTextContent = currentResponse.content
+      .filter(block => block.type === 'text')
+      .map(block => (block as MessageContentText).text)
+      .join('\n');
+
+    // Only add assistant message if there's actual text content
+    if (currentTextContent.trim()) {
+      previousMessages.push({ 
+        role: 'assistant', 
+        content: currentTextContent
+      });
+    }
+
     // Execute each tool call and collect results
     for (const call of toolCalls) {
       const result = await executeToolCall(call.tool, call.input, organization, ontology);
@@ -303,22 +317,18 @@ async function handleSequentialTools(
       }
 
       // Add the tool result to previous messages
-      previousMessages.push({ role: 'assistant', content: currentResponse.content
-        .filter(block => block.type === 'text')
-        .map(block => (block as MessageContentText).text)
-        .join('\n')
-      });
       previousMessages.push({ role: 'user', content: toolMessage });
 
       // Get next response from Claude
       currentResponse = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
         max_tokens: 1024,
-        messages: previousMessages,
+        messages: previousMessages.map(msg => ({
+          role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
+          content: msg.content
+        })),
         tools
       });
-
-      console.log("CURRENT RESPONSE", currentResponse)
     }
 
     // Collect text content from the response
@@ -331,7 +341,7 @@ async function handleSequentialTools(
 
   // Return the final response with all tool calls
   return {
-    text: finalTextContent,
+    text: finalTextContent || "Changes have been applied successfully.",
     toolCalls: allToolCalls.length > 0 ? allToolCalls : null
   };
 }
@@ -352,8 +362,9 @@ export async function sendMessage(
     Users in this application are able to document an ontology by adding nodes and relationships to the graph.
     Nodes represent entities like departments, roles, processes, etc. Relationships represent connections between nodes.
     If a user asks you to create a new node (organization, department, role, process, etc.), you should use the create_node tool.
-    If a user asks you to connect or create an relationship, you should use the create_relationship tool.
+    If a user asks you to connect or create a relationship, you should use the create_relationship tool.
     If a user asks you to create a new node, then connect it to another node, you should first use the create_node tool, then use the create_relationship tool.
+    If a user asks you to create multiple nodes and relationships (example: "Create an organization with departments A, B, and C, with department A reporting to department B, and department C reporting to department B"), you should first use the create_node tool for each node, then use the create_relationship tool for each relationship.
 
     ${contextPrompt}
 
