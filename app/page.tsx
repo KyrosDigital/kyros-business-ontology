@@ -124,7 +124,7 @@ export default function OntologiesPage() {
     clearOrganization 
   } = useOrganization();
 
-  const TEMP_USER_ID = "d4dd1361-7018-4c46-913d-88e6111028ee";
+  const TEMP_USER_ID = "98683116-245a-4105-b774-3580e9a9fca6";
 
   useEffect(() => {
     if (!isLoggedIn) {

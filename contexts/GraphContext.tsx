@@ -222,13 +222,17 @@ export function GraphProvider({ children }: GraphProviderProps) {
 
   const handleCreateRelationship = async (sourceId: string, targetId: string, relationType: string) => {
     try {
+			if (!organization?.id || !ontologyId) return;
+
       const response = await fetch('/api/v1/ontology/connect-nodes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fromNodeId: sourceId,
           toNodeId: targetId,
-          relationType
+          relationType,
+					organizationId: organization.id,
+					ontologyId: ontologyId
         }),
       });
       

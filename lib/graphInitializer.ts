@@ -176,7 +176,8 @@ export function initializeGraph(
             'text-background-opacity': 0.9,
             'text-background-padding': '3px',
             'font-size': '11px',
-            'text-rotation': 'autorotate'
+            'text-rotation': '0deg',
+            'text-margin-y': -10
           }
         },
         // Selected state
