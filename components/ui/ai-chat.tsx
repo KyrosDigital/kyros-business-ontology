@@ -48,68 +48,14 @@ export function AiChat() {
     setActiveFilters(newFilters);
   };
 
-  const handleToolCalls = async (toolCalls: any[]) => {
-    for (const call of toolCalls) {
-      try {
-        if (call.tool === 'create_node') {
-          const response = await fetch('/api/v1/ontology/create-node', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              ...call.input,
-              ontologyId,
-              organizationId: organization?.id
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to create node');
-          }
-
-          await refreshGraph();
-        }
-        
-        else if (call.tool === 'create_relationship') {
-          const response = await fetch('/api/v1/ontology/connect-nodes', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              fromNodeId: call.input.fromNodeId,
-              toNodeId: call.input.toNodeId,
-              relationType: call.input.relationType,
-              ontologyId,
-              organizationId: organization?.id
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to create relationship');
-          }
-
-          await refreshGraph();
-        }
-
-      } catch (error) {
-        console.error(`Error executing ${call.tool} tool:`, error);
-        setMessages(prev => [...prev, {
-          role: "assistant",
-          content: `I encountered an error while trying to ${call.tool === 'create_node' ? 'create the node' : 'create the relationship'}. Please try again.`
-        }]);
-      }
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() || isLoading || !organization?.id || !ontologyId) return
 
     setIsLoading(true)
     const userMessage: ChatMessage = { role: "user", content: input }
-    setMessages(prev => [...prev, userMessage])
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages)
     setInput("")
 
     try {
@@ -132,14 +78,20 @@ export function AiChat() {
       }
 
       const data = await response.json();
-      const aiResponse = data.response.text;
       
       // Handle tool calls if they exist
       if (data.response.toolCalls) {
-        await handleToolCalls(data.response.toolCalls);
+        // Tool calls have been executed by Claude, refresh the graph
+        await refreshGraph();
       }
 
-      setMessages(prev => [...prev, { role: "assistant", content: aiResponse }]);
+      // Add Claude's response to messages
+      if (data.response.text) {
+        setMessages(prev => [...prev, { 
+          role: "assistant", 
+          content: data.response.text 
+        }]);
+      }
     } catch (error) {
       console.error('Failed to get response:', error)
       setMessages(prev => [...prev, { 

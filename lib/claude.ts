@@ -4,6 +4,9 @@ import { openAIService } from '@/services/openai';
 import { NodeType } from '@prisma/client';
 import type { Organization, Ontology } from '@prisma/client';
 import { Tool } from '@anthropic-ai/sdk/resources/messages.mjs';
+import { createNode, connectNodes } from '@/services/ontology';
+import type { NodeWithRelations } from '@/services/ontology';
+import type { Message, MessageContentText } from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
@@ -211,6 +214,128 @@ function formatContextForPrompt(contexts: RelevantContext[]): string {
   return prompt;
 }
 
+interface ToolCallResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+async function executeToolCall(
+  tool: string,
+  input: any,
+  organization: Organization,
+  ontology: Ontology
+): Promise<ToolCallResult> {
+  try {
+    if (tool === 'create_node') {
+      const node = await createNode({
+        type: input.type,
+        name: input.name,
+        description: input.description,
+        organizationId: organization.id,
+        ontologyId: ontology.id
+      });
+      console.log("NODE CREATED WITH TOOL USE", node)
+      return { success: true, data: node };
+    }
+    
+    else if (tool === 'create_relationship') {
+      const relationship = await connectNodes(
+        input.fromNodeId,
+        input.toNodeId,
+        input.relationType,
+        organization.id,
+        ontology.id
+      );
+      console.log("RELATIONSHIP CREATED WITH TOOL USE", relationship)
+      return { success: true, data: relationship };
+    }
+    
+    return { 
+      success: false, 
+      error: `Unknown tool: ${tool}` 
+    };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Tool execution failed' 
+    };
+  }
+}
+
+async function handleSequentialTools(
+  initialResponse: Message,
+  organization: Organization,
+  ontology: Ontology,
+  previousMessages: { role: string; content: string }[]
+): Promise<{ text: string; toolCalls: any[] | null }> {
+  let currentResponse = initialResponse;
+  let allToolCalls: any[] = [];
+  let finalTextContent = '';
+  
+  // Keep processing while we get tool_use stop reasons
+  while (currentResponse.stop_reason === 'tool_use') {
+    const toolCalls = currentResponse.content
+      .filter(block => block.type === 'tool_use')
+      .map(block => ({
+        tool: block.name,
+        input: block.input
+      }));
+
+    // Execute each tool call and collect results
+    for (const call of toolCalls) {
+      const result = await executeToolCall(call.tool, call.input, organization, ontology);
+      allToolCalls.push(call);
+
+      // Prepare the message about tool execution for Claude
+      let toolMessage: string;
+      if (result.success) {
+        if (call.tool === 'create_node') {
+          const node = result.data as NodeWithRelations;
+          toolMessage = `Successfully created ${call.input.type.toLowerCase()} node "${node.name}" with ID: ${node.id}`;
+        } else if (call.tool === 'create_relationship') {
+          toolMessage = `Successfully created relationship of type "${call.input.relationType}" between the nodes`;
+        } else {
+          toolMessage = 'Tool executed successfully';
+        }
+      } else {
+        toolMessage = `Tool execution failed: ${result.error}`;
+      }
+
+      // Add the tool result to previous messages
+      previousMessages.push({ role: 'assistant', content: currentResponse.content
+        .filter(block => block.type === 'text')
+        .map(block => (block as MessageContentText).text)
+        .join('\n')
+      });
+      previousMessages.push({ role: 'user', content: toolMessage });
+
+      // Get next response from Claude
+      currentResponse = await anthropic.messages.create({
+        model: 'claude-3-sonnet-20240229',
+        max_tokens: 1024,
+        messages: previousMessages,
+        tools
+      });
+
+      console.log("CURRENT RESPONSE", currentResponse)
+    }
+
+    // Collect text content from the response
+    const textBlocks = currentResponse.content
+      .filter(block => block.type === 'text')
+      .map(block => (block as MessageContentText).text);
+    
+    finalTextContent = textBlocks.join('\n');
+  }
+
+  // Return the final response with all tool calls
+  return {
+    text: finalTextContent,
+    toolCalls: allToolCalls.length > 0 ? allToolCalls : null
+  };
+}
+
 export async function sendMessage(
   message: string,
   organization: Organization,
@@ -228,6 +353,7 @@ export async function sendMessage(
     Nodes represent entities like departments, roles, processes, etc. Relationships represent connections between nodes.
     If a user asks you to create a new node (organization, department, role, process, etc.), you should use the create_node tool.
     If a user asks you to connect or create an relationship, you should use the create_relationship tool.
+    If a user asks you to create a new node, then connect it to another node, you should first use the create_node tool, then use the create_relationship tool.
 
     ${contextPrompt}
 
@@ -275,36 +401,30 @@ Guidelines:
 
     console.log(messages)
 
-    const response = await anthropic.messages.create({
+    const initialResponse = await anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',
       max_tokens: 1024,
       messages,
       tools
     });
 
-    console.log(response)
-    console.log(response.content[1].input)
+    console.log("INITIAL RESPONSE", initialResponse)
 
-    if (!response.content || response.content.length === 0) {
-      throw new Error('Empty response from Claude');
+    // If the response indicates tool use, handle it sequentially
+    if (initialResponse.stop_reason === 'tool_use') {
+      return handleSequentialTools(initialResponse, organization, ontology, messages);
     }
 
-    // Extract tool calls and text separately
-    const toolCalls = response.content
-      .filter(block => block.type === 'tool_use')
-      .map(block => ({
-        tool: block.name,
-        input: block.input
-      }));
-
-    const textContent = response.content
+    // If no tool use, return the regular response
+    const textContent = initialResponse.content
       .filter(block => block.type === 'text')
-      .map(block => block.text)
-      .join('\n\n');
+      .map(block => (block as MessageContentText).text)
+      .join('\n');
 
+    console.log("RETURNING TEXT TO FRONT END")
     return {
       text: textContent,
-      toolCalls: toolCalls.length > 0 ? toolCalls : null
+      toolCalls: null
     };
 
   } catch (error) {
@@ -312,3 +432,5 @@ Guidelines:
     throw error;
   }
 }
+
+
