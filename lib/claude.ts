@@ -4,7 +4,7 @@ import { openAIService } from '@/services/openai';
 import { NodeType } from '@prisma/client';
 import type { Organization, Ontology } from '@prisma/client';
 import { Tool } from '@anthropic-ai/sdk/resources/messages.mjs';
-import { createNode, connectNodes } from '@/services/ontology';
+import { createNode, connectNodes, deleteNodeWithStrategy } from '@/services/ontology';
 import type { NodeWithRelations } from '@/services/ontology';
 import type { Message, MessageContentText } from '@anthropic-ai/sdk';
 
@@ -57,6 +57,28 @@ const tools: Tool[] = [
         }
       },
       required: ["fromNodeId", "toNodeId", "relationType"]
+    }
+  },
+  {
+    name: 'delete_node_with_strategy',
+    description: "Deletes a node from the graph using a specified strategy. Use this when you need to remove a node while handling its relationships in a specific way.",
+    input_schema: {
+      type: "object",
+      properties: {
+        nodeId: {
+          type: "string",
+          description: "The ID of the node to delete"
+        },
+        strategy: {
+          type: "string",
+          enum: ["orphan", "cascade", "reconnect"],
+          description: `The strategy to use when deleting:
+            - orphan: Simply deletes the node and its relationships
+            - cascade: Deletes the node and all its descendants
+            - reconnect: Deletes the node and connects its children to its parent`
+        }
+      },
+      required: ["nodeId", "strategy"]
     }
   }
 ];
@@ -184,6 +206,16 @@ async function executeToolCall(
       console.log("RELATIONSHIP CREATED WITH TOOL USE", relationship);
       return { success: true, data: relationship };
     }
+
+    else if (tool === 'delete_node_with_strategy') {
+      console.log("DELETE NODE TOOL INPUT ============", normalizedInput);
+      const result = await deleteNodeWithStrategy(
+        normalizedInput.nodeId,
+        normalizedInput.strategy
+      );
+      console.log("NODE DELETED WITH TOOL USE", result);
+      return { success: true, data: result };
+    }
     
     return { 
       success: false, 
@@ -253,6 +285,13 @@ async function handleSequentialTools(
         toolMessage = `Successfully created ${normalizedInput.type.toLowerCase()} node "${node.name}" with ID: ${node.id}. You can use this ID to create relationships with this node.`;
       } else if (call.tool === 'create_relationship') {
         toolMessage = `Successfully created relationship of type "${normalizedInput.relationType}" between the nodes`;
+      } else if (call.tool === 'delete_node_with_strategy') {
+        const strategyDescriptions = {
+          orphan: 'deleted the node and its direct relationships',
+          cascade: 'deleted the node and all its descendants',
+          reconnect: 'deleted the node and reconnected its children to its parent'
+        };
+        toolMessage = `Successfully ${strategyDescriptions[normalizedInput.strategy as keyof typeof strategyDescriptions]}`;
       } else {
         toolMessage = 'Tool executed successfully';
       }
@@ -316,6 +355,7 @@ export async function sendMessage(
     - If a user asks you to connect nodes or create a relationship, you should use the create_relationship tool.
     - If a user asks you to create a new node, then connect it to another node, you should first use the create_node tool, then use the create_relationship tool.
     - If a user asks you to create multiple nodes and relationships (example: "Create an organization with departments A, B, and C, with department A reporting to department B, and department C reporting to department B"), you should first use the create_node tool for each node, then use the create_relationship tool for each relationship.
+		- If a user asks you to delete a node, ensure they provided an associated strategy. If they did not, ask for clarification and inform them what the options are, and what each option does.
 
     When responding:
     1. Always use markdown formatting for your responses
@@ -325,7 +365,7 @@ export async function sendMessage(
     - Use \`code blocks\` for technical terms
     - Use > for important quotes or callouts
     - Break up long responses into clear sections
-    2. If the user is asking for information, provide clear explanations using the available context
+    2. If the user is asking for insights or recommendations, provide clear responses using the available context
     3. If the user wants to modify the graph:
       - First explain your reasoning in markdown
       - Then use the appropriate tool(s)
@@ -341,6 +381,11 @@ export async function sendMessage(
        - Required: fromNodeId, toNodeId, relationType
        - Common relationships: "Uses", "Report to", "Manages"
        - Example: Connecting Marketing to CEO with "Reports To"
+
+    3. delete_node_with_strategy: Delete a node
+       - Required: nodeId, strategy
+       - Strategies: "orphan", "cascade", "reconnect"
+       - Example: Deleting Marketing department node with "cascade" strategy
 
     Guidelines:
     - Use clear, professional names for nodes
