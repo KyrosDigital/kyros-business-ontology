@@ -1,3 +1,5 @@
+'use client'
+
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -7,7 +9,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SignInButton, SignUpButton } from "@clerk/nextjs";
 import {
   ArrowRight,
   Brain,
@@ -18,6 +19,7 @@ import {
   UserPlus,
   Zap,
 } from "lucide-react";
+import { AuthButtons } from "@/components/ui/auth-buttons"
 
 const features = [
   {
@@ -120,16 +122,7 @@ export default function LandingPage() {
             Harness the power of AI to create, visualize, and explore complex knowledge graphs with unprecedented ease.
           </p>
           <div className="flex gap-4 justify-center">
-            <SignUpButton mode="modal">
-              <Button size="lg" className="gap-2">
-                Start Free <Sparkles className="w-4 h-4" />
-              </Button>
-            </SignUpButton>
-            <SignInButton mode="modal">
-              <Button size="lg" variant="outline" className="gap-2">
-                Sign In <LogIn className="w-4 h-4" />
-              </Button>
-            </SignInButton>
+            <AuthButtons />
           </div>
           <div className="mt-12">
             <div className="aspect-video max-w-4xl mx-auto bg-secondary/40 rounded-lg flex items-center justify-center">
@@ -218,11 +211,7 @@ export default function LandingPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="px-0 pt-4">
-                  <SignUpButton mode="modal">
-                    <Button className="w-full gap-2">
-                      Solve This Now <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </SignUpButton>
+                  <AuthButtons />
                 </CardFooter>
               </CardHeader>
             </Card>
@@ -269,7 +258,7 @@ export default function LandingPage() {
                 Your AI Business Intelligence Partner
               </h2>
               <p className="text-xl text-muted-foreground mb-6">
-                Meet your new AI-powered business analyst that never sleeps, continuously analyzing your organization's processes to uncover hidden opportunities.
+                Meet your new AI-powered business analyst that never sleeps, continuously analyzing your organization&apos;s processes to uncover hidden opportunities.
               </p>
               <ul className="space-y-4">
                 {[
@@ -300,7 +289,7 @@ export default function LandingPage() {
               Why Your Business Needs an Ontology
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              An ontology is more than just documentation—it's a living map of your organization's DNA, capturing the essence of how your business operates, connects, and evolves.
+              An ontology is more than just documentation&mdash;it&apos;s a living map of your organization&apos;s DNA, capturing the essence of how your business operates, connects, and evolves.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -331,7 +320,7 @@ export default function LandingPage() {
                 Living Documentation That Evolves With You
               </h2>
               <p className="text-xl text-muted-foreground mb-6">
-                Traditional documentation becomes outdated the moment it's written. Our platform keeps your organizational knowledge alive, accurate, and accessible.
+                Traditional documentation becomes outdated the moment it&apos;s written. Our platform keeps your organizational knowledge alive, accurate, and accessible.
               </p>
               <div className="space-y-4">
                 <Card className="border-primary/50">
@@ -507,11 +496,7 @@ export default function LandingPage() {
           </div>
 
           <div className="mt-16 text-center">
-            <SignUpButton mode="modal">
-              <Button size="lg" className="gap-2">
-                Start Your Journey <ArrowRight className="w-4 h-4" />
-              </Button>
-            </SignUpButton>
+            <AuthButtons />
           </div>
         </div>
       </section>
@@ -525,11 +510,7 @@ export default function LandingPage() {
           <p className="text-xl text-muted-foreground mb-8">
             Join thousands of professionals who are already using our platform to organize and visualize their knowledge.
           </p>
-          <SignUpButton mode="modal">
-            <Button size="lg" className="gap-2">
-              Get Started Free <UserPlus className="w-4 h-4" />
-            </Button>
-          </SignUpButton>
+          <AuthButtons />
         </div>
       </section>
 

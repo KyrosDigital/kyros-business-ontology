@@ -38,17 +38,17 @@ export default function RootLayout({
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
           <OrganizationProvider>
-            <div className="absolute top-4 right-4">
+            <div className="absolute top-4 right-4 z-50">
               <SignedOut>
                 <SignInButton>
-                  <Button variant="outline">
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Login
+                  <Button variant="outline" className="gap-2">
+                    <LogIn className="h-4 w-4" />
+                    <span>Login</span>
                   </Button>
                 </SignInButton>
               </SignedOut>
               <SignedIn>
-                <UserButton />
+                <UserButton afterSignOutUrl="/" />
               </SignedIn>
             </div>
             {children}
