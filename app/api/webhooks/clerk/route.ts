@@ -2,6 +2,7 @@ import { WebhookEvent } from "@clerk/nextjs/server";
 import { userService } from '@/services/user';
 import { organizationService } from '@/services/organization';
 import { clerkService } from '@/services/clerk';
+import { PineconeService } from '@/services/pinecone';
 
 async function handleFirstTimeUser(userData: {
   clerkId: string;
@@ -41,8 +42,11 @@ async function handleFirstTimeUser(userData: {
     // Extract organization name from email domain
     const domain = email.split('@')[1];
     const orgName = domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
+    const pineconeIndexName = `${domain.split('.')[0]}-index-${Date.now()}`;
     
     let dbOrganization;
+    let pineconeIndexCreated = false;
+
     try {
       console.log('Creating organization in Clerk...', {
         name: orgName,
@@ -56,9 +60,14 @@ async function handleFirstTimeUser(userData: {
       dbOrganization = await organizationService.create({
         name: orgName,
         description: "Default organization created during signup",
-        pineconeIndex: `${domain.split('.')[0]}-index-${Date.now()}`,
+        pineconeIndex: pineconeIndexName,
         clerkId: clerkOrg.id
       });
+
+      // Create Pinecone index
+      console.log('Creating Pinecone index:', pineconeIndexName);
+      await PineconeService.createOrgIndex(pineconeIndexName);
+      pineconeIndexCreated = true;
 
       // Update user with the new organization ID
       await userService.updateUserOrganization(user.id, dbOrganization.id);
@@ -67,14 +76,26 @@ async function handleFirstTimeUser(userData: {
       
     } catch (error) {
       console.error('Error creating organization:', error);
-      // If there's an error, try to clean up the database organization
+      
+      // Cleanup in reverse order of creation
+      if (pineconeIndexCreated) {
+        try {
+          console.log('Cleaning up Pinecone index:', pineconeIndexName);
+          await PineconeService.deleteOrgIndex(pineconeIndexName);
+        } catch (cleanupError) {
+          console.error('Error cleaning up Pinecone index:', cleanupError);
+        }
+      }
+
       if (dbOrganization) {
         try {
+          console.log('Cleaning up database organization');
           await organizationService.delete(dbOrganization.id);
         } catch (cleanupError) {
           console.error('Error cleaning up database organization:', cleanupError);
         }
       }
+
       throw error;
     }
   } catch (error) {
