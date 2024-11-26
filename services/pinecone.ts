@@ -82,6 +82,19 @@ export class PineconeService {
     }
   }
 
+  static async deleteOrgIndex(indexName: string) {
+    const pinecone = new Pinecone({
+      apiKey: process.env.PINECONE_API_KEY!
+    });
+
+    try {
+      await pinecone.deleteIndex(indexName);
+    } catch (error) {
+      console.error('Error deleting Pinecone index:', error);
+      throw error;
+    }
+  }
+
   async deleteNamespace() {
     await this.index.namespace(this.namespace).deleteAll();
   }

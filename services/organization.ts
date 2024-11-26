@@ -5,6 +5,7 @@ export interface CreateOrganizationData {
   name: string;
   description?: string;
   pineconeIndex: string;
+  clerkId: string;
 }
 
 export interface UpdateOrganizationData {
@@ -29,6 +30,7 @@ export class OrganizationService {
         name: data.name,
         description: data.description,
         pineconeIndex: data.pineconeIndex,
+        clerkId: data.clerkId,
       },
     });
   }
@@ -134,7 +136,7 @@ export class OrganizationService {
   }
 
   /**
-   * Get organization by user ID
+   * Get organization by DB user ID
    */
   async getOrganizationByUserId(userId: string) {
     try {
@@ -161,6 +163,38 @@ export class OrganizationService {
       return user.organization;
     } catch (error) {
       console.error('Error in getOrganizationByUserId:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get organization by DB user ID
+   */
+  async getOrganizationByClerkUserId(clerkUserId: string) {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { clerkId: clerkUserId },
+        include: {
+          organization: {
+            include: {
+              _count: {
+                select: {
+                  users: true,
+                  ontologies: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new Error(`User not found with clerkId: ${clerkUserId}`);
+      }
+
+      return user.organization;
+    } catch (error) {
+      console.error('Error in getOrganizationByClerkUserId:', error);
       throw error;
     }
   }

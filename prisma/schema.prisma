@@ -15,6 +15,7 @@ datasource db {
 
 model Organization {
   id          String      @id @default(uuid())
+  clerkId     String      @unique
   name        String
   description String?
   
@@ -33,10 +34,11 @@ model Organization {
 
 model User {
   id             String       @id @default(uuid())
+  clerkId        String      @unique
   email          String       @unique
   name           String
-  organization   Organization @relation(fields: [organizationId], references: [id])
-  organizationId String
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
   
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
