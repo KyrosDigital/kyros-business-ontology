@@ -3,7 +3,7 @@ import { createOntology } from '@/services/ontology';
 
 // For now, we'll use a hardcoded organization ID
 // TODO: Replace with proper auth when implemented
-const TEMP_ORGANIZATION_ID = "5bfe17ac-9566-49a6-b748-9dfd0a621e34";
+const TEMP_ORGANIZATION_ID = "2d3130c3-8b37-4ab1-8408-4a1bbc91118b";
 
 export async function POST(request: Request) {
   try {

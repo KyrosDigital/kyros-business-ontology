@@ -156,29 +156,32 @@ async function executeToolCall(
   ontology: Ontology
 ): Promise<ToolCallResult> {
   try {
+    // Normalize the input structure
+    const normalizedInput = input.properties || input;
+    
     if (tool === 'create_node') {
-      console.log("NODE TOOL INPUT ============", input)
+      console.log("NODE TOOL INPUT ============", normalizedInput);
       const node = await createNode({
-        type: input.properties.type,
-        name: input.properties.name,
-        description: input.properties.description,
+        type: normalizedInput.type,
+        name: normalizedInput.name,
+        description: normalizedInput.description,
         organizationId: organization.id,
         ontologyId: ontology.id
       });
-      console.log("NODE CREATED WITH TOOL USE", node)
+      console.log("NODE CREATED WITH TOOL USE", node);
       return { success: true, data: node };
     }
     
     else if (tool === 'create_relationship') {
-      console.log("RELATIONSHIP TOOL INPUT ============", input)
+      console.log("RELATIONSHIP TOOL INPUT ============", normalizedInput);
       const relationship = await connectNodes(
-        input.properties.fromNodeId,
-        input.properties.toNodeId,
-        input.properties.relationType,
+        normalizedInput.fromNodeId,
+        normalizedInput.toNodeId,
+        normalizedInput.relationType,
         organization.id,
         ontology.id
       );  
-      console.log("RELATIONSHIP CREATED WITH TOOL USE", relationship)
+      console.log("RELATIONSHIP CREATED WITH TOOL USE", relationship);
       return { success: true, data: relationship };
     }
     
@@ -201,9 +204,9 @@ async function handleSequentialTools(
   previousMessages: { role: string; content: string }[]
 ): Promise<{ text: string; toolCalls: any[] | null }> {
   let currentResponse = initialResponse;
-  let allToolCalls: any[] = [];
+  const allToolCalls: any[] = [];
   let finalTextContent = '';
-  let createdNodes: Record<string, string> = {}; // Track created nodes: name -> id
+  const createdNodes: Record<string, string> = {}; // Track created nodes: name -> id
   
   while (currentResponse.stop_reason === 'tool_use') {
     const toolCalls = currentResponse.content
@@ -227,25 +230,34 @@ async function handleSequentialTools(
 
     // Execute each tool call and collect results
     for (const call of toolCalls) {
+      console.log("CALL", call);
       const result = await executeToolCall(call.tool, call.input, organization, ontology);
       allToolCalls.push(call);
 
-      let toolMessage: string;
-      if (result.success) {
-        if (call.tool === 'create_node') {
-          const node = result.data as NodeWithRelations;
-          // Store the created node's ID
-          createdNodes[node.name] = node.id;
-          toolMessage = `Successfully created ${call.input.properties.type.toLowerCase()} node "${node.name}" with ID: ${node.id}. You can use this ID to create relationships with this node.`;
-        } else if (call.tool === 'create_relationship') {
-          toolMessage = `Successfully created relationship of type "${call.input.properties.relationType}" between the nodes`;
-        } else {
-          toolMessage = 'Tool executed successfully';
-        }
-      } else {
-        toolMessage = `Tool execution failed: ${result.error}. Available node IDs: ${JSON.stringify(createdNodes)}`;
+      if (!result.success) {
+        // If tool execution failed, return immediately with error message
+        const errorMessage = `Operation failed: ${result.error}. Unable to complete the requested changes. Please try again with valid inputs.`;
+        return {
+          text: `${currentTextContent}\n\n**Error:** ${errorMessage}`,
+          toolCalls: allToolCalls
+        };
       }
 
+      // Handle successful tool execution
+      let toolMessage: string;
+      const normalizedInput = call.input.properties || call.input;
+      
+      if (call.tool === 'create_node') {
+        const node = result.data as NodeWithRelations;
+        createdNodes[node.name] = node.id;
+        toolMessage = `Successfully created ${normalizedInput.type.toLowerCase()} node "${node.name}" with ID: ${node.id}. You can use this ID to create relationships with this node.`;
+      } else if (call.tool === 'create_relationship') {
+        toolMessage = `Successfully created relationship of type "${normalizedInput.relationType}" between the nodes`;
+      } else {
+        toolMessage = 'Tool executed successfully';
+      }
+
+      console.log("TOOL MESSAGE", toolMessage);
       previousMessages.push({ role: 'user', content: toolMessage });
 
       currentResponse = await anthropic.messages.create({
