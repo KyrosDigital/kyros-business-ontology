@@ -13,19 +13,10 @@ export class ClerkService {
   async createOrganization(name: string, userId: string) {
     try {
       // Create the organization using the correct client method
+      // createdBy: will auto apply the user as a member and an admin
       const organization = await this.clerkClient.organizations.createOrganization({
         name,
-        createdBy: userId,
-        publicMetadata: {
-          isFirstOrg: true
-        }
-      });
-      
-      // Add the user as admin
-      await this.clerkClient.organizations.createOrganizationMembership({
-        organizationId: organization.id,
-        userId,
-        role: "org:admin",
+        createdBy: userId
       });
 
       return organization;
@@ -47,9 +38,9 @@ export class ClerkService {
   /**
    * Gets all organizations for a user
    */
-  async getUserOrganizations(userId: string) {
+  async getUserOrganizations(clerkUserId: string) {
     return this.clerkClient.users.getOrganizationMembershipList({
-      userId
+      userId: clerkUserId
     });
   }
 

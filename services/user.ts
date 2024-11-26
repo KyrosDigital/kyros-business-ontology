@@ -2,7 +2,7 @@ import { PrismaClient, User } from '@prisma/client';
 import { prisma } from '@/prisma/prisma-client';
 
 export interface ClerkUser {
-  id: string;
+  clerkId: string;
   emailAddresses: { emailAddress: string }[];
   firstName?: string | null;
   lastName?: string | null;
@@ -21,6 +21,8 @@ export class UserService {
    */
   async syncUser(clerkUser: ClerkUser, organizationId: string | null = null): Promise<User> {
     const email = clerkUser.emailAddresses[0]?.emailAddress;
+    const clerkId = clerkUser.clerkId;
+
     if (!email) {
       throw new Error('User must have an email address');
     }
@@ -30,17 +32,18 @@ export class UserService {
       .join(' ') || 'Unknown Name';
 
     try {
-      // Try to find existing user
+      // Try to find existing user by clerkId
       const existingUser = await this.prisma.user.findUnique({
-        where: { email }
+        where: { clerkId }
       });
 
       if (existingUser) {
         // Update existing user
         return await this.prisma.user.update({
-          where: { email },
+          where: { clerkId },
           data: {
             name,
+            email,
             ...(organizationId ? { organizationId } : {})
           }
         });
@@ -48,7 +51,7 @@ export class UserService {
         // Create new user
         return await this.prisma.user.create({
           data: {
-            id: clerkUser.id,
+            clerkId,
             email,
             name,
             ...(organizationId ? { organizationId } : {})
@@ -179,6 +182,15 @@ export class UserService {
       console.error('Error deleting user:', error);
       throw error;
     }
+  }
+
+  /**
+   * Retrieves a user by their Clerk ID
+   */
+  async getUserByClerkId(clerkId: string): Promise<User | null> {
+    return await this.prisma.user.findUnique({
+      where: { clerkId }
+    });
   }
 }
 

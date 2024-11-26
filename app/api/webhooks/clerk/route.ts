@@ -4,7 +4,7 @@ import { organizationService } from '@/services/organization';
 import { clerkService } from '@/services/clerk';
 
 async function handleFirstTimeUser(userData: {
-  id: string;
+  clerkId: string;
   emailAddresses: { emailAddress: string }[];
   firstName?: string | null;
   lastName?: string | null;
@@ -12,11 +12,11 @@ async function handleFirstTimeUser(userData: {
   const email = userData.emailAddresses[0]?.emailAddress;
   if (!email) throw new Error('User must have an email address');
 
-  console.log('Processing first time user:', { email, userId: userData.id });
+  console.log('Processing first time user:', { email, clerkId: userData.clerkId });
 
   try {
     // Check if user already exists in our database
-    const existingUser = await userService.getUserById(userData.id);
+    const existingUser = await userService.getUserByClerkId(userData.clerkId);
     if (existingUser) {
       console.log('User already exists in database, skipping organization creation');
       return { user: existingUser };
@@ -25,15 +25,15 @@ async function handleFirstTimeUser(userData: {
     // First create the user in our database without an organization
     console.log('Creating user in database...');
     const user = await userService.syncUser({
-      id: userData.id,
+      clerkId: userData.clerkId,
       emailAddresses: userData.emailAddresses,
       firstName: userData.firstName,
       lastName: userData.lastName
     }, null);
 
     // Check if user already belongs to an organization in Clerk
-    const clerkOrgs = await clerkService.getUserOrganizations(userData.id);
-    if (clerkOrgs.length > 0) {
+    const clerkOrgs = await clerkService.getUserOrganizations(userData.clerkId);
+    if (clerkOrgs.data.length > 0) {
       console.log('User already has Clerk organizations, skipping creation');
       return { user };
     }
@@ -44,26 +44,27 @@ async function handleFirstTimeUser(userData: {
     
     let dbOrganization;
     try {
+      console.log('Creating organization in Clerk...', {
+        name: orgName,
+        userId: userData.clerkId
+      });
+      // Create organization in Clerk
+      const clerkOrg = await clerkService.createOrganization(orgName, userData.clerkId);
+      console.log('Clerk organization created:', clerkOrg);
+
       // Create organization in your database
       dbOrganization = await organizationService.create({
-        name: `${orgName} Organization`,
+        name: orgName,
         description: "Default organization created during signup",
-        pineconeIndex: `${domain.split('.')[0]}-index-${Date.now()}`
+        pineconeIndex: `${domain.split('.')[0]}-index-${Date.now()}`,
+        clerkId: clerkOrg.id
       });
-
-      console.log('Creating organization in Clerk...', {
-        name: dbOrganization.name,
-        userId: userData.id
-      });
-      
-      // Create organization in Clerk
-      const clerkOrg = await clerkService.createOrganization(dbOrganization.name, userData.id);
-      console.log('Clerk organization created:', clerkOrg);
 
       // Update user with the new organization ID
       await userService.updateUserOrganization(user.id, dbOrganization.id);
 
       return { user, organization: dbOrganization, clerkOrg };
+      
     } catch (error) {
       console.error('Error creating organization:', error);
       // If there's an error, try to clean up the database organization
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
       case 'user.created': {
         console.log('Processing user.created webhook...');
         const userData = {
-          id: payload.data.id,
+          clerkId: payload.data.id,
           emailAddresses: payload.data.email_addresses.map(email => ({
             emailAddress: email.email_address
           })),

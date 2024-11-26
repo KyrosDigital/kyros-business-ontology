@@ -5,6 +5,7 @@ export interface CreateOrganizationData {
   name: string;
   description?: string;
   pineconeIndex: string;
+  clerkId: string;
 }
 
 export interface UpdateOrganizationData {
@@ -29,6 +30,7 @@ export class OrganizationService {
         name: data.name,
         description: data.description,
         pineconeIndex: data.pineconeIndex,
+        clerkId: data.clerkId,
       },
     });
   }
