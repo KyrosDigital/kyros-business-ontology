@@ -1,12 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createOntology } from '@/services/ontology';
 
-// For now, we'll use a hardcoded organization ID
-// TODO: Replace with proper auth when implemented
-const TEMP_ORGANIZATION_ID = "2d3130c3-8b37-4ab1-8408-4a1bbc91118b";
-
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const searchParams = request.nextUrl.searchParams;
+    const organizationId = searchParams.get('organizationId');
+
+    if (!organizationId) {
+      return NextResponse.json(
+        { error: 'Organization ID is required' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { name, description } = body;
 
@@ -20,7 +26,7 @@ export async function POST(request: Request) {
     const result = await createOntology({
       name,
       description,
-      organizationId: TEMP_ORGANIZATION_ID
+      organizationId
     });
 
     if (!result.success) {

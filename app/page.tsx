@@ -12,7 +12,6 @@ import {
 import {
   ArrowRight,
   Brain,
-  LogIn,
   MessageSquareMore,
   Network,
   Sparkles,

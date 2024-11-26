@@ -29,7 +29,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchOrganization = async (userId: string) => {
+  const fetchOrganization = async (clerkUserId: string) => {
     if (isLoading || organization) {
       return;
     }
@@ -38,7 +38,7 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
     setError(null);
     
     try {
-      const response = await fetch(`/api/v1/organization/fetch?userId=${userId}`);
+      const response = await fetch(`/api/v1/organization/fetch?clerkUserId=${clerkUserId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch organization');
       }

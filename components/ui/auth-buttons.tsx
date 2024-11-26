@@ -9,7 +9,7 @@ export function AuthButtons() {
   return (
     <div className="flex gap-4 justify-center">
       <SignedOut>
-        <SignUpButton mode="modal">
+        <SignUpButton mode="modal" forceRedirectUrl="/dashboard">
           <Button size="lg" className="gap-2">
             <span>Start Free</span>
             <Sparkles className="h-4 w-4" />

@@ -154,8 +154,11 @@ export default function OntologiesPage() {
   }, [organization?.id, user]);
 
   const handleCreateOntology = async (data: { name: string; description: string }) => {
+    if (!organization || !user) {
+      return;
+    }
     try {
-      const response = await fetch('/api/v1/ontology/new', {
+      const response = await fetch(`/api/v1/ontology/new?organizationId=${organization.id}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

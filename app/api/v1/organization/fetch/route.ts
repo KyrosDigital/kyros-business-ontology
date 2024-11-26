@@ -3,17 +3,17 @@ import { organizationService } from '@/services/organization';
 
 export async function GET(request: NextRequest) {
   try {
-    const userId = request.nextUrl.searchParams.get('userId');
+    const clerkUserId = request.nextUrl.searchParams.get('clerkUserId');
 
-    if (!userId) {
+    if (!clerkUserId) {
       return NextResponse.json(
-        { error: 'User ID is required' },
+        { error: 'clerkUserId is required' },
         { status: 400 }
       );
     }
 
     try {
-      const organization = await organizationService.getOrganizationByUserId(userId);
+      const organization = await organizationService.getOrganizationByClerkUserId(clerkUserId);
       return NextResponse.json(organization);
     } catch (error) {
       if (error instanceof Error && error.message.includes('User not found')) {
