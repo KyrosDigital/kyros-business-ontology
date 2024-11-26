@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
+    "@clerk/nextjs": "^6.5.0",
     "@pinecone-database/pinecone": "^4.0.0",
     "@prisma/client": "5.22.0",
     "@radix-ui/react-alert-dialog": "^1.1.2",

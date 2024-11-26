@@ -2,6 +2,15 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
+import {
+  ClerkProvider,
+  SignInButton,
+  SignedIn,
+  SignedOut,
+  UserButton
+} from '@clerk/nextjs';
+import { LogIn } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -25,14 +34,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <OrganizationProvider>
-          {children}
-        </OrganizationProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+          <OrganizationProvider>
+            <div className="absolute top-4 right-4">
+              <SignedOut>
+                <SignInButton>
+                  <Button variant="outline">
+                    <LogIn className="mr-2 h-4 w-4" />
+                    Login
+                  </Button>
+                </SignInButton>
+              </SignedOut>
+              <SignedIn>
+                <UserButton />
+              </SignedIn>
+            </div>
+            {children}
+          </OrganizationProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
