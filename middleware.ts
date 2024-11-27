@@ -2,7 +2,6 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
 const publicRoutes = createRouteMatcher([
 		"/",
-		"/api/v1/chat",
 		"/api/webhooks/clerk"
 	])
 

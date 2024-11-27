@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { openAIService } from '@/services/openai';
 import { generateNodeEmbeddingContent } from '@/services/ontology';
-import prisma from '@/prisma/prisma-client';
+import { prisma } from '@/prisma/prisma-client';
 
 export async function POST(request: Request) {
   try {
