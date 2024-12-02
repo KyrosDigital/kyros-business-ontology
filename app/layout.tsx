@@ -50,8 +50,8 @@ export default function RootLayout({
                 </SignInButton>
               </SignedOut>
               <SignedIn>
-                <UserButton afterSignOutUrl="/" />
                 <OrganizationSwitcher />
+                <UserButton afterSignOutUrl="/" />
               </SignedIn>
             </div>
             {children}
