@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Ontology } from '@prisma/client';
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Loader2 } from "lucide-react";
 import { useRouter } from 'next/navigation';
 import { CreateOntologyModal } from '@/components/ui/create-ontology-modal';
 
@@ -48,6 +48,7 @@ interface OntologyListItemProps {
 const OntologyListItem = ({ ontology, onDelete }: OntologyListItemProps) => {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this ontology?')) {
@@ -75,6 +76,11 @@ const OntologyListItem = ({ ontology, onDelete }: OntologyListItemProps) => {
     }
   };
 
+  const handleViewGraph = () => {
+    setIsNavigating(true);
+    router.push(`/ontology-graph/${ontology.id}`);
+  };
+
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardHeader>
@@ -94,14 +100,22 @@ const OntologyListItem = ({ ontology, onDelete }: OntologyListItemProps) => {
         <Button
           variant="destructive"
           onClick={handleDelete}
-          disabled={isDeleting}
+          disabled={isDeleting || isNavigating}
         >
           {isDeleting ? 'Deleting...' : 'Delete'}
         </Button>
         <Button
-          onClick={() => router.push(`/ontology-graph/${ontology.id}`)}
+          onClick={handleViewGraph}
+          disabled={isNavigating}
         >
-          View Graph
+          {isNavigating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Loading...
+            </>
+          ) : (
+            'View Graph'
+          )}
         </Button>
       </CardFooter>
     </Card>

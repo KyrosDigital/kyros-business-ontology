@@ -69,7 +69,7 @@ export class ClerkService {
         inviterUserId: clerkUserId,
         emailAddress,
         role,
-        redirectUrl: '/dashboard'
+        redirectUrl: `${process.env.VERCEL_URL}/dashboard`
       });
 
       return invitation;
