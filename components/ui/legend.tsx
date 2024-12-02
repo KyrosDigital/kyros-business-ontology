@@ -60,7 +60,7 @@ export function Legend({
       <Button
         variant="outline"
         className="w-full bg-background/80 backdrop-blur-sm"
-        onClick={() => router.push('/')}
+        onClick={() => router.push('/dashboard')}
       >
         <ArrowLeft className="mr-2 h-4 w-4" />
         Ontology List

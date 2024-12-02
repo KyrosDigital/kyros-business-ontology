@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
@@ -27,6 +27,16 @@ interface MarkdownComponentProps {
   node?: unknown;
 }
 
+const LoadingDots = () => {
+  return (
+    <div className="flex space-x-2 p-2">
+      <div className="w-2 h-2 bg-secondary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+      <div className="w-2 h-2 bg-secondary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+      <div className="w-2 h-2 bg-secondary rounded-full animate-bounce"></div>
+    </div>
+  )
+}
+
 export function AiChat() {
   const { ontologyId, refreshGraph } = useGraph();
   const { organization } = useOrganization();
@@ -37,6 +47,7 @@ export function AiChat() {
   const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(
     new Set(['NODE', 'RELATIONSHIP', 'NOTE'] as FilterType[])
   )
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const toggleFilter = (filter: FilterType) => {
     const newFilters = new Set(activeFilters);
@@ -59,6 +70,8 @@ export function AiChat() {
     setInput("")
 
     try {
+      setMessages(messages => [...messages, { role: "assistant", content: "loading" }])
+      
       const response = await fetch('/api/v1/chat', {
         method: 'POST',
         headers: {
@@ -73,6 +86,8 @@ export function AiChat() {
         }),
       });
 
+      setMessages(messages => messages.filter(msg => msg.content !== "loading"))
+      
       if (!response.ok) {
         throw new Error('Failed to get response');
       }
@@ -93,6 +108,7 @@ export function AiChat() {
         }]);
       }
     } catch (error) {
+      setMessages(messages => messages.filter(msg => msg.content !== "loading"))
       console.error('Failed to get response:', error)
       setMessages(prev => [...prev, { 
         role: "assistant", 
@@ -132,6 +148,10 @@ export function AiChat() {
       </blockquote>
     ),
   }
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   return (
     <div className="fixed bottom-4 right-[50%] translate-x-[50%] w-[800px] z-50">
@@ -174,14 +194,19 @@ export function AiChat() {
                   <div className="font-semibold mb-2">
                     {msg.role === 'user' ? 'You' : 'AI Assistant'}
                   </div>
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
+                  {msg.content === "loading" ? (
+                    <LoadingDots />
+                  ) : (
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  )}
                 </div>
               ))}
+              <div ref={messagesEndRef} />
             </ScrollArea>
           </CardContent>
           <CardFooter>
