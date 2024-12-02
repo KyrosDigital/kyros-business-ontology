@@ -121,13 +121,39 @@ async function handleOrganizationMembershipCreated(payload: WebhookEvent) {
 
   // First, find the organization in our database using the Clerk ID
   const organization = await prisma.organization.findUnique({
-    where: { clerkId: organizationClerkId }
+    where: { clerkId: organizationClerkId },
+    include: {
+      users: {
+        where: { clerkId: userId }
+      }
+    }
   });
 
   if (!organization) {
     throw new Error(`Organization not found with Clerk ID: ${organizationClerkId}`);
   }
 
+  // Check if user already exists and is properly related to the organization
+  if (organization.users.length > 0) {
+    console.log('User is already properly related to organization in database, skipping sync');
+    return organization.users[0];
+  }
+
+  // Check if user exists in our database but isn't related to this organization
+  const existingUser = await userService.getUserByClerkId(userId);
+  
+  if (existingUser) {
+    if (existingUser.organizationId === organization.id) {
+      console.log('User already exists and is properly related to organization');
+      return existingUser;
+    }
+    
+    // User exists but needs to be related to this organization
+    console.log('User exists but needs to be related to organization');
+    return await userService.updateUserOrganization(existingUser.id, organization.id);
+  }
+
+  // At this point, we need to create a new user
   // Fetch complete user information from Clerk
   const clerkUser = await clerkService.getUser(userId);
   
@@ -135,7 +161,7 @@ async function handleOrganizationMembershipCreated(payload: WebhookEvent) {
     throw new Error(`Could not fetch user information from Clerk for ID: ${userId}`);
   }
 
-  // Create or update the user in our database
+  // Create the user in our database
   const userData = {
     clerkId: userId,
     emailAddresses: clerkUser.emailAddresses.map(email => ({
@@ -145,11 +171,11 @@ async function handleOrganizationMembershipCreated(payload: WebhookEvent) {
     lastName: clerkUser.lastName
   };
 
-  console.log('Syncing user with data:', userData);
+  console.log('Creating new user with data:', userData);
 
   try {
     const user = await userService.syncUser(userData, organization.id);
-    console.log('Successfully synced user:', user);
+    console.log('Successfully created and synced user:', user);
     return user;
   } catch (error) {
     console.error('Error syncing user:', error);
