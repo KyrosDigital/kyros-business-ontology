@@ -68,7 +68,9 @@ export default function TeamPage() {
       </div>
       <div className="flex-1 p-6">
         <div className="max-w-4xl">
-          {organization && <TeamManagement />}
+          {organization && (
+            <TeamManagement organizationId={organization.id} />
+          )}
         </div>
       </div>
     </div>
