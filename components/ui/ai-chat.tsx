@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, MouseEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
@@ -27,6 +27,21 @@ interface MarkdownComponentProps {
   node?: unknown;
 }
 
+interface Position {
+  x: number
+  y: number
+}
+
+interface Size {
+  width: number;
+  height: number;
+}
+
+interface AiChatProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
 const LoadingDots = () => {
   return (
     <div className="flex space-x-2 p-2">
@@ -37,17 +52,24 @@ const LoadingDots = () => {
   )
 }
 
-export function AiChat() {
+export function AiChat({ isOpen, onClose }: AiChatProps) {
   const { ontologyId, refreshGraph } = useGraph();
   const { organization } = useOrganization();
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
-  const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(
     new Set(['NODE', 'RELATIONSHIP', 'NOTE'] as FilterType[])
   )
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [position, setPosition] = useState<Position>({ x: 27, y: 21.5 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState<Position>({ x: 0, y: 0 })
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [size, setSize] = useState<Size>({ width: 800, height: 500 })
+  const [isResizing, setIsResizing] = useState(false)
+  const [resizeDirection, setResizeDirection] = useState<string>('')
+  const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 })
 
   const toggleFilter = (filter: FilterType) => {
     const newFilters = new Set(activeFilters);
@@ -153,86 +175,236 @@ export function AiChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  const handleMouseDown = (e: MouseEvent) => {
+    if (
+      e.target instanceof Element && 
+      (e.target.closest('button') || 
+       e.target.closest('input') || 
+       e.target.closest('.scroll-area') ||
+       e.target.closest('a'))
+    ) {
+      return
+    }
+
+    setIsDragging(true)
+    setDragStart({
+      x: e.clientX - (window.innerWidth * (position.x / 100)),
+      y: e.clientY - (window.innerHeight * (position.y / 100))
+    })
+  }
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return
+
+    const newX = e.clientX - dragStart.x
+    const newY = e.clientY - dragStart.y
+
+    const newXPercent = Math.min(Math.max((newX / window.innerWidth) * 100, 0), 95)
+    const newYPercent = Math.min(Math.max((newY / window.innerHeight) * 100, 0), 95)
+
+    setPosition({ x: newXPercent, y: newYPercent })
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  useEffect(() => {
+    const handleGlobalMouseUp = () => setIsDragging(false)
+    const handleGlobalMouseMove = (e: globalThis.MouseEvent) => {
+      if (isDragging) {
+        handleMouseMove(e as unknown as MouseEvent)
+      }
+    }
+
+    document.addEventListener('mouseup', handleGlobalMouseUp)
+    document.addEventListener('mousemove', handleGlobalMouseMove)
+
+    return () => {
+      document.removeEventListener('mouseup', handleGlobalMouseUp)
+      document.removeEventListener('mousemove', handleGlobalMouseMove)
+    }
+  }, [isDragging])
+
+  const handleResizeStart = (e: MouseEvent, direction: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setIsResizing(true)
+    setResizeDirection(direction)
+    setResizeStart({ x: e.clientX, y: e.clientY })
+  }
+
+  const handleResize = (e: MouseEvent) => {
+    if (!isResizing) return
+
+    const scalingFactor = 0.1
+    const deltaX = (e.clientX - resizeStart.x) * scalingFactor
+    const deltaY = (e.clientY - resizeStart.y) * scalingFactor
+
+    setResizeStart({ x: e.clientX, y: e.clientY })
+
+    setSize(prevSize => {
+      const newSize = { ...prevSize }
+
+      if (resizeDirection.includes('e')) {
+        newSize.width = Math.max(400, prevSize.width + deltaX)
+      }
+      if (resizeDirection.includes('w')) {
+        newSize.width = Math.max(400, prevSize.width - deltaX)
+      }
+      if (resizeDirection.includes('s')) {
+        newSize.height = Math.max(300, prevSize.height + deltaY)
+      }
+      if (resizeDirection.includes('n')) {
+        newSize.height = Math.max(300, prevSize.height - deltaY)
+      }
+
+      return newSize
+    })
+  }
+
+  useEffect(() => {
+    const handleResizeEnd = () => setIsResizing(false)
+    const handleGlobalResize = (e: globalThis.MouseEvent) => {
+      if (isResizing) {
+        handleResize(e as unknown as MouseEvent)
+      }
+    }
+
+    document.addEventListener('mouseup', handleResizeEnd)
+    document.addEventListener('mousemove', handleGlobalResize)
+
+    return () => {
+      document.removeEventListener('mouseup', handleResizeEnd)
+      document.removeEventListener('mousemove', handleGlobalResize)
+    }
+  }, [isResizing])
+
   return (
-    <div className="fixed bottom-4 right-[50%] translate-x-[50%] w-[800px] z-50">
-      {isOpen ? (
-        <Card>
-          <CardHeader className="flex flex-row justify-between items-center">
-            <div className="flex flex-col space-y-2 w-full">
-              <div className="flex justify-between items-center">
-                <span className="text-lg font-bold">AI Assistant</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsOpen(false)}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                {(['NODE', 'RELATIONSHIP', 'NOTE'] as FilterType[]).map((filter) => (
-                  <Button
-                    key={filter}
-                    variant={activeFilters.has(filter) ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleFilter(filter)}
-                    className="text-xs"
-                  >
-                    {filter}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[300px] pr-4">
-              {messages.map((msg, index) => (
-                <div
-                  key={index}
-                  className={`p-4 ${msg.role === 'user' ? 'bg-muted' : 'bg-background'}`}
-                >
-                  <div className="font-semibold mb-2">
-                    {msg.role === 'user' ? 'You' : 'AI Assistant'}
-                  </div>
-                  {msg.content === "loading" ? (
-                    <LoadingDots />
-                  ) : (
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={markdownComponents}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
-                  )}
-                </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </ScrollArea>
-          </CardContent>
-          <CardFooter>
-            <form onSubmit={handleSubmit} className="flex w-full gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Type your message..."
-                className="flex-1"
-                disabled={isLoading}
-              />
-              <Button type="submit" disabled={isLoading}>
-                {isLoading ? "Sending..." : "Send"}
-              </Button>
-            </form>
-          </CardFooter>
-        </Card>
-      ) : (
-        <Button
-          variant="outline"
-          className="mx-auto block"
-          onClick={() => setIsOpen(true)}
+    <div 
+      ref={cardRef}
+      className={`fixed z-50 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      style={{
+        left: `${position.x}%`,
+        top: `${position.y}%`,
+        transform: 'translate(-50%, -50%)',
+        width: `${size.width}px`,
+        height: `${size.height}px`,
+        display: isOpen ? 'block' : 'none'
+      }}
+      onMouseDown={handleMouseDown}
+    >
+      <Card className="w-full h-full relative">
+        <div 
+          className="absolute top-0 left-0 right-0 h-1 cursor-n-resize hover:bg-primary/10"
+          onMouseDown={(e) => handleResizeStart(e, 'n')}
+        />
+        <div 
+          className="absolute bottom-0 left-0 right-0 h-1 cursor-s-resize hover:bg-primary/10"
+          onMouseDown={(e) => handleResizeStart(e, 's')}
+        />
+        <div 
+          className="absolute left-0 top-0 bottom-0 w-1 cursor-w-resize hover:bg-primary/10"
+          onMouseDown={(e) => handleResizeStart(e, 'w')}
+        />
+        <div 
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-e-resize hover:bg-primary/10"
+          onMouseDown={(e) => handleResizeStart(e, 'e')}
+        />
+        <div 
+          className="absolute top-0 left-0 w-3 h-3 cursor-nw-resize hover:bg-primary/10"
+          onMouseDown={(e) => handleResizeStart(e, 'nw')}
+        />
+        <div 
+          className="absolute top-0 right-0 w-3 h-3 cursor-ne-resize hover:bg-primary/10"
+          onMouseDown={(e) => handleResizeStart(e, 'ne')}
+        />
+        <div 
+          className="absolute bottom-0 left-0 w-3 h-3 cursor-sw-resize hover:bg-primary/10"
+          onMouseDown={(e) => handleResizeStart(e, 'sw')}
+        />
+        <div 
+          className="absolute bottom-0 right-0 w-3 h-3 cursor-se-resize hover:bg-primary/10"
+          onMouseDown={(e) => handleResizeStart(e, 'se')}
+        />
+        <CardHeader 
+          className="flex flex-row justify-between items-center cursor-grab"
         >
-          Open Chat
-        </Button>
-      )}
+          <div className="flex flex-col space-y-2 w-full">
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-bold">AI Assistant</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onClose}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex gap-2">
+              {(['NODE', 'RELATIONSHIP', 'NOTE'] as FilterType[]).map((filter) => (
+                <Button
+                  key={filter}
+                  variant={activeFilters.has(filter) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleFilter(filter)}
+                  className="text-xs"
+                >
+                  {filter}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="pr-4" style={{ height: `${size.height - 200}px` }}>
+            {messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`p-4 ${msg.role === 'user' ? 'bg-muted' : 'bg-background'}`}
+              >
+                <div className="font-semibold mb-2">
+                  {msg.role === 'user' ? 'You' : 'AI Assistant'}
+                </div>
+                {msg.content === "loading" ? (
+                  <LoadingDots />
+                ) : (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={markdownComponents}
+                  >
+                    {msg.content}
+                  </ReactMarkdown>
+                )}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </ScrollArea>
+        </CardContent>
+        <CardFooter>
+          <form onSubmit={handleSubmit} className="flex w-full gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-1"
+              disabled={isLoading}
+            />
+            <Button type="submit" disabled={isLoading}>
+              {isLoading ? "Sending..." : "Send"}
+            </Button>
+          </form>
+        </CardFooter>
+      </Card>
     </div>
   )
 }
+
+export const useAiChat = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  return {
+    isOpen,
+    openChat: () => setIsOpen(true),
+    closeChat: () => setIsOpen(false)
+  };
+};

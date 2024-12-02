@@ -11,6 +11,7 @@ interface LegendProps {
   viewMode: 'graph' | 'table';
   onViewModeChange: (checked: boolean) => void;
   setIsCreateModalOpen: (open: boolean) => void;
+  onOpenChat: () => void;
 }
 
 type NodeTypeConfig = {
@@ -51,7 +52,8 @@ export function Legend({
   onLegendClick,
   viewMode,
   onViewModeChange,
-  setIsCreateModalOpen
+  setIsCreateModalOpen,
+  onOpenChat
 }: LegendProps) {
   const router = useRouter();
 
@@ -100,6 +102,14 @@ export function Legend({
         onClick={() => setIsCreateModalOpen(true)}
       >
         New Node
+      </Button>
+
+      <Button
+        variant="outline"
+        className="w-full bg-background/80 backdrop-blur-sm"
+        onClick={onOpenChat}
+      >
+        Open Chat
       </Button>
     </div>
   );

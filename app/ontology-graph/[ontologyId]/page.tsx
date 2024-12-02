@@ -12,6 +12,7 @@ import { Graph } from '@/components/ui/graph';
 import { GraphProvider, useGraph } from '@/contexts/GraphContext';
 import { CreateNodeModal } from '@/components/ui/create-node-modal';
 import { useRouter, useParams } from 'next/navigation';
+import { useAiChat } from '@/components/ui/ai-chat';
 
 function OntologyGraph() {
 	const params = useParams();
@@ -42,6 +43,7 @@ function OntologyGraph() {
 	} = useGraph();
 
 	const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+	const { isOpen, openChat, closeChat } = useAiChat();
 
 	useEffect(() => {
 		if (!ontologyId) {
@@ -63,6 +65,7 @@ function OntologyGraph() {
 				viewMode={viewMode}
 				onViewModeChange={(checked) => setViewMode(checked ? 'table' : 'graph')}
 				setIsCreateModalOpen={setIsCreateModalOpen}
+				onOpenChat={openChat}
 			/>
 
 			<CreateNodeModal
@@ -115,7 +118,10 @@ function OntologyGraph() {
 				onDeleteRelationship={handleDeleteRelationship}
 			/>
 
-			<AiChat />
+			<AiChat 
+				isOpen={isOpen} 
+				onClose={closeChat}
+			/>
 		</div>
 	);
 }
