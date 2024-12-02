@@ -38,22 +38,47 @@ export async function POST(request: Request) {
 
     const filtersSet = new Set(activeFilters as ('NODE' | 'RELATIONSHIP' | 'NOTE')[]);
     
-    const response = await sendMessage(
+    // Create a new TransformStream for streaming updates
+    const stream = new TransformStream();
+    const writer = stream.writable.getWriter();
+    
+    // Create progress callback
+    const onProgress = async (update: string) => {
+      const data = JSON.stringify({ type: 'progress', content: update });
+      await writer.write(new TextEncoder().encode(data + '\n'));
+    };
+
+    // Handle the message in the background
+    const responsePromise = sendMessage(
       message,
       organization,
       ontology,
       previousMessages,
-      filtersSet
+      filtersSet,
+      onProgress
     );
-    
-    if (!response) {
-      return NextResponse.json(
-        { message: 'No response from AI' },
-        { status: 500 }
-      );
-    }
 
-    return NextResponse.json({ response });
+    // When the response is ready, send it and close the stream
+    responsePromise.then(async (response) => {
+      const finalData = JSON.stringify({ type: 'complete', response });
+      await writer.write(new TextEncoder().encode(finalData + '\n'));
+      await writer.close();
+    }).catch(async (error) => {
+      const errorData = JSON.stringify({ 
+        type: 'error', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+      await writer.write(new TextEncoder().encode(errorData + '\n'));
+      await writer.close();
+    });
+
+    return new Response(stream.readable, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      },
+    });
   } catch (error) {
     console.error('Error in chat endpoint:', error);
     return NextResponse.json(

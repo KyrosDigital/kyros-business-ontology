@@ -165,7 +165,8 @@ export function initializeGraph(
             'line-color': '#cccccc',
             'target-arrow-color': '#cccccc',
             'target-arrow-shape': 'triangle',
-            'curve-style': 'bezier'
+            'curve-style': 'bezier',
+            'control-point-step-size': 140
           }
         },
         {
@@ -176,7 +177,6 @@ export function initializeGraph(
             'text-background-opacity': 0.9,
             'text-background-padding': '3px',
             'font-size': '11px',
-            'text-rotation': '0deg',
             'text-margin-y': -10
           }
         },
@@ -445,3 +445,6 @@ export function initializeGraph(
     return () => {};
   }
 }
+
+
+

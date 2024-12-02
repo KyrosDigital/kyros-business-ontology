@@ -87,13 +87,10 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
 
     setIsLoading(true)
     const userMessage: ChatMessage = { role: "user", content: input }
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages)
+    setMessages(prev => [...prev, userMessage])
     setInput("")
 
     try {
-      setMessages(messages => [...messages, { role: "assistant", content: "loading" }])
-      
       const response = await fetch('/api/v1/chat', {
         method: 'POST',
         headers: {
@@ -108,36 +105,59 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
         }),
       });
 
-      setMessages(messages => messages.filter(msg => msg.content !== "loading"))
-      
       if (!response.ok) {
         throw new Error('Failed to get response');
       }
 
-      const data = await response.json();
-      
-      // Handle tool calls if they exist
-      if (data.response.toolCalls) {
-        // Tool calls have been executed by Claude, refresh the graph
-        await refreshGraph();
-      }
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('No reader available');
 
-      // Add Claude's response to messages
-      if (data.response.text) {
-        setMessages(prev => [...prev, { 
-          role: "assistant", 
-          content: data.response.text 
-        }]);
+      // Add initial "thinking" message
+      setMessages(prev => [...prev, { role: "assistant", content: "Thinking..." }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Decode and parse the chunk
+        const chunk = new TextDecoder().decode(value);
+        const lines = chunk.split('\n').filter(line => line.trim());
+
+        for (const line of lines) {
+          const data = JSON.parse(line);
+
+          if (data.type === 'progress') {
+            // Update the last assistant message with the progress
+            setMessages(prev => [
+              ...prev.slice(0, -1),
+              { role: "assistant", content: data.content }
+            ]);
+          } else if (data.type === 'complete') {
+            // Handle tool calls if they exist
+            if (data.response.toolCalls) {
+              await refreshGraph();
+            }
+
+            // Add final response
+            if (data.response.text) {
+              setMessages(prev => [
+                ...prev.slice(0, -1), // Remove the progress message
+                { role: "assistant", content: data.response.text }
+              ]);
+            }
+          } else if (data.type === 'error') {
+            throw new Error(data.error);
+          }
+        }
       }
     } catch (error) {
-      setMessages(messages => messages.filter(msg => msg.content !== "loading"))
-      console.error('Failed to get response:', error)
+      console.error('Failed to get response:', error);
       setMessages(prev => [...prev, { 
         role: "assistant", 
         content: "I'm sorry, I encountered an error. Please try again." 
-      }])
+      }]);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
   }
 
@@ -203,10 +223,6 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     const newYPercent = Math.min(Math.max((newY / window.innerHeight) * 100, 0), 95)
 
     setPosition({ x: newXPercent, y: newYPercent })
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
   }
 
   useEffect(() => {

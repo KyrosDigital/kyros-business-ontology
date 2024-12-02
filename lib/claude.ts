@@ -233,7 +233,8 @@ async function handleSequentialTools(
   initialResponse: Message,
   organization: Organization,
   ontology: Ontology,
-  previousMessages: { role: string; content: string }[]
+  previousMessages: { role: string; content: string }[],
+  onProgress?: (update: string) => Promise<void>
 ): Promise<{ text: string; toolCalls: any[] | null }> {
   let currentResponse = initialResponse;
   const allToolCalls: any[] = [];
@@ -309,6 +310,11 @@ async function handleSequentialTools(
       }
 
       previousMessages.push({ role: 'user', content: toolMessage });
+
+      // Notify progress after successful execution
+      if (onProgress) {
+        await onProgress(toolMessage);
+      }
     }
 
     // Only make another API call if we haven't hit the limit
@@ -348,7 +354,8 @@ export async function sendMessage(
   organization: Organization,
   ontology: Ontology,
   previousMessages: { role: string; content: string }[],
-  activeFilters?: Set<'NODE' | 'RELATIONSHIP' | 'NOTE'>
+  activeFilters?: Set<'NODE' | 'RELATIONSHIP' | 'NOTE'>,
+  onProgress?: (update: string) => Promise<void>
 ) {
   try {
     const relevantContext = await getRelevantContext(message, organization, ontology, activeFilters);
@@ -448,7 +455,7 @@ ${contextPrompt}
 
     // If the response indicates tool use, handle it sequentially
     if (initialResponse.stop_reason === 'tool_use') {
-      return handleSequentialTools(initialResponse, organization, ontology, messages);
+      return handleSequentialTools(initialResponse, organization, ontology, messages, onProgress);
     }
 
     // If no tool use, return the regular response
