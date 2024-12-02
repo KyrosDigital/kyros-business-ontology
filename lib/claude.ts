@@ -239,8 +239,12 @@ async function handleSequentialTools(
   const allToolCalls: any[] = [];
   let finalTextContent = '';
   const createdNodes: Record<string, string> = {}; // Track created nodes: name -> id
+  let toolCallCount = 0;
+  const MAX_TOOL_CALLS = 10; // Prevent infinite loops
   
-  while (currentResponse.stop_reason === 'tool_use') {
+  while (currentResponse.stop_reason === 'tool_use' && toolCallCount < MAX_TOOL_CALLS) {
+    toolCallCount++;
+    
     const toolCalls = currentResponse.content
       .filter(block => block.type === 'tool_use')
       .map(block => ({
@@ -262,15 +266,22 @@ async function handleSequentialTools(
 
     // Execute each tool call and collect results
     for (const call of toolCalls) {
+      // Skip duplicate node creation
+      if (call.tool === 'create_node') {
+        const input = call.input.properties || call.input;
+        const nodeKey = `${input.type}_${input.name}`;
+        if (createdNodes[nodeKey]) {
+          continue; // Skip if we've already created this node
+        }
+      }
+
       console.log("CALL", call);
       const result = await executeToolCall(call.tool, call.input, organization, ontology);
       allToolCalls.push(call);
 
       if (!result.success) {
-        // If tool execution failed, return immediately with error message
-        const errorMessage = `Operation failed: ${result.error}. Unable to complete the requested changes. Please try again with valid inputs.`;
         return {
-          text: `${currentTextContent}\n\n**Error:** ${errorMessage}`,
+          text: `${currentTextContent}\n\n**Error:** ${result.error}. Unable to complete the requested changes. Please try again with valid inputs.`,
           toolCalls: allToolCalls
         };
       }
@@ -281,8 +292,9 @@ async function handleSequentialTools(
       
       if (call.tool === 'create_node') {
         const node = result.data as NodeWithRelations;
-        createdNodes[node.name] = node.id;
-        toolMessage = `Successfully created ${normalizedInput.type.toLowerCase()} node "${node.name}" with ID: ${node.id}. You can use this ID to create relationships with this node.`;
+        const nodeKey = `${node.type}_${node.name}`;
+        createdNodes[nodeKey] = node.id;
+        toolMessage = `Successfully created ${normalizedInput.type.toLowerCase()} node "${node.name}" with ID: ${node.id}`;
       } else if (call.tool === 'create_relationship') {
         toolMessage = `Successfully created relationship of type "${normalizedInput.relationType}" between the nodes`;
       } else if (call.tool === 'delete_node_with_strategy') {
@@ -296,9 +308,11 @@ async function handleSequentialTools(
         toolMessage = 'Tool executed successfully';
       }
 
-      console.log("TOOL MESSAGE", toolMessage);
       previousMessages.push({ role: 'user', content: toolMessage });
+    }
 
+    // Only make another API call if we haven't hit the limit
+    if (toolCallCount < MAX_TOOL_CALLS) {
       currentResponse = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
         max_tokens: 1024,
@@ -309,16 +323,22 @@ async function handleSequentialTools(
         tools
       });
     }
-
-    const textBlocks = currentResponse.content
-      .filter(block => block.type === 'text')
-      .map(block => (block as MessageContentText).text);
-    
-    finalTextContent = textBlocks.join('\n');
   }
 
+  // If we hit the tool call limit, add a warning to the response
+  let warningMessage = '';
+  if (toolCallCount >= MAX_TOOL_CALLS) {
+    warningMessage = '\n\n**Warning:** The operation was stopped because it exceeded the maximum number of allowed steps. Some changes may be incomplete.';
+  }
+
+  const textBlocks = currentResponse.content
+    .filter(block => block.type === 'text')
+    .map(block => (block as MessageContentText).text);
+  
+  finalTextContent = textBlocks.join('\n') + warningMessage;
+
   return {
-    text: finalTextContent || "Changes have been applied successfully.",
+    text: finalTextContent || "Changes have been applied successfully." + warningMessage,
     toolCalls: allToolCalls.length > 0 ? allToolCalls : null
   };
 }
