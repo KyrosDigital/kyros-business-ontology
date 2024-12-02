@@ -3,6 +3,7 @@ import { userService } from '@/services/user';
 import { organizationService } from '@/services/organization';
 import { clerkService } from '@/services/clerk';
 import { PineconeService } from '@/services/pinecone';
+import { prisma } from '@/prisma/prisma-client';
 
 async function handleFirstTimeUser(userData: {
   clerkId: string;
@@ -104,6 +105,58 @@ async function handleFirstTimeUser(userData: {
   }
 }
 
+async function handleOrganizationMembershipCreated(payload: WebhookEvent) {
+  if (!('public_user_data' in payload.data) || !('organization' in payload.data)) {
+    throw new Error('Invalid webhook payload structure');
+  }
+
+  const data = payload.data;
+  const userId = data.public_user_data.user_id;
+  const organizationClerkId = data.organization.id;
+  
+  console.log('Processing organizationMembership.created webhook...', {
+    userId,
+    organizationClerkId
+  });
+
+  // First, find the organization in our database using the Clerk ID
+  const organization = await prisma.organization.findUnique({
+    where: { clerkId: organizationClerkId }
+  });
+
+  if (!organization) {
+    throw new Error(`Organization not found with Clerk ID: ${organizationClerkId}`);
+  }
+
+  // Fetch complete user information from Clerk
+  const clerkUser = await clerkService.getUser(userId);
+  
+  if (!clerkUser) {
+    throw new Error(`Could not fetch user information from Clerk for ID: ${userId}`);
+  }
+
+  // Create or update the user in our database
+  const userData = {
+    clerkId: userId,
+    emailAddresses: clerkUser.emailAddresses.map(email => ({
+      emailAddress: email.emailAddress
+    })),
+    firstName: clerkUser.firstName,
+    lastName: clerkUser.lastName
+  };
+
+  console.log('Syncing user with data:', userData);
+
+  try {
+    const user = await userService.syncUser(userData, organization.id);
+    console.log('Successfully synced user:', user);
+    return user;
+  } catch (error) {
+    console.error('Error syncing user:', error);
+    throw error;
+  }
+}
+
 export async function POST(req: Request) {
   const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
   
@@ -129,6 +182,11 @@ export async function POST(req: Request) {
         };
 
         await handleFirstTimeUser(userData);
+        break;
+      }
+
+      case 'organizationMembership.created': {
+        await handleOrganizationMembershipCreated(payload);
         break;
       }
 

@@ -69,12 +69,24 @@ export class ClerkService {
         inviterUserId: clerkUserId,
         emailAddress,
         role,
-        redirectUrl: '/' // TODO: Update this when we have a proper invitation landing page
+        redirectUrl: '/dashboard'
       });
 
       return invitation;
     } catch (error) {
       console.error('Error creating organization invitation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Gets a user by their Clerk ID
+   */
+  async getUser(userId: string) {
+    try {
+      return await this.clerkClient.users.getUser(userId);
+    } catch (error) {
+      console.error('Error fetching Clerk user:', error);
       throw error;
     }
   }
