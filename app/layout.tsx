@@ -4,6 +4,7 @@ import "./globals.css";
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
 import {
   ClerkProvider,
+  OrganizationSwitcher,
   SignInButton,
   SignedIn,
   SignedOut,
@@ -11,6 +12,7 @@ import {
 } from '@clerk/nextjs';
 import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Toaster } from "sonner";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -49,9 +51,11 @@ export default function RootLayout({
               </SignedOut>
               <SignedIn>
                 <UserButton afterSignOutUrl="/" />
+                <OrganizationSwitcher />
               </SignedIn>
             </div>
             {children}
+            <Toaster richColors position="top-center" />
           </OrganizationProvider>
         </body>
       </html>

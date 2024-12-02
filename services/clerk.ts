@@ -48,9 +48,35 @@ export class ClerkService {
    * Deletes an organization
    */
   async deleteOrganization(organizationId: string) {
-    return this.clerkClient.organizations.deleteOrganization({
-      organizationId
-    });
+    return this.clerkClient.organizations.deleteOrganization(organizationId);
+  }
+
+  /**
+   * Sends an invitation to join an organization
+   * @param organizationId - The ID of the organization to invite to
+   * @param emailAddress - The email address to send the invitation to
+   * @param role - The role to assign to the invited user (optional)
+   */
+  async createOrganizationInvitation(
+    organizationId: string,
+    clerkUserId: string,
+    emailAddress: string,
+    role: 'admin' | 'basic_member' = 'basic_member'
+  ) {
+    try {
+      const invitation = await this.clerkClient.organizations.createOrganizationInvitation({
+        organizationId,
+        inviterUserId: clerkUserId,
+        emailAddress,
+        role,
+        redirectUrl: '/' // TODO: Update this when we have a proper invitation landing page
+      });
+
+      return invitation;
+    } catch (error) {
+      console.error('Error creating organization invitation:', error);
+      throw error;
+    }
   }
 }
 

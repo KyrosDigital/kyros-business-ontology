@@ -17,6 +17,8 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { Plus, UserMinus } from "lucide-react"
 import { useEffect, useState } from "react"
+import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
 
 interface TeamMember {
   id: string;
@@ -35,6 +37,8 @@ export function TeamManagement({ organizationId }: TeamManagementProps) {
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [isInviting, setIsInviting] = useState(false);
 
   useEffect(() => {
     const fetchTeamMembers = async () => {
@@ -56,6 +60,39 @@ export function TeamManagement({ organizationId }: TeamManagementProps) {
   }, [organizationId]);
 
   const availableSeats = MAX_TEAM_MEMBERS - teamMembers.length;
+
+  const handleInvite = async () => {
+    if (!inviteEmail) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    setIsInviting(true);
+    try {
+      const response = await fetch('/api/v1/teams/invite', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emailAddress: inviteEmail,
+          role: 'org:member'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send invitation');
+      }
+
+      toast.success(`Invitation sent to ${inviteEmail}`);
+      setInviteEmail(''); // Clear the input
+    } catch (error) {
+      toast.error('Failed to send invitation');
+      console.error('Error:', error);
+    } finally {
+      setIsInviting(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -114,10 +151,27 @@ export function TeamManagement({ organizationId }: TeamManagementProps) {
               <Progress value={(teamMembers.length / MAX_TEAM_MEMBERS) * 100} />
             </div>
             
-            <Button className="w-full" disabled={availableSeats === 0}>
-              <Plus className="mr-2 h-4 w-4" />
-              Invite Team Member
-            </Button>
+            <div className="flex space-x-2">
+              <Input
+                type="email"
+                placeholder="Enter email address"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+              <Button 
+                onClick={handleInvite}
+                disabled={availableSeats === 0 || isInviting || !inviteEmail}
+              >
+                {isInviting ? (
+                  "Inviting..."
+                ) : (
+                  <>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Invite
+                  </>
+                )}
+              </Button>
+            </div>
 
             <Table>
               <TableHeader>
