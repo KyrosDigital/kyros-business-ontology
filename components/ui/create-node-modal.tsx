@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { NodeType } from '@/types/graph';
 import { NODE_TYPES } from './legend';
 import { useGraph } from '@/contexts/GraphContext';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 interface CreateNodeModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface CreateNodeModalProps {
 
 export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
   const { refreshGraph, ontologyId } = useGraph();
+  const { organization } = useOrganization();
   const [nodeType, setNodeType] = useState<NodeType | ''>('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -23,7 +25,7 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nodeType || !name || !ontologyId) return;
+    if (!nodeType || !name || !ontologyId || !organization?.id) return;
 
     setIsLoading(true);
     try {
@@ -36,7 +38,8 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
           type: nodeType,
           name,
           description: description || undefined,
-          ontologyId
+          ontologyId,
+          organizationId: organization.id
         }),
       });
 
@@ -112,7 +115,7 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
             <Button 
               type="submit" 
               className="bg-green-500 hover:bg-green-600"
-              disabled={isLoading || !nodeType || !name || !ontologyId}
+              disabled={isLoading || !nodeType || !name || !ontologyId || !organization?.id}
             >
               {isLoading ? 'Creating...' : 'Create'}
             </Button>
