@@ -6,7 +6,6 @@ import { AiChat } from '@/components/ui/ai-chat';
 import { NodePanel } from '@/components/ui/node-panel';
 import { OntologyTable } from "@/components/ui/ontology-table"
 import { NodesCategoryPanel } from '@/components/ui/nodes-category-panel';
-import { LayoutSelect } from '@/components/ui/layout-select';
 import { RelationshipPanel } from '@/components/ui/relationship-panel';
 import { Graph } from '@/components/ui/graph';
 import { GraphProvider, useGraph } from '@/contexts/GraphContext';
@@ -66,16 +65,13 @@ function OntologyGraph() {
 				onViewModeChange={(checked) => setViewMode(checked ? 'table' : 'graph')}
 				setIsCreateModalOpen={setIsCreateModalOpen}
 				onOpenChat={openChat}
+				onLayoutChange={setCurrentLayout}
 			/>
 
 			<CreateNodeModal
 				isOpen={isCreateModalOpen}
 				onClose={() => setIsCreateModalOpen(false)}
 			/>
-
-			{viewMode === 'graph' && (
-				<LayoutSelect onLayoutChange={setCurrentLayout} />
-			)}
 
 			{viewMode === 'graph' ? (
 				<Graph />

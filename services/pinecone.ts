@@ -96,7 +96,18 @@ export class PineconeService {
   }
 
   async deleteNamespace() {
-    await this.index.namespace(this.namespace).deleteAll();
+    try {
+      await this.index.namespace(this.namespace).deleteAll();
+    } catch (error: any) {
+      // If the error is a 404 (namespace not found), we can safely ignore it
+      // since this means there's no data to delete anyway
+      if (error?.name === 'PineconeNotFoundError') {
+        console.log(`Namespace ${this.namespace} doesn't exist - nothing to delete`);
+        return;
+      }
+      // Re-throw other types of errors
+      throw error;
+    }
   }
 
   async upsertNodeVector(

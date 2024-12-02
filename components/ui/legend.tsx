@@ -4,6 +4,8 @@ import { NodeType } from '@prisma/client';
 import { Button } from './button';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { LAYOUT_OPTIONS } from './layout-select'
 
 interface LegendProps {
   selectedType: NodeType | null;
@@ -12,6 +14,7 @@ interface LegendProps {
   onViewModeChange: (checked: boolean) => void;
   setIsCreateModalOpen: (open: boolean) => void;
   onOpenChat: () => void;
+  onLayoutChange: (layoutConfig: any) => void;
 }
 
 type NodeTypeConfig = {
@@ -53,7 +56,8 @@ export function Legend({
   viewMode,
   onViewModeChange,
   setIsCreateModalOpen,
-  onOpenChat
+  onOpenChat,
+  onLayoutChange
 }: LegendProps) {
   const router = useRouter();
 
@@ -111,6 +115,26 @@ export function Legend({
       >
         Open Chat
       </Button>
+
+      {viewMode === 'graph' && (
+        <Select
+          onValueChange={(value) => onLayoutChange(LAYOUT_OPTIONS[value as keyof typeof LAYOUT_OPTIONS])}
+          defaultValue="breadthfirst"
+        >
+          <SelectTrigger className="w-full bg-background/80 backdrop-blur-sm">
+            <SelectValue placeholder="Select layout" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="breadthfirst">Hierarchical</SelectItem>
+            <SelectItem value="cose">Force-Directed</SelectItem>
+            <SelectItem value="klay">KLay</SelectItem>
+            <SelectItem value="dagre">Dagre</SelectItem>
+            <SelectItem value="circle">Circular</SelectItem>
+            <SelectItem value="concentric">Concentric</SelectItem>
+            <SelectItem value="grid">Grid</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
     </div>
   );
 }
