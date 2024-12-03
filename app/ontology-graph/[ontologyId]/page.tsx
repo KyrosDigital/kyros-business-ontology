@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Legend } from '@/components/ui/legend';
 import { AiChat } from '@/components/ui/ai-chat';
 import { NodePanel } from '@/components/ui/node-panel';
@@ -12,10 +13,13 @@ import { GraphProvider, useGraph } from '@/contexts/GraphContext';
 import { CreateNodeModal } from '@/components/ui/create-node-modal';
 import { useRouter, useParams } from 'next/navigation';
 import { useAiChat } from '@/components/ui/ai-chat';
+import { useOrganization } from '@/contexts/OrganizationContext';
 
 function OntologyGraph() {
 	const params = useParams();
 	const router = useRouter();
+	const { user, isLoaded } = useUser();
+	const { organization, fetchOrganization, clearOrganization } = useOrganization();
 	const ontologyId = params.ontologyId as string;
 
 	const {
@@ -52,8 +56,21 @@ function OntologyGraph() {
 		setOntologyId(ontologyId);
 	}, [ontologyId, router, setOntologyId]);
 
+	useEffect(() => {
+    if (!isLoaded) return;
+    if (!user) {
+      clearOrganization();
+    } else {
+      fetchOrganization(user.id);
+    }
+  }, [user, isLoaded]);
+
 	if (!ontologyId) {
 		return null;
+	}
+
+	if (!organization) {
+		return <div className="flex items-center justify-center h-screen">Loading organization...</div>;
 	}
 
 	return (
