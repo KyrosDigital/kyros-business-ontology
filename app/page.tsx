@@ -61,13 +61,15 @@ const ontologyBenefits = [
 
 const pricingPlans = [
   {
-    name: "Free",
+    name: "Free Trial",
     price: "$0",
-    description: "Perfect for individuals and small projects",
+    description: "Perfect for exploring ontology AI",
     features: [
       "Up to 3 ontologies",
       "100 nodes per ontology",
+      "100 relationships per ontology",
       "Basic AI assistance",
+      "200 AI Assistant Prompts",
       "Community support",
     ],
     buttonText: "Get Started",
@@ -75,15 +77,17 @@ const pricingPlans = [
   },
   {
     name: "Pro",
-    price: "$29",
-    period: "/month",
+    price: "$100",
+    period: "/seat/month",
     description: "Ideal for professionals and growing teams",
     features: [
-      "Unlimited ontologies",
-      "10,000 nodes per ontology",
+      "5 seats included",
+      "Up to 50 ontologies",
+      "1,000 nodes per ontology",
+      "2,000 relationships per ontology",
       "Advanced AI features",
       "Priority support",
-      "Custom relationships",
+      "Custom node types",
       "Export capabilities",
     ],
     buttonText: "Start Free Trial",
