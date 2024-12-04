@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sendMessage } from '@/lib/claude';
 import { prisma } from '@/prisma/prisma-client';
+import { aiUsageService } from '@/services/ai-usage';
 
 export async function POST(request: Request) {
   try {
@@ -58,11 +59,22 @@ export async function POST(request: Request) {
       onProgress
     );
 
-    // When the response is ready, send it and close the stream
+    // When the response is ready, increment usage count and send response
     responsePromise.then(async (response) => {
-      const finalData = JSON.stringify({ type: 'complete', response });
-      await writer.write(new TextEncoder().encode(finalData + '\n'));
-      await writer.close();
+      try {
+        // Increment the AI usage count
+        await aiUsageService.incrementCount(organizationId);
+        
+        const finalData = JSON.stringify({ type: 'complete', response });
+        await writer.write(new TextEncoder().encode(finalData + '\n'));
+      } catch (error) {
+        console.error('Error incrementing AI usage:', error);
+        // Still send the response even if tracking fails
+        const finalData = JSON.stringify({ type: 'complete', response });
+        await writer.write(new TextEncoder().encode(finalData + '\n'));
+      } finally {
+        await writer.close();
+      }
     }).catch(async (error) => {
       const errorData = JSON.stringify({ 
         type: 'error', 

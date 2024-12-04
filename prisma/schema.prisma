@@ -231,13 +231,11 @@ model OntologyUsage {
 // Add AI prompts usage tracking
 model AIPromptUsage {
   id              String    @id @default(uuid())
-  organizationId  String
+  organizationId  String		@unique
   count           Int       @default(0)
-  month           DateTime  // Track usage per month
   
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  @@unique([organizationId, month])
   @@map("ai_prompt_usage")
 }

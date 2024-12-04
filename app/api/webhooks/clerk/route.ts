@@ -4,6 +4,7 @@ import { organizationService } from '@/services/organization';
 import { clerkService } from '@/services/clerk';
 import { PineconeService } from '@/services/pinecone';
 import { prisma } from '@/prisma/prisma-client';
+import { aiUsageService } from '@/services/ai-usage';
 
 async function handleFirstTimeUser(userData: {
   clerkId: string;
@@ -64,6 +65,9 @@ async function handleFirstTimeUser(userData: {
         pineconeIndex: pineconeIndexName,
         clerkId: clerkOrg.id
       });
+
+      // Initialize AI usage tracking for the new organization
+      await aiUsageService.initializeUsage(dbOrganization.id);
 
       // Create Pinecone index
       console.log('Creating Pinecone index:', pineconeIndexName);
