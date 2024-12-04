@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "tunnel": "lt --port 3000",
+    "stripe-local": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
     "prisma-studio": "npx prisma studio"
   },
   "dependencies": {
@@ -44,6 +46,7 @@
     "react-syntax-highlighter": "^15.6.1",
     "remark-gfm": "^4.0.0",
     "sonner": "^1.7.0",
+    "stripe": "^17.4.0",
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "ts-node": "^10.9.2"
