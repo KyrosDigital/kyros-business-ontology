@@ -170,16 +170,24 @@ enum SubscriptionStatus {
   PAUSED
 }
 
+enum SubscriptionPlan {
+  PRO
+  ENTERPRISE
+}
+
 model Subscription {
   id              String            @id @default(uuid())
   organization    Organization      @relation(fields: [organizationId], references: [id])
   organizationId  String           @unique // One active subscription per organization
   
+  // Plan details
+  plan           SubscriptionPlan
+  status         SubscriptionStatus
+  
   // Stripe-specific fields
   stripeCustomerId      String      // Stripe customer ID
   stripeSubscriptionId  String      @unique // Stripe subscription ID
   stripePriceId        String      // Stripe price ID
-  status               SubscriptionStatus
   
   // Subscription details
   currentPeriodStart   DateTime
@@ -187,12 +195,52 @@ model Subscription {
   cancelAtPeriodEnd    Boolean     @default(false)
   canceledAt           DateTime?
   
-  // Usage and limits
-  planName            String      // e.g., "Basic", "Pro", "Enterprise"
-  features            Json        // Store feature flags and limits as JSON
+  // Seats
+  seats               Int          @default(5) // Default seats for Pro plan
+  
+  // Usage tracking
+  aiPromptsUsed       Int          @default(0)
+  
+  // Limits based on plan (null means unlimited for Enterprise)
+  ontologyLimit       Int?         // null for Enterprise
+  nodesPerOntologyLimit Int?       // null for Enterprise
+  relationshipsPerOntologyLimit Int? // null for Enterprise
+  aiPromptsLimit      Int?         // null for Enterprise
+  
+  // Features
+  features            Json         // Store feature flags as JSON
   
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
   @@map("subscriptions")
+}
+
+// Add usage tracking model
+model OntologyUsage {
+  id              String    @id @default(uuid())
+  organizationId  String
+  ontologyId      String
+  nodeCount       Int       @default(0)
+  relationshipCount Int     @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([organizationId, ontologyId])
+  @@map("ontology_usage")
+}
+
+// Add AI prompts usage tracking
+model AIPromptUsage {
+  id              String    @id @default(uuid())
+  organizationId  String
+  count           Int       @default(0)
+  month           DateTime  // Track usage per month
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([organizationId, month])
+  @@map("ai_prompt_usage")
 }

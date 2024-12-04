@@ -1,16 +1,57 @@
-import { PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
+import { PrismaClient, Subscription, SubscriptionStatus, SubscriptionPlan } from '@prisma/client';
 import { prisma } from '@/prisma/prisma-client';
 import Stripe from 'stripe';
+import { PLAN_FEATURES, PLAN_LIMITS } from '@/types/subscription';
 
 export class StripeService {
   private prisma: PrismaClient;
   private stripe: Stripe;
+
+  // Map Stripe price IDs to our subscription plans
+  private PRICE_TO_PLAN: Record<string, SubscriptionPlan> = {
+    // You'll need to replace these with your actual Stripe price IDs
+    'price_pro_monthly': 'PRO',
+    'price_enterprise_monthly': 'ENTERPRISE',
+  };
 
   constructor() {
     this.prisma = prisma;
     this.stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
       apiVersion: '2024-11-20.acacia',
     });
+  }
+
+  /**
+   * Get plan type from Stripe price ID
+   */
+  private getPlanFromPriceId(priceId: string): SubscriptionPlan {
+    const plan = this.PRICE_TO_PLAN[priceId];
+    if (!plan) {
+      throw new Error(`Unknown price ID: ${priceId}`);
+    }
+    return plan;
+  }
+
+  /**
+   * Get initial limits based on plan
+   */
+  private getLimitsForPlan(plan: SubscriptionPlan) {
+    return {
+      ontologyLimit: PLAN_LIMITS[plan].ontologies,
+      nodesPerOntologyLimit: PLAN_LIMITS[plan].nodesPerOntology,
+      relationshipsPerOntologyLimit: PLAN_LIMITS[plan].relationshipsPerOntology,
+      aiPromptsLimit: PLAN_LIMITS[plan].aiPrompts,
+    };
+  }
+
+  /**
+   * Get features for plan
+   */
+  private getFeaturesForPlan(plan: SubscriptionPlan) {
+    return {
+      ...PLAN_FEATURES[plan],
+      _version: 1, // Add version for future migrations
+    };
   }
 
   /**
@@ -25,34 +66,26 @@ export class StripeService {
       return;
     }
 
-    // Verify organization exists
-    const organization = await this.prisma.organization.findUnique({
-      where: { id: organizationId },
-    });
-
-    if (!organization) {
-      console.error(`Organization not found with ID: ${organizationId}`);
-      return;
-    }
-
-    // Fetch full subscription details from Stripe
     const stripeSubscription = await this.stripe.subscriptions.retrieve(subscriptionId);
+    const priceId = stripeSubscription.items.data[0].price.id;
+    const plan = this.getPlanFromPriceId(priceId);
 
-    // Create or update subscription in database
     await this.prisma.subscription.upsert({
       where: {
         stripeSubscriptionId: subscriptionId,
       },
       create: {
         organizationId,
+        plan,
         stripeCustomerId: session.customer as string,
         stripeSubscriptionId: subscriptionId,
-        stripePriceId: stripeSubscription.items.data[0].price.id,
+        stripePriceId: priceId,
         status: this.mapStripeStatus(stripeSubscription.status),
         currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
         currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-        planName: stripeSubscription.items.data[0].price.nickname || 'default',
-        features: {},
+        ...this.getLimitsForPlan(plan),
+        features: this.getFeaturesForPlan(plan),
+        aiPromptsUsed: 0,
       },
       update: {
         status: this.mapStripeStatus(stripeSubscription.status),
@@ -66,17 +99,22 @@ export class StripeService {
    * Create a new subscription record
    */
   async createSubscription(stripeSubscription: Stripe.Subscription): Promise<Subscription> {
+    const priceId = stripeSubscription.items.data[0].price.id;
+    const plan = this.getPlanFromPriceId(priceId);
+
     return this.prisma.subscription.create({
       data: {
         organizationId: stripeSubscription.metadata.organizationId,
+        plan,
         stripeCustomerId: stripeSubscription.customer as string,
         stripeSubscriptionId: stripeSubscription.id,
-        stripePriceId: stripeSubscription.items.data[0].price.id,
+        stripePriceId: priceId,
         status: this.mapStripeStatus(stripeSubscription.status),
         currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
         currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-        planName: stripeSubscription.items.data[0].price.nickname || 'default',
-        features: {},
+        ...this.getLimitsForPlan(plan),
+        features: this.getFeaturesForPlan(plan),
+        aiPromptsUsed: 0,
       },
     });
   }

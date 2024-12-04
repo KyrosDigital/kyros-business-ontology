@@ -42,19 +42,19 @@ export async function POST(req: Request) {
         break;
 
       // Group all other events for logging
-      case 'invoice.paid':
-      case 'invoice.payment_succeeded':
-      case 'invoice.finalized':
-      case 'invoice.created':
-      case 'invoice.updated':
-      case 'payment_intent.succeeded':
-      case 'payment_intent.created':
-      case 'payment_method.attached':
-      case 'charge.succeeded':
-      case 'customer.created':
-      case 'customer.updated':
-        console.log(`${event.type} event received:`, event.data.object);
-        break;
+      // case 'invoice.paid':
+      // case 'invoice.payment_succeeded':
+      // case 'invoice.finalized':
+      // case 'invoice.created':
+      // case 'invoice.updated':
+      // case 'payment_intent.succeeded':
+      // case 'payment_intent.created':
+      // case 'payment_method.attached':
+      // case 'charge.succeeded':
+      // case 'customer.created':
+      // case 'customer.updated':
+      //   console.log(`${event.type} event received:`, event.data.object);
+      //   break;
 
       default:
         console.log(`Unhandled event type: ${event.type}`);

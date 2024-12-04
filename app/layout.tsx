@@ -13,6 +13,7 @@ import {
 import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
+import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -40,22 +41,24 @@ export default function RootLayout({
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
           <OrganizationProvider>
-            <div className="absolute top-4 right-4 z-50">
-              <SignedOut>
-                <SignInButton>
-                  <Button variant="outline" className="gap-2">
-                    <LogIn className="h-4 w-4" />
-                    <span>Login</span>
-                  </Button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <OrganizationSwitcher />
-                <UserButton afterSignOutUrl="/" />
-              </SignedIn>
-            </div>
-            {children}
-            <Toaster richColors position="top-center" />
+            <SubscriptionProvider>
+              <div className="absolute top-4 right-4 z-50">
+                <SignedOut>
+                  <SignInButton>
+                    <Button variant="outline" className="gap-2">
+                      <LogIn className="h-4 w-4" />
+                      <span>Login</span>
+                    </Button>
+                  </SignInButton>
+                </SignedOut>
+                <SignedIn>
+                  <OrganizationSwitcher />
+                  <UserButton afterSignOutUrl="/" />
+                </SignedIn>
+              </div>
+              {children}
+              <Toaster richColors position="top-center" />
+            </SubscriptionProvider>
           </OrganizationProvider>
         </body>
       </html>
