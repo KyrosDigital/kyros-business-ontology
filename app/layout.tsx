@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { OrganizationProvider } from '@/contexts/OrganizationContext';
+import { UserProvider } from '@/contexts/UserContext';
 import {
   ClerkProvider,
   OrganizationSwitcher,
@@ -40,26 +41,32 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-          <OrganizationProvider>
-            <SubscriptionProvider>
-              <div className="absolute top-4 right-4 z-50">
-                <SignedOut>
-                  <SignInButton>
-                    <Button variant="outline" className="gap-2">
-                      <LogIn className="h-4 w-4" />
-                      <span>Login</span>
-                    </Button>
-                  </SignInButton>
-                </SignedOut>
-                <SignedIn>
-                  <OrganizationSwitcher />
-                  <UserButton afterSignOutUrl="/" />
-                </SignedIn>
-              </div>
-              {children}
-              <Toaster richColors position="top-center" />
-            </SubscriptionProvider>
-          </OrganizationProvider>
+          <SignedIn>
+            <UserProvider>
+              <OrganizationProvider>
+                <SubscriptionProvider>
+                  <div className="absolute top-4 right-4 z-50">
+                    <OrganizationSwitcher />
+                    <UserButton afterSignOutUrl="/" />
+                  </div>
+                  {children}
+                  <Toaster richColors position="top-center" />
+                </SubscriptionProvider>
+              </OrganizationProvider>
+            </UserProvider>
+          </SignedIn>
+          <SignedOut>
+            <div className="absolute top-4 right-4 z-50">
+              <SignInButton>
+                <Button variant="outline" className="gap-2">
+                  <LogIn className="h-4 w-4" />
+                  <span>Login</span>
+                </Button>
+              </SignInButton>
+            </div>
+            {children}
+            <Toaster richColors position="top-center" />
+          </SignedOut>
         </body>
       </html>
     </ClerkProvider>
