@@ -178,16 +178,16 @@ enum SubscriptionPlan {
 model Subscription {
   id              String            @id @default(uuid())
   organization    Organization      @relation(fields: [organizationId], references: [id])
-  organizationId  String           @unique // One active subscription per organization
+  organizationId  String           @unique
   
   // Plan details
   plan           SubscriptionPlan
   status         SubscriptionStatus
   
   // Stripe-specific fields
-  stripeCustomerId      String      // Stripe customer ID
-  stripeSubscriptionId  String      @unique // Stripe subscription ID
-  stripePriceId        String      // Stripe price ID
+  stripeCustomerId      String     
+  stripeSubscriptionId  String      @unique
+  stripePriceId        String      
   
   // Subscription details
   currentPeriodStart   DateTime
@@ -196,19 +196,16 @@ model Subscription {
   canceledAt           DateTime?
   
   // Seats
-  seats               Int          @default(5) // Default seats for Pro plan
-  
-  // Usage tracking
-  aiPromptsUsed       Int          @default(0)
+  seats               Int          @default(5)
   
   // Limits based on plan (null means unlimited for Enterprise)
-  ontologyLimit       Int?         // null for Enterprise
-  nodesPerOntologyLimit Int?       // null for Enterprise
-  relationshipsPerOntologyLimit Int? // null for Enterprise
-  aiPromptsLimit      Int?         // null for Enterprise
+  ontologyLimit       Int?        
+  nodesPerOntologyLimit Int?      
+  relationshipsPerOntologyLimit Int?
+  aiPromptsLimit      Int?        
   
   // Features
-  features            Json         // Store feature flags as JSON
+  features            Json         
   
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt

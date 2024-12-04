@@ -2,8 +2,8 @@
 
 import { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from '@clerk/nextjs';
-import { subscriptionService, SubscriptionDetails } from '@/services/subscription';
-import { SubscriptionFeatures, SubscriptionLimits, SubscriptionPlan } from '@/types/subscription';
+import { SubscriptionDetails } from '@/services/subscription';
+import { SubscriptionFeatures, SubscriptionLimits } from '@/types/subscription';
 
 interface SubscriptionContextType {
   subscription: SubscriptionDetails | null;
@@ -37,7 +37,19 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }
 
       try {
-        const subscriptionDetails = await subscriptionService.getCurrentSubscription();
+        const response = await fetch('/api/v1/subscription/current', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch subscription details');
+        }
+
+        const subscriptionDetails = await response.json();
+        console.log("[SUBSCRIPTION_PROVIDER]", subscriptionDetails);
         setSubscription(subscriptionDetails);
       } catch (err) {
         setError(err instanceof Error ? err : new Error('Failed to load subscription'));
@@ -51,14 +63,39 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
   const checkLimit = async (type: keyof SubscriptionLimits) => {
     if (!subscription?.isActive) return false;
-    return subscriptionService.checkLimit(type);
+    
+    const response = await fetch(`/api/v1/subscription/check-limit?type=${type}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to check limit');
+    }
+
+    const { withinLimit } = await response.json();
+    return withinLimit;
   };
 
   const getRemainingLimits = async () => {
     if (!subscription?.isActive) {
       throw new Error('No active subscription');
     }
-    return subscriptionService.getRemainingLimits();
+    
+    const response = await fetch('/api/v1/subscription/remaining-limits', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch remaining limits');
+    }
+
+    return response.json();
   };
 
   const hasFeature = (feature: keyof SubscriptionFeatures) => {

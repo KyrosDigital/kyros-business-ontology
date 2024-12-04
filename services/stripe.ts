@@ -9,9 +9,8 @@ export class StripeService {
 
   // Map Stripe price IDs to our subscription plans
   private PRICE_TO_PLAN: Record<string, SubscriptionPlan> = {
-    // You'll need to replace these with your actual Stripe price IDs
-    'price_pro_monthly': 'PRO',
-    'price_enterprise_monthly': 'ENTERPRISE',
+    'price_1QS7PtHHhFouEQuTmxI4XlNw': 'PRO',
+    // Add other price mappings as needed
   };
 
   constructor() {
@@ -85,36 +84,11 @@ export class StripeService {
         currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
         ...this.getLimitsForPlan(plan),
         features: this.getFeaturesForPlan(plan),
-        aiPromptsUsed: 0,
       },
       update: {
         status: this.mapStripeStatus(stripeSubscription.status),
         currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
         currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-      },
-    });
-  }
-
-  /**
-   * Create a new subscription record
-   */
-  async createSubscription(stripeSubscription: Stripe.Subscription): Promise<Subscription> {
-    const priceId = stripeSubscription.items.data[0].price.id;
-    const plan = this.getPlanFromPriceId(priceId);
-
-    return this.prisma.subscription.create({
-      data: {
-        organizationId: stripeSubscription.metadata.organizationId,
-        plan,
-        stripeCustomerId: stripeSubscription.customer as string,
-        stripeSubscriptionId: stripeSubscription.id,
-        stripePriceId: priceId,
-        status: this.mapStripeStatus(stripeSubscription.status),
-        currentPeriodStart: new Date(stripeSubscription.current_period_start * 1000),
-        currentPeriodEnd: new Date(stripeSubscription.current_period_end * 1000),
-        ...this.getLimitsForPlan(plan),
-        features: this.getFeaturesForPlan(plan),
-        aiPromptsUsed: 0,
       },
     });
   }

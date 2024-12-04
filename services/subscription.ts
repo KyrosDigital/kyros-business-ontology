@@ -1,3 +1,5 @@
+import { PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
+import { prisma } from '@/prisma/prisma-client';
 import { 
   SubscriptionPlan, 
   SubscriptionFeatures, 
@@ -15,6 +17,43 @@ export interface SubscriptionDetails {
 }
 
 class SubscriptionService {
+  private prisma: PrismaClient;
+
+  constructor() {
+    this.prisma = prisma;
+  }
+
+  async getSubscriptionByOrganizationId(organizationId: string): Promise<Subscription | null> {
+    return this.prisma.subscription.findUnique({
+      where: { organizationId }
+    });
+  }
+
+  mapSubscriptionToDetails(subscription: Subscription | null): SubscriptionDetails {
+    if (!subscription || subscription.status !== SubscriptionStatus.ACTIVE) {
+      return {
+        isActive: false,
+        plan: SubscriptionPlan.FREE_TRIAL,
+        seats: 1,
+        limits: PLAN_LIMITS.FREE_TRIAL,
+        features: PLAN_FEATURES.FREE_TRIAL,
+      };
+    }
+
+    return {
+      isActive: true,
+      plan: subscription.plan as SubscriptionPlan,
+      seats: subscription.seats,
+      limits: {
+        ontologies: subscription.ontologyLimit ?? Infinity,
+        nodesPerOntology: subscription.nodesPerOntologyLimit ?? Infinity,
+        relationshipsPerOntology: subscription.relationshipsPerOntologyLimit ?? Infinity,
+        aiPrompts: subscription.aiPromptsLimit ?? Infinity,
+      },
+      features: subscription.features as SubscriptionFeatures,
+    };
+  }
+
   async getCurrentSubscription(): Promise<SubscriptionDetails> {
     const response = await fetch('/api/v1/subscription/current', {
       method: 'GET',

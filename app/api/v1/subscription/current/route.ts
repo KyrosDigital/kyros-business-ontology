@@ -1,36 +1,30 @@
-import { auth } from "@clerk/nextjs";
+import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from "next/server";
-import { SubscriptionPlan } from "@/types/subscription";
+import { organizationService } from '@/services/organization';
+import { subscriptionService } from '@/services/subscription';
 
 export async function GET() {
-  const { userId, orgId } = auth();
+  const { userId }: { userId: string | null } = await auth()
 
   if (!userId) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
   try {
-    // TODO: Fetch actual subscription data from your database
-    // This is a mock response for now
-    const mockSubscription = {
-      isActive: true,
-      plan: SubscriptionPlan.FREE_TRIAL,
-      seats: 1,
-      limits: {
-        ontologies: 3,
-        nodesPerOntology: 100,
-        relationshipsPerOntology: 100,
-        aiPrompts: 200,
-      },
-      features: {
-        customNodeTypes: false,
-        advancedAI: false,
-        export: false,
-        prioritySupport: false,
-      },
-    };
+    // Get the organization using the Clerk user ID
+    const organization = await organizationService.getOrganizationByClerkUserId(userId);
+    
+    if (!organization) {
+      return new NextResponse("Organization not found", { status: 404 });
+    }
 
-    return NextResponse.json(mockSubscription);
+    // Get the subscription for this organization
+    const subscription = await subscriptionService.getSubscriptionByOrganizationId(organization.id);
+    
+    // Map the subscription to the expected format
+    const subscriptionDetails = subscriptionService.mapSubscriptionToDetails(subscription);
+
+    return NextResponse.json(subscriptionDetails);
   } catch (error) {
     console.error("[SUBSCRIPTION_GET]", error);
     return new NextResponse("Internal error", { status: 500 });
