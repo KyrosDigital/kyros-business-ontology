@@ -527,6 +527,8 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
   }
 
   const pineconeService = createPineconeService(organization, nodeExists.ontology);
+  const organizationId = organization.id;
+  const ontologyId = nodeExists.ontology.id;
 
   switch (strategy) {
     case 'orphan':
@@ -543,6 +545,9 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
           where: { nodeId }
         });
 
+        // Count relationships to be deleted for usage tracking
+        const relationshipCount = nodeExists.fromRelations.length + nodeExists.toRelations.length;
+
         // Delete all relationships where this node is involved
         await tx.nodeRelationship.deleteMany({
           where: {
@@ -558,9 +563,15 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
           where: { id: nodeId }
         });
 
+        // Update usage tracking
+        await ontologyUsageService.decrementNodeCount(organizationId, ontologyId);
+        // Decrement relationships count by the total number of relationships
+        for (let i = 0; i < relationshipCount; i++) {
+          await ontologyUsageService.decrementRelationshipCount(organizationId, ontologyId);
+        }
+
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          // Delete each vector individually to ensure proper cleanup
           for (const vectorId of vectorIds) {
             await pineconeService.deleteVector(vectorId);
           }
@@ -595,6 +606,21 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
           descendantWithRels?.notes.forEach(note => note.vectorId && vectorIds.push(note.vectorId));
         }
 
+        // Count total relationships to be deleted for usage tracking
+        let totalRelationships = nodeExists.fromRelations.length + nodeExists.toRelations.length;
+        for (const descendant of descendants) {
+          const descendantWithRels = await tx.node.findUnique({
+            where: { id: descendant.id },
+            include: {
+              fromRelations: true,
+              toRelations: true
+            }
+          });
+          if (descendantWithRels) {
+            totalRelationships += descendantWithRels.fromRelations.length + descendantWithRels.toRelations.length;
+          }
+        }
+
         // Delete relationships first for all nodes
         await tx.nodeRelationship.deleteMany({
           where: {
@@ -617,6 +643,8 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
           await tx.node.delete({
             where: { id: descendant.id }
           });
+          // Update usage tracking for each deleted descendant
+          await ontologyUsageService.decrementNodeCount(organizationId, ontologyId);
         }
         
         // Delete the target node
@@ -624,9 +652,15 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
           where: { id: nodeId }
         });
 
+        // Update usage tracking for the target node and all relationships
+        await ontologyUsageService.decrementNodeCount(organizationId, ontologyId);
+        // Decrement relationships count by the total number of relationships
+        for (let i = 0; i < totalRelationships; i++) {
+          await ontologyUsageService.decrementRelationshipCount(organizationId, ontologyId);
+        }
+
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          // Delete each vector individually to ensure proper cleanup
           for (const vectorId of vectorIds) {
             await pineconeService.deleteVector(vectorId);
           }
@@ -647,6 +681,9 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
         nodeExists.fromRelations.forEach(rel => rel.vectorId && vectorIds.push(rel.vectorId));
         nodeExists.toRelations.forEach(rel => rel.vectorId && vectorIds.push(rel.vectorId));
         nodeExists.notes.forEach(note => note.vectorId && vectorIds.push(note.vectorId));
+
+        // Count initial relationships for usage tracking
+        const initialRelationshipCount = nodeExists.fromRelations.length + nodeExists.toRelations.length;
 
         if (parentRel) {
           // Reconnect each child to the parent, but check for existing relationships first
@@ -696,6 +733,9 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
                 where: { id: newRelationship.id },
                 data: { vectorId }
               });
+
+              // Update usage tracking for new relationship
+              await ontologyUsageService.incrementRelationshipCount(organizationId, ontologyId);
             }
           }
         }
@@ -720,9 +760,15 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
           where: { id: nodeId }
         });
 
+        // Update usage tracking
+        await ontologyUsageService.decrementNodeCount(organizationId, ontologyId);
+        // Decrement relationships count by the number of original relationships
+        for (let i = 0; i < initialRelationshipCount; i++) {
+          await ontologyUsageService.decrementRelationshipCount(organizationId, ontologyId);
+        }
+
         // Delete vectors from Pinecone after successful database transaction
         if (vectorIds.length > 0) {
-          // Delete each vector individually to ensure proper cleanup
           for (const vectorId of vectorIds) {
             await pineconeService.deleteVector(vectorId);
           }
@@ -926,16 +972,27 @@ export async function deleteRelationship(sourceId: string, targetId: string) {
   // Create pinecone service instance
   const pineconeService = createPineconeService(organization, relationship.fromNode.ontology);
 
-  // Delete vector from Pinecone if it exists
-  if (relationship.vectorId) {
-    await pineconeService.deleteVector(relationship.vectorId);
-  }
+  // Use transaction to ensure both deletion and usage update succeed or fail together
+  return prisma.$transaction(async (tx) => {
+    // Delete the relationship from the database
+    const deletedRelationship = await tx.nodeRelationship.delete({
+      where: {
+        id: relationship.id,
+      },
+    });
 
-  // Delete the relationship from the database
-  return prisma.nodeRelationship.delete({
-    where: {
-      id: relationship.id,
-    },
+    // Update usage tracking
+    await ontologyUsageService.decrementRelationshipCount(
+      organization.id,
+      relationship.fromNode.ontology.id
+    );
+
+    // Delete vector from Pinecone if it exists
+    if (relationship.vectorId) {
+      await pineconeService.deleteVector(relationship.vectorId);
+    }
+
+    return deletedRelationship;
   });
 }
 
@@ -1121,12 +1178,15 @@ export async function deleteOntology(ontologyId: string) {
       await tx.ontology.delete({
         where: { id: ontologyId }
       });
+
+      // 5. Delete the usage tracking record
+      await ontologyUsageService.deleteUsage(ontology.organization.id, ontologyId);
     });
 
-    // 5. Delete the entire namespace in Pinecone
+    // 6. Delete the entire namespace in Pinecone
     await pineconeService.deleteNamespace();
 
-    // 6. Get updated list of ontologies
+    // 7. Get updated list of ontologies
     const { data: updatedOntologies } = await listOntologies(ontology.organizationId);
 
     return {
