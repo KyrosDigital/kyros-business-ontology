@@ -2,6 +2,7 @@ import { prisma } from '../prisma/prisma-client'
 import { NodeType, Prisma, Organization, Ontology } from '@prisma/client'
 import { openAIService } from './openai'
 import { createPineconeService } from './pinecone'
+import { ontologyUsageService } from './ontology-usage'
 
 // Types
 type CreateNodeData = {
@@ -224,6 +225,9 @@ export async function createChildNode(
       include: defaultIncludes
     });
 
+    // Update node count
+    await ontologyUsageService.incrementNodeCount(data.organizationId, data.ontologyId);
+
     const nodeVectorId = await pineconeService.upsertNodeVector(
       childNode.id,
       nodeVector,
@@ -266,6 +270,9 @@ export async function createChildNode(
         ontologyId: data.ontologyId
       }
     });
+
+    // Update relationship count
+    await ontologyUsageService.incrementRelationshipCount(data.organizationId, data.ontologyId);
 
     const relationshipText = `${parentNode.name} ${relationType} ${data.name}`;
     const relationshipVector = await openAIService.generateEmbedding(relationshipText);
@@ -339,18 +346,26 @@ export async function connectNodes(
     throw new Error(`Node(s) not found: ${missing.join(', ')}. Attempted IDs: fromNodeId=${fromNodeId}, toNodeId=${toNodeId}`);
   }
 
-  // Create the relationship
-  const relationship = await prisma.nodeRelationship.create({
-    data: {
-      fromNodeId,
-      toNodeId,
-      relationType,
-      ontologyId
-    },
-    include: {
-      fromNode: true,
-      toNode: true
-    }
+  // Use transaction to ensure relationship creation and usage update succeed or fail together
+  const relationship = await prisma.$transaction(async (tx) => {
+    // Create the relationship
+    const createdRelationship = await tx.nodeRelationship.create({
+      data: {
+        fromNodeId,
+        toNodeId,
+        relationType,
+        ontologyId
+      },
+      include: {
+        fromNode: true,
+        toNode: true
+      }
+    });
+
+    // Update usage tracking
+    await ontologyUsageService.incrementRelationshipCount(organizationId, ontologyId);
+
+    return createdRelationship;
   });
 
   // Generate embedding for the relationship
@@ -952,9 +967,17 @@ export async function createNode(data: CreateNodeData) {
     }
   };
 
-  const node = await prisma.node.create({
-    data: createData,
-    include: defaultIncludes
+  // Use transaction to ensure both node creation and usage update succeed or fail together
+  const node = await prisma.$transaction(async (tx) => {
+    const createdNode = await tx.node.create({
+      data: createData,
+      include: defaultIncludes
+    });
+
+    // Update usage tracking
+    await ontologyUsageService.incrementNodeCount(data.organizationId, data.ontologyId);
+
+    return createdNode;
   });
 
   const pineconeService = createPineconeService(organization, ontology);
@@ -1022,6 +1045,9 @@ export async function createOntology(data: {
         }
       }
     });
+
+    // Initialize usage tracking for the new ontology
+    await ontologyUsageService.initializeUsage(data.organizationId, ontology.id);
 
     return { success: true, data: ontology };
   } catch (error) {
