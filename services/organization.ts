@@ -1,5 +1,6 @@
 import { Organization, PrismaClient } from '@prisma/client';
 import { prisma } from '@/prisma/prisma-client';
+import { PLAN_FEATURES, PLAN_LIMITS, SubscriptionPlan } from '@/types/subscription';
 
 export interface CreateOrganizationData {
   name: string;
@@ -25,13 +26,40 @@ export class OrganizationService {
    * Create a new organization
    */
   async create(data: CreateOrganizationData): Promise<Organization> {
-    return this.prisma.organization.create({
-      data: {
-        name: data.name,
-        description: data.description,
-        pineconeIndex: data.pineconeIndex,
-        clerkId: data.clerkId,
-      },
+    return this.prisma.$transaction(async (tx) => {
+      // Create the organization
+      const organization = await tx.organization.create({
+        data: {
+          name: data.name,
+          description: data.description,
+          pineconeIndex: data.pineconeIndex,
+          clerkId: data.clerkId,
+        },
+      });
+
+      // Create a FREE_TRIAL subscription for the organization
+      await tx.subscription.create({
+        data: {
+          organizationId: organization.id,
+          plan: SubscriptionPlan.FREE_TRIAL,
+          status: 'ACTIVE',
+          stripeCustomerId: '', // Empty for free trial
+          stripeSubscriptionId: '', // Empty for free trial
+          stripePriceId: '', // Empty for free trial
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          features: {
+            _version: 1,
+            ...PLAN_FEATURES[SubscriptionPlan.FREE_TRIAL]
+          },
+          ontologyLimit: PLAN_LIMITS[SubscriptionPlan.FREE_TRIAL].ontologies,
+          nodesPerOntologyLimit: PLAN_LIMITS[SubscriptionPlan.FREE_TRIAL].nodesPerOntology,
+          relationshipsPerOntologyLimit: PLAN_LIMITS[SubscriptionPlan.FREE_TRIAL].relationshipsPerOntology,
+          aiPromptsLimit: PLAN_LIMITS[SubscriptionPlan.FREE_TRIAL].aiPrompts,
+        },
+      });
+
+      return organization;
     });
   }
 

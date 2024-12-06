@@ -188,8 +188,15 @@ export class UserService {
    * Retrieves a user by their Clerk ID
    */
   async getUserByClerkId(clerkId: string): Promise<User | null> {
-    return await this.prisma.user.findUnique({
-      where: { clerkId }
+    return this.prisma.user.findUnique({
+      where: { clerkId },
+      include: {
+        organization: {
+          include: {
+            subscription: true
+          }
+        }
+      }
     });
   }
 }

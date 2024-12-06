@@ -1,7 +1,7 @@
 export enum SubscriptionPlan {
-  FREE_TRIAL = 'FREE_TRIAL',
   PRO = 'PRO',
   ENTERPRISE = 'ENTERPRISE',
+  FREE_TRIAL = 'FREE_TRIAL'
 }
 
 export interface SubscriptionLimits {

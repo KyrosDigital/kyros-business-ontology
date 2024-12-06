@@ -1,7 +1,8 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from "next/server";
-import { organizationService } from '@/services/organization';
+import { userService } from '@/services/user';
 import { subscriptionService } from '@/services/subscription';
+import { PLAN_FEATURES, PLAN_LIMITS, SubscriptionPlan } from '@/types/subscription';
 
 export async function GET() {
   const { userId }: { userId: string | null } = await auth()
@@ -11,19 +12,27 @@ export async function GET() {
   }
 
   try {
-    // Get the organization using the Clerk user ID
-    const organization = await organizationService.getOrganizationByClerkUserId(userId);
+    const user = await userService.getUserByClerkId(userId);
     
-    if (!organization) {
-      return new NextResponse("Organization not found", { status: 404 });
+    if (!user) {
+      return new NextResponse("User not found", { status: 404 });
     }
 
-    // Get the subscription for this organization
-    const subscription = await subscriptionService.getSubscriptionByOrganizationId(organization.id);
-    
-    // Map the subscription to the expected format
-    const subscriptionDetails = subscriptionService.mapSubscriptionToDetails(subscription);
+    // If user has no organization or organization has no subscription,
+    // return FREE_TRIAL details
+    if (!user.organization?.subscription) {
+      const freeTrialDetails = {
+        isActive: true,
+        plan: SubscriptionPlan.FREE_TRIAL,
+        features: PLAN_FEATURES[SubscriptionPlan.FREE_TRIAL],
+        limits: PLAN_LIMITS[SubscriptionPlan.FREE_TRIAL],
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      };
+      return NextResponse.json(freeTrialDetails);
+    }
 
+    // Map the subscription to the expected format
+    const subscriptionDetails = subscriptionService.mapSubscriptionToDetails(user.organization.subscription);
     return NextResponse.json(subscriptionDetails);
   } catch (error) {
     console.error("[SUBSCRIPTION_GET]", error);

@@ -1,4 +1,4 @@
-import { PrismaClient, Subscription, SubscriptionStatus } from '@prisma/client';
+import { PrismaClient, Subscription } from '@prisma/client';
 import { prisma } from '@/prisma/prisma-client';
 import { 
   SubscriptionPlan, 
@@ -11,9 +11,9 @@ import {
 export interface SubscriptionDetails {
   isActive: boolean;
   plan: SubscriptionPlan;
-  seats: number;
-  limits: SubscriptionLimits;
   features: SubscriptionFeatures;
+  limits: SubscriptionLimits;
+  currentPeriodEnd: Date;
 }
 
 class SubscriptionService {
@@ -30,27 +30,27 @@ class SubscriptionService {
   }
 
   mapSubscriptionToDetails(subscription: Subscription | null): SubscriptionDetails {
-    if (!subscription || subscription.status !== SubscriptionStatus.ACTIVE) {
+    if (!subscription) {
       return {
-        isActive: false,
+        isActive: true,
         plan: SubscriptionPlan.FREE_TRIAL,
-        seats: 1,
-        limits: PLAN_LIMITS.FREE_TRIAL,
-        features: PLAN_FEATURES.FREE_TRIAL,
+        features: PLAN_FEATURES[SubscriptionPlan.FREE_TRIAL],
+        limits: PLAN_LIMITS[SubscriptionPlan.FREE_TRIAL],
+        currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
       };
     }
 
     return {
-      isActive: true,
+      isActive: subscription.status === 'ACTIVE',
       plan: subscription.plan as SubscriptionPlan,
-      seats: subscription.seats,
+      features: JSON.parse(JSON.stringify(subscription.features)) as SubscriptionFeatures,
       limits: {
-        ontologies: subscription.ontologyLimit ?? Infinity,
-        nodesPerOntology: subscription.nodesPerOntologyLimit ?? Infinity,
-        relationshipsPerOntology: subscription.relationshipsPerOntologyLimit ?? Infinity,
-        aiPrompts: subscription.aiPromptsLimit ?? Infinity,
+        ontologies: subscription.ontologyLimit,
+        nodesPerOntology: subscription.nodesPerOntologyLimit,
+        relationshipsPerOntology: subscription.relationshipsPerOntologyLimit,
+        aiPrompts: subscription.aiPromptsLimit,
       },
-      features: subscription.features as SubscriptionFeatures,
+      currentPeriodEnd: subscription.currentPeriodEnd,
     };
   }
 

@@ -171,6 +171,7 @@ enum SubscriptionStatus {
 }
 
 enum SubscriptionPlan {
+  FREE_TRIAL
   PRO
   ENTERPRISE
 }
