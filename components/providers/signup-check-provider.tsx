@@ -5,7 +5,7 @@ import { LoadingModal } from '@/components/ui/loading-modal'
 import { useEffect, useState } from 'react'
 
 export function SignUpCheckProvider({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn, userId } = useAuth()
+  const { isLoaded, isSignedIn } = useAuth()
   const [showLoadingModal, setShowLoadingModal] = useState(false)
   const [previousSignedIn, setPreviousSignedIn] = useState<boolean | null>(null)
 

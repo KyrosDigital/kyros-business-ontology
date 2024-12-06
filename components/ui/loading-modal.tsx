@@ -1,21 +1,30 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 
 export function LoadingModal() {
   const router = useRouter()
+  const pathname = usePathname()
   const [isRedirecting, setIsRedirecting] = useState(false)
+  const [shouldShow, setShouldShow] = useState(true)
 
   useEffect(() => {
+    // If we're already on the dashboard, hide the modal
+    if (pathname === '/dashboard') {
+      setShouldShow(false)
+      return
+    }
+
     const checkOrganization = async () => {
       try {
         // Poll the organization status every 2 seconds
         const interval = setInterval(async () => {
           const response = await fetch('/api/v1/user/current')
           const data = await response.json()
+          console.log('Organization check response:', data)
           
-          if (data.user?.organizationId) {
+          if (data.organization?.id) {
             clearInterval(interval)
             setIsRedirecting(true)
             router.push('/dashboard')
@@ -23,18 +32,30 @@ export function LoadingModal() {
         }, 2000)
 
         // Cleanup interval after 30 seconds (15 attempts)
-        setTimeout(() => {
+        const timeout = setTimeout(() => {
           clearInterval(interval)
+          console.log('Organization check timed out')
+          setIsRedirecting(true)
+          router.push('/dashboard')
         }, 30000)
 
-        return () => clearInterval(interval)
+        return () => {
+          clearInterval(interval)
+          clearTimeout(timeout)
+          console.log('Organization check cleanup')
+        }
       } catch (error) {
         console.error('Error checking organization:', error)
       }
     }
 
     checkOrganization()
-  }, [router])
+  }, [router, pathname])
+
+  // Don't render if we shouldn't show the modal
+  if (!shouldShow) {
+    return null
+  }
 
   return (
     <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center">

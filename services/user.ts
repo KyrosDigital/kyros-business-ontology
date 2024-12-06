@@ -191,11 +191,7 @@ export class UserService {
     return this.prisma.user.findUnique({
       where: { clerkId },
       include: {
-        organization: {
-          include: {
-            subscription: true
-          }
-        }
+        organization: true
       }
     });
   }
