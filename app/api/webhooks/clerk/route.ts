@@ -202,6 +202,9 @@ export async function POST(req: Request) {
     switch (payload.type) {
       case 'user.created': {
         console.log('Processing user.created webhook...');
+				if(!payload.data.id) {
+					throw new Error('User must have a Clerk ID');
+				}
         const userData = {
           clerkId: payload.data.id,
           emailAddresses: payload.data.email_addresses.map(email => ({
