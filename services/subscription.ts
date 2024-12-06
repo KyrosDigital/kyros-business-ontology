@@ -54,21 +54,6 @@ class SubscriptionService {
     };
   }
 
-  async getCurrentSubscription(): Promise<SubscriptionDetails> {
-    const response = await fetch('/api/v1/subscription/current', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch subscription details');
-    }
-
-    return response.json();
-  }
-
   async checkLimit(type: 'ontologies' | 'nodes' | 'relationships' | 'aiPrompts'): Promise<boolean> {
     const response = await fetch(`/api/v1/subscription/check-limit?type=${type}`, {
       method: 'GET',
