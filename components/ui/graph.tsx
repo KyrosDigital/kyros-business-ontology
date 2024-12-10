@@ -116,6 +116,18 @@ export function Graph() {
       ontologyData.nodes.forEach(node => {
         const existingNode = cy.getElementById(node.id);
         if (existingNode.length === 0) {
+          // Get viewport center in rendered coordinates
+          const center = {
+            x: (-pan.x + cy.width() / 2) / zoom,
+            y: (-pan.y + cy.height() / 2) / zoom
+          };
+
+          // Add some random offset from center (-100 to 100 pixels)
+          const offset = {
+            x: (Math.random() - 0.5) * 200,
+            y: (Math.random() - 0.5) * 200
+          };
+
           cy.add({
             group: 'nodes',
             data: {
@@ -123,7 +135,10 @@ export function Graph() {
               type: node.type,
               name: node.name,
             },
-            position: existingNode.position() || undefined
+            position: {
+              x: center.x + offset.x,
+              y: center.y + offset.y
+            }
           });
         } else {
           existingNode.data(node);
