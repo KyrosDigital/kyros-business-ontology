@@ -303,8 +303,8 @@ async function handleSequentialTools(
 
     if (currentTextContent.trim()) {
       previousMessages.push({ 
-        role: 'assistant', 
-        content: currentTextContent
+        role: 'user', 
+        content: `Tool execution result: ${currentTextContent}`
       });
     }
 
@@ -328,8 +328,8 @@ async function handleSequentialTools(
           
           const toolMessage = `Successfully created relationship of type "${input.relationType}" between the nodes`;
           previousMessages.push({ 
-            role: 'assistant', 
-            content: toolMessage 
+            role: 'user', 
+            content: `Tool result: ${toolMessage}`
           });
 
           if (onProgress) {
@@ -349,8 +349,8 @@ async function handleSequentialTools(
           }
           
           previousMessages.push({ 
-            role: 'assistant', 
-            content: toolMessage 
+            role: 'user', 
+            content: `Tool result: ${toolMessage}`
           });
 
           if (onProgress) {
@@ -360,7 +360,7 @@ async function handleSequentialTools(
       }
     }
 
-    // Continue with next Claude call if needed
+    // Continue with next Claude call
     if (toolCallCount < MAX_TOOL_CALLS) {
       currentResponse = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
