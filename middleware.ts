@@ -2,8 +2,8 @@ import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server'
 
 const publicRoutes = createRouteMatcher([
 		"/",
-		"/api/webhooks/clerk",
-		"/api/webhooks/stripe"
+		"/api/v1/webhooks/clerk",
+		"/api/v1/webhooks/stripe"
 	])
 
 export default clerkMiddleware(async (auth, req) => {
