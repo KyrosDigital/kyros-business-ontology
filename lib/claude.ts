@@ -90,6 +90,23 @@ interface RelevantContext {
   metadata: VectorMetadata;
 }
 
+interface ExistingRelationship {
+  fromNodeId: string;
+  toNodeId: string;
+  relationType: string;
+}
+
+function isExistingRelationship(
+  relationship: ExistingRelationship,
+  existingRelationships: any[]
+): boolean {
+  return existingRelationships.some(existing => 
+    existing.fromNodeId === relationship.fromNodeId &&
+    existing.toNodeId === relationship.toNodeId &&
+    existing.relationType === relationship.relationType
+  );
+}
+
 /**
  * Get relevant context from Pinecone based on query embedding
  */
@@ -239,10 +256,36 @@ async function handleSequentialTools(
   let currentResponse = initialResponse;
   const allToolCalls: any[] = [];
   let finalTextContent = '';
-  const createdNodes: Record<string, string> = {}; // Track created nodes: name -> id
+  const createdNodes: Record<string, string> = {};
+  const existingRelationships = new Set<string>();
   let toolCallCount = 0;
-  const MAX_TOOL_CALLS = 10; // Prevent infinite loops
-  
+  const MAX_TOOL_CALLS = 10;
+
+  // Extract existing relationships from the context
+  const contextMessages = previousMessages.find(msg => 
+    msg.role === 'assistant' && msg.content.includes('## Relationships')
+  );
+
+  if (contextMessages) {
+    // Parse existing relationships from context
+    const relationships = contextMessages.content
+      .split('\n')
+      .filter(line => line.includes('"type":"RELATIONSHIP"'))
+      .map(line => {
+        try {
+          const rel = JSON.parse(line);
+          return `${rel.fromNodeId}:${rel.toNodeId}:${rel.relationType}`;
+        } catch (e) {
+          console.error('Error parsing relationship:', e);
+          return null;
+        }
+      })
+      .filter(Boolean);
+
+    // Add to Set for O(1) lookup
+    relationships.forEach(rel => existingRelationships.add(rel));
+  }
+
   while (currentResponse.stop_reason === 'tool_use' && toolCallCount < MAX_TOOL_CALLS) {
     toolCallCount++;
     
@@ -267,57 +310,57 @@ async function handleSequentialTools(
 
     // Execute each tool call and collect results
     for (const call of toolCalls) {
-      // Skip duplicate node creation
-      if (call.tool === 'create_node') {
+      if (call.tool === 'create_relationship') {
         const input = call.input.properties || call.input;
-        const nodeKey = `${input.type}_${input.name}`;
-        if (createdNodes[nodeKey]) {
-          continue; // Skip if we've already created this node
+        const relationshipKey = `${input.fromNodeId}:${input.toNodeId}:${input.relationType}`;
+
+        // Skip if relationship already exists
+        if (existingRelationships.has(relationshipKey)) {
+          console.log(`Skipping duplicate relationship: ${relationshipKey}`);
+          continue;
         }
-      }
 
-      console.log("CALL", call);
-      const result = await executeToolCall(call.tool, call.input, organization, ontology);
-      allToolCalls.push(call);
+        const result = await executeToolCall(call.tool, input, organization, ontology);
+        
+        if (result.success) {
+          existingRelationships.add(relationshipKey);
+          allToolCalls.push(call);
+          
+          const toolMessage = `Successfully created relationship of type "${input.relationType}" between the nodes`;
+          previousMessages.push({ 
+            role: 'assistant', 
+            content: toolMessage 
+          });
 
-      if (!result.success) {
-        return {
-          text: `${currentTextContent}\n\n**Error:** ${result.error}. Unable to complete the requested changes. Please try again with valid inputs.`,
-          toolCalls: allToolCalls
-        };
-      }
-
-      // Handle successful tool execution
-      let toolMessage: string;
-      const normalizedInput = call.input.properties || call.input;
-      
-      if (call.tool === 'create_node') {
-        const node = result.data as NodeWithRelations;
-        const nodeKey = `${node.type}_${node.name}`;
-        createdNodes[nodeKey] = node.id;
-        toolMessage = `Successfully created ${normalizedInput.type.toLowerCase()} node "${node.name}" with ID: ${node.id}`;
-      } else if (call.tool === 'create_relationship') {
-        toolMessage = `Successfully created relationship of type "${normalizedInput.relationType}" between the nodes`;
-      } else if (call.tool === 'delete_node_with_strategy') {
-        const strategyDescriptions = {
-          orphan: 'deleted the node and its direct relationships',
-          cascade: 'deleted the node and all its descendants',
-          reconnect: 'deleted the node and reconnected its children to its parent'
-        };
-        toolMessage = `Successfully ${strategyDescriptions[normalizedInput.strategy as keyof typeof strategyDescriptions]}`;
+          if (onProgress) {
+            await onProgress(toolMessage);
+          }
+        }
       } else {
-        toolMessage = 'Tool executed successfully';
-      }
+        // Handle other tool calls (create_node, delete_node_with_strategy)
+        const result = await executeToolCall(call.tool, call.input, organization, ontology);
+        if (result.success) {
+          allToolCalls.push(call);
+          
+          let toolMessage = 'Operation completed successfully';
+          if (call.tool === 'create_node') {
+            const node = result.data as NodeWithRelations;
+            toolMessage = `Successfully created ${node.type.toLowerCase()} node "${node.name}"`;
+          }
+          
+          previousMessages.push({ 
+            role: 'assistant', 
+            content: toolMessage 
+          });
 
-      previousMessages.push({ role: 'user', content: toolMessage });
-
-      // Notify progress after successful execution
-      if (onProgress) {
-        await onProgress(toolMessage);
+          if (onProgress) {
+            await onProgress(toolMessage);
+          }
+        }
       }
     }
 
-    // Only make another API call if we haven't hit the limit
+    // Continue with next Claude call if needed
     if (toolCallCount < MAX_TOOL_CALLS) {
       currentResponse = await anthropic.messages.create({
         model: 'claude-3-sonnet-20240229',
@@ -331,20 +374,15 @@ async function handleSequentialTools(
     }
   }
 
-  // If we hit the tool call limit, add a warning to the response
-  let warningMessage = '';
-  if (toolCallCount >= MAX_TOOL_CALLS) {
-    warningMessage = '\n\n**Warning:** The operation was stopped because it exceeded the maximum number of allowed steps. Some changes may be incomplete.';
-  }
-
+  // Add final response
   const textBlocks = currentResponse.content
     .filter(block => block.type === 'text')
     .map(block => (block as MessageContentText).text);
   
-  finalTextContent = textBlocks.join('\n') + warningMessage;
+  finalTextContent = textBlocks.join('\n');
 
   return {
-    text: finalTextContent || "Changes have been applied successfully." + warningMessage,
+    text: finalTextContent || "Changes have been applied successfully.",
     toolCalls: allToolCalls.length > 0 ? allToolCalls : null
   };
 }
@@ -423,6 +461,9 @@ export async function sendMessage(
     - Explain your reasoning before making changes
     - Do not fabricate information
     - Do not include ID's in your final response
+
+		Common Mistakes to avoid:
+		- Relationships to Nodes have unique contraints, in that fromNodeId, toNodeId, and relationType must be unique. (you cannot have duplicate relationships between the same two nodes)
 
 ${contextPrompt}
 
