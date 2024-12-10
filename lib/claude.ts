@@ -317,6 +317,13 @@ async function handleSequentialTools(
         // Skip if relationship already exists
         if (existingRelationships.has(relationshipKey)) {
           console.log(`Skipping duplicate relationship: ${relationshipKey}`);
+          
+          // Add message about skipped relationship to inform Claude
+          previousMessages.push({ 
+            role: 'user', 
+            content: `Note: Skipped creating relationship "${input.relationType}" between nodes because it already exists.`
+          });
+          
           continue;
         }
 
