@@ -9,6 +9,7 @@ import { useGraph } from '@/contexts/GraphContext';
 export function Graph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphInitializedRef = useRef(false);
+  const isInitializedRef = useRef(false);
   
   const {
     ontologyData,
@@ -46,7 +47,7 @@ export function Graph() {
     }
   };
 
-  // Initialize or reinitialize graph when data changes
+  // Initialize graph only on first load
   useEffect(() => {
     if (
       containerRef.current && 
@@ -54,7 +55,8 @@ export function Graph() {
       isDataReady && 
       ontologyData.nodes.length > 0 &&
       containerRef.current.offsetWidth > 0 &&
-      containerRef.current.offsetHeight > 0
+      containerRef.current.offsetHeight > 0 &&
+      !isInitializedRef.current // Only initialize if not already done
     ) {
       try {
         // Clean up previous instance if it exists
@@ -85,16 +87,23 @@ export function Graph() {
 
         if (containerRef.current.__cy) {
           graphInitializedRef.current = true;
+          isInitializedRef.current = true; // Mark as initialized
         }
       } catch (error) {
         console.error('Graph initialization error:', error);
       }
     }
-  }, [ontologyData, isDataReady, currentLayout]);
+  }, [ontologyData, isDataReady]); // Keep these deps for initial load
 
-  // Handle data updates
+  // Handle data updates after initialization
   useEffect(() => {
-    if (!ontologyData || !isDataReady || !graphInitializedRef.current || !containerRef.current?.__cy) {
+    if (
+      !ontologyData || 
+      !isDataReady || 
+      !graphInitializedRef.current || 
+      !containerRef.current?.__cy ||
+      !isInitializedRef.current // Skip if not initialized yet
+    ) {
       return;
     }
 
@@ -168,7 +177,7 @@ export function Graph() {
       zoom: zoom,
       pan: pan
     });
-  }, [ontologyData, isDataReady, currentLayout]);
+  }, [ontologyData, isDataReady]); // These deps now trigger updates after initialization
 
   // Handle node filtering based on selected type
   useEffect(() => {
