@@ -199,7 +199,7 @@ async function executeToolCall(
     const normalizedInput = input.properties || input;
     
     if (tool === 'create_node') {
-      console.log("NODE TOOL INPUT ============", normalizedInput);
+      //console.log("NODE TOOL INPUT ============", normalizedInput);
       const node = await createNode({
         type: normalizedInput.type,
         name: normalizedInput.name,
@@ -207,12 +207,12 @@ async function executeToolCall(
         organizationId: organization.id,
         ontologyId: ontology.id
       });
-      console.log("NODE CREATED WITH TOOL USE", node);
+      //console.log("NODE CREATED WITH TOOL USE", node);
       return { success: true, data: node };
     }
     
     else if (tool === 'create_relationship') {
-      console.log("RELATIONSHIP TOOL INPUT ============", normalizedInput);
+      //console.log("RELATIONSHIP TOOL INPUT ============", normalizedInput);
       const relationship = await connectNodes(
         normalizedInput.fromNodeId,
         normalizedInput.toNodeId,
@@ -220,17 +220,17 @@ async function executeToolCall(
         organization.id,
         ontology.id
       );  
-      console.log("RELATIONSHIP CREATED WITH TOOL USE", relationship);
+      //console.log("RELATIONSHIP CREATED WITH TOOL USE", relationship);
       return { success: true, data: relationship };
     }
 
     else if (tool === 'delete_node_with_strategy') {
-      console.log("DELETE NODE TOOL INPUT ============", normalizedInput);
+      //console.log("DELETE NODE TOOL INPUT ============", normalizedInput);
       const result = await deleteNodeWithStrategy(
         normalizedInput.nodeId,
         normalizedInput.strategy
       );
-      console.log("NODE DELETED WITH TOOL USE", result);
+      //console.log("NODE DELETED WITH TOOL USE", result);
       return { success: true, data: result };
     }
     
@@ -316,7 +316,7 @@ async function handleSequentialTools(
 
         // Skip if relationship already exists
         if (existingRelationships.has(relationshipKey)) {
-          console.log(`Skipping duplicate relationship: ${relationshipKey}`);
+          //console.log(`Skipping duplicate relationship: ${relationshipKey}`);
           
           // Add message about skipped relationship to inform Claude
           previousMessages.push({ 
@@ -378,6 +378,10 @@ async function handleSequentialTools(
         })),
         tools
       });
+
+			console.log("CURRENT RESPONSE", currentResponse)
+
+			console.log("CURRENT RESPONSE TOOL CALLS", currentResponse.content.filter(block => block.type === 'tool_use'))
     }
   }
 
@@ -485,7 +489,7 @@ ${contextPrompt}
       { role: 'user' as const, content: message }
     ];
 
-    console.log(messages)
+    //console.log(messages)
 
     const initialResponse = await anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',
@@ -512,7 +516,7 @@ ${contextPrompt}
       .map(block => (block as MessageContentText).text)
       .join('\n');
 
-    console.log("RETURNING TEXT TO FRONT END")
+    //console.log("RETURNING TEXT TO FRONT END")
     return {
       text: textContent,
       toolCalls: null
