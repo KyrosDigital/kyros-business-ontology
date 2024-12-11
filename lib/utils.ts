@@ -15,19 +15,6 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export const graphColors = {
-  Organization: '#69b3a2',
-  Department: '#ffcc00',
-  Role: '#ff6600',
-  Process: '#0066cc',
-  Task: '#cc0066',
-  Integration: '#9900cc',
-  DataSource: '#00cc99',
-  AIComponent: '#ff3333',
-  Analytics: '#3333ff',
-  SoftwareTool: '#ff99cc'
-};
-
 /**
  * Converts a NodeType enum value from SNAKE_CASE to Title Case
  * @param type NodeType enum value
