@@ -3,34 +3,23 @@ import '@testing-library/jest-dom'
 
 // Mock next/router
 jest.mock('next/router', () => ({
-  useRouter() {
-    return {
-      route: '/',
-      pathname: '',
-      query: {},
-      asPath: '',
-      push: jest.fn(),
-      replace: jest.fn(),
-    }
-  },
+	useRouter() {
+		return {
+			route: '/',
+			pathname: '',
+			query: {},
+			asPath: '',
+			push: jest.fn(),
+			replace: jest.fn(),
+		}
+	},
 }))
 
 // Mock next/image
 jest.mock('next/image', () => ({
-  __esModule: true,
-  default: (props) => {
-    // eslint-disable-next-line jsx-a11y/alt-text
-    return <img {...props} />
-  },
-}))
-
-jest.mock('@prisma/client', () => {
-  return {
-    PrismaClient: jest.fn().mockImplementation(() => ({
-      _engineConfig: {
-        activeProvider: 'postgresql',
-        logLevels: ['warn', 'error']
-      }
-    }))
-  };
-}); 
+	__esModule: true,
+	default: (props) => {
+		// eslint-disable-next-line jsx-a11y/alt-text
+		return <img {...props} />
+	},
+})) 
