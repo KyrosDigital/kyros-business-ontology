@@ -210,7 +210,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
         isPanelOpen ? 'translate-x-0' : 'translate-x-full'
       } z-20 overflow-y-auto`}
     >
-      <div className="p-6">
+      <div className="p-6 pt-16">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold flex items-center gap-2">
             {isEditingName ? (
