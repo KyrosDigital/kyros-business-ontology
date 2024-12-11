@@ -34,7 +34,7 @@ interface ConnectedNode {
   name: string;
   type: string;
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   relationType: string;
   direction: 'incoming' | 'outgoing';
 }
@@ -158,7 +158,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const handleUpdateDescription = async () => {
     if (!selectedNode) return;
     try {
-      await onNodeUpdate(selectedNode.id, { description: editedDescription });
+     	onNodeUpdate(selectedNode.id, { description: editedDescription });
       setIsEditingDescription(false);
     } catch (error) {
       console.error('Error updating description:', error);
@@ -168,7 +168,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const handleUpdateType = async () => {
     if (!selectedNode) return;
     try {
-      const updatedNode = await onNodeUpdate(selectedNode.id, { type: editedType });
+      onNodeUpdate(selectedNode.id, { type: editedType });
       setIsEditingType(false);
       setEditedType(editedType);
     } catch (error) {
@@ -350,7 +350,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
           <div>
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-medium text-gray-500">Type</h3>
-              {!isEditingType && (
+              {!isEditingType && selectedNode && (
                 <Button
                   variant="ghost"
                   size="sm"
@@ -590,11 +590,11 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             {node.direction === 'outgoing' ? (
                               <>
-                                {node.relationType} {' → '} {formatNodeType(node.type)}
+                                {node.relationType} {' → '} {formatNodeType(node.type as NodeType)}
                               </>
                             ) : (
                               <>
-                                {formatNodeType(node.type)} {' ← '} {node.relationType}
+                                {formatNodeType(node.type as NodeType)} {' ← '} {node.relationType}
                               </>
                             )}
                           </span>

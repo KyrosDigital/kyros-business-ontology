@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { NodeType } from '@/types/graph';
+import { NodeData, NodeType } from '@/types/graph';
 import { Node } from "@prisma/client";
 
 /**
@@ -32,7 +32,7 @@ export const formatNodeType = (type: NodeType): string => {
  * @param node The node to check for children
  * @returns boolean indicating if the node has children
  */
-export const hasChildren = (node: Node | null): boolean => {
+export const hasChildren = (node: NodeData | null): boolean => {
   if (!node || !node.fromRelations) return false;
   return node.fromRelations.length > 0;
 };

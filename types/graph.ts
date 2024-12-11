@@ -27,7 +27,7 @@ export interface NodeData {
   name: string;
   type: NodeType;
   description?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   notes?: Note[];
   fromRelations?: {
     toNode: {
@@ -35,7 +35,7 @@ export interface NodeData {
       name: string;
       type: NodeType;
       description?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     };
     relationType: string;
   }[];
@@ -45,10 +45,11 @@ export interface NodeData {
       name: string;
       type: NodeType;
       description?: string;
-      metadata?: Record<string, any>;
+      metadata?: Record<string, unknown>;
     };
     relationType: string;
   }[];
+	relationType?: string;
   responsibilities?: string;
 }
 
