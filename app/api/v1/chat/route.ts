@@ -44,8 +44,12 @@ export async function POST(request: Request) {
     const writer = stream.writable.getWriter();
     
     // Create progress callback
-    const onProgress = async (update: string) => {
-      const data = JSON.stringify({ type: 'progress', content: update });
+    const onProgress = async (update: string, operationResult?: any) => {
+      const data = JSON.stringify({ 
+        type: 'progress', 
+        content: update,
+        operationResult 
+      });
       await writer.write(new TextEncoder().encode(data + '\n'));
     };
 

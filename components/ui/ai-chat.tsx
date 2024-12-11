@@ -132,12 +132,12 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
               ...prev.slice(0, -1),
               { role: "assistant", content: data.content }
             ]);
-          } else if (data.type === 'complete') {
-            // Handle tool calls if they exist
-            if (data.response.toolCalls) {
+
+            // If there's an operation result, refresh the graph
+            if (data.operationResult) {
               await refreshGraph();
             }
-
+          } else if (data.type === 'complete') {
             // Add final response
             if (data.response.text) {
               setMessages(prev => [

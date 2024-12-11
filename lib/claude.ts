@@ -238,7 +238,7 @@ async function handleSequentialTools(
   organization: Organization,
   ontology: Ontology,
   previousMessages: { role: string; content: string }[],
-  onProgress?: (update: string) => Promise<void>
+  onProgress?: (update: string, operationResult?: { type: string; data: any }) => Promise<void>
 ): Promise<{ text: string; toolCalls: any[] | null }> {
   const allToolCalls: any[] = [];
   let finalTextContent = '';
@@ -372,7 +372,10 @@ async function handleSequentialTools(
         }
 
         if (onProgress && progressMessage) {
-          await onProgress(progressMessage);
+          await onProgress(progressMessage, {
+            type: operation.operationType,
+            data: result.data
+          });
         }
 
         previousMessages.push({
@@ -416,7 +419,7 @@ export async function sendMessage(
   ontology: Ontology,
   previousMessages: { role: string; content: string }[],
   activeFilters?: Set<'NODE' | 'RELATIONSHIP' | 'NOTE'>,
-  onProgress?: (update: string) => Promise<void>
+  onProgress?: (update: string, operationResult?: { type: string; data: any }) => Promise<void>
 ) {
   try {
     const relevantContext = await getRelevantContext(message, organization, ontology, activeFilters);
