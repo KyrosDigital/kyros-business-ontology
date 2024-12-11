@@ -4,6 +4,8 @@ import { NodeData, OntologyData } from '@/types/graph';
 import { NODE_COLORS } from '@/components/ui/legend';
 import type { EdgeHandlesInstance, EdgeHandlesOptions } from 'cytoscape-edgehandles';
 import type { NodeSingular, LayoutOptions as CytoscapeLayoutOptions } from 'cytoscape';
+import { Node } from '@prisma/client';
+import { NodeWithRelations } from '@/services/ontology';
 
 // Register the edgehandles extension
 cytoscape.use(edgehandles);
@@ -56,7 +58,7 @@ export function initializeGraph(
   data: OntologyData,
   onClose: () => void,
   setSelectedNodeId: (id: string | null) => void,
-  setSelectedNode: (node: NodeData | null) => void,
+  setSelectedNode: (node: Node | null) => void,
   setIsPanelOpen: (isOpen: boolean) => void,
   setSelectedRelationship: (rel: { sourceNode: NodeData; targetNode: NodeData; relationType: string; } | null) => void,
   layout: CytoscapeLayoutOptions,
@@ -344,7 +346,7 @@ export function initializeGraph(
       const nodeData = data.nodes.find(n => n.id === nodeId);
 
       if (nodeData) {
-        const completeNodeData: NodeData = {
+        const completeNodeData: NodeWithRelations = {
           ...nodeData,
           fromRelations: data.relationships
             .filter(rel => rel.fromNodeId === nodeId)

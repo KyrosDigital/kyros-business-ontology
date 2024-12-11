@@ -4,7 +4,7 @@ import type { NodeData, OntologyData, NodeType } from '@/types/graph';
 import { LAYOUT_OPTIONS } from '@/components/ui/layout-select';
 import { useOrganization } from '@/contexts/OrganizationContext';
 
-import { NodeRelationship } from '@prisma/client';
+import { Node, NodeRelationship } from '@prisma/client';
 
 interface GraphContextType {
   // Graph Data
@@ -24,7 +24,7 @@ interface GraphContextType {
   ontologyId: string | null;
 
   // Graph Actions
-  setSelectedNode: (node: NodeData | null) => void;
+  setSelectedNode: (node: Node | null) => void;
   setSelectedType: (type: NodeType | null) => void;
   setSelectedNodeId: (id: string | null) => void;
   setSelectedRelationship: (rel: {
@@ -86,7 +86,7 @@ export function GraphProvider({ children }: GraphProviderProps) {
   // Graph Data State
   const [ontologyData, setOntologyData] = useState<OntologyData | null>(null);
   const [isDataReady, setIsDataReady] = useState(false);
-  const [selectedNode, setSelectedNode] = useState<NodeData | null>(null);
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [selectedType, setSelectedType] = useState<NodeType | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [selectedRelationship, setSelectedRelationship] = useState<{
