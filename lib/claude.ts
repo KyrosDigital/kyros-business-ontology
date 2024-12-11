@@ -50,16 +50,16 @@ const tools: Tool[] = [
                   },
                   description: {
                     type: "string",
-                    description: "A description of the node (optional for create_node)"
+                    description: "A detailed and relevant description of the node"
                   },
                   // For create_relationship
                   fromNodeId: {
                     type: "string",
-                    description: "The ID of the source node (required for create_relationship)."
+                    description: "The ID of the source node (required for create_relationship). Existing nodes from context will be a uuid (e.g. 123e4567-e89b-12d3-a456-426614174000), new nodes will be the order integer (e.g. 1)."
                   },
                   toNodeId: {
                     type: "string",
-                    description: "The ID of the target node (required for create_relationship)."
+                    description: "The ID of the target node (required for create_relationship). Existing nodes from context will be a uuid (e.g. 123e4567-e89b-12d3-a456-426614174000), new nodes will be the order integer (e.g. 1)."
                   },
                   relationType: {
                     type: "string",
@@ -68,7 +68,7 @@ const tools: Tool[] = [
                   // For delete_node_with_strategy
                   nodeId: {
                     type: "string",
-                    description: "The ID of the node to delete (required for delete_node_with_strategy)."
+                    description: "The ID (uuid of the node from context) of the node to delete (required for delete_node_with_strategy)."
                   },
                   strategy: {
                     type: "string",
