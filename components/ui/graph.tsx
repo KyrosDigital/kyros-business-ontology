@@ -102,7 +102,7 @@ export function Graph() {
       !isDataReady || 
       !graphInitializedRef.current || 
       !containerRef.current?.__cy ||
-      !isInitializedRef.current // Skip if not initialized yet
+      !isInitializedRef.current
     ) {
       return;
     }
@@ -111,6 +111,14 @@ export function Graph() {
     const zoom = cy.zoom();
     const pan = cy.pan();
     
+    // If only the layout changed (no data changes), just apply the new layout
+    const elementsChanged = cy.elements().length !== ontologyData.nodes.length + ontologyData.relationships.length;
+    
+    if (!elementsChanged) {
+      cy.layout(currentLayout).run();
+      return;
+    }
+
     cy.batch(() => {
       // Update nodes
       ontologyData.nodes.forEach(node => {
@@ -178,21 +186,16 @@ export function Graph() {
       });
     });
 
-    const elementsChanged = cy.elements().length !== ontologyData.nodes.length + ontologyData.relationships.length;
-    
+    // Apply layout with new data
     if (elementsChanged) {
-      cy.layout({
-        ...currentLayout,
-        animate: false,
-        fit: false
-      }).run();
+      cy.layout(currentLayout).run();
     }
 
     cy.viewport({
       zoom: zoom,
       pan: pan
     });
-  }, [ontologyData, isDataReady]); // These deps now trigger updates after initialization
+  }, [ontologyData, isDataReady, currentLayout]); // Add currentLayout back as dependency
 
   // Handle node filtering based on selected type
   useEffect(() => {
