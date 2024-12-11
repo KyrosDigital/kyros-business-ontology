@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
-import { NodeData, NodeType } from '@/types/graph';
+import { NodeType } from '@/types/graph';
+import { Node } from "@prisma/client";
 
 /**
  * Combines multiple class names or conditional classes using clsx and tailwind-merge.
@@ -31,7 +32,7 @@ export const formatNodeType = (type: NodeType): string => {
  * @param node The node to check for children
  * @returns boolean indicating if the node has children
  */
-export const hasChildren = (node: NodeData | null): boolean => {
+export const hasChildren = (node: Node | null): boolean => {
   if (!node || !node.fromRelations) return false;
   return node.fromRelations.length > 0;
 };

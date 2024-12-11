@@ -4,16 +4,7 @@ import type { NodeData, OntologyData, NodeType } from '@/types/graph';
 import { LAYOUT_OPTIONS } from '@/components/ui/layout-select';
 import { useOrganization } from '@/contexts/OrganizationContext';
 
-// Add these type definitions at the top of the file
-interface NodeRelationship {
-  id: string;
-  fromNodeId: string;
-  toNodeId: string;
-  relationType: string;
-  fromNode: NodeData;
-  toNode: NodeData;
-  vectorId?: string;
-}
+import { NodeRelationship } from '@prisma/client';
 
 interface GraphContextType {
   // Graph Data

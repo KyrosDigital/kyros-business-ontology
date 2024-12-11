@@ -1,5 +1,5 @@
 import { cn, formatNodeType, hasChildren } from './utils';
-import { NodeType } from '@/types/graph';
+import { NodeType } from '@prisma/client';
 
 describe('cn (className merger)', () => {
   test('combines multiple class strings', () => {
@@ -68,8 +68,8 @@ describe('hasChildren', () => {
   test('returns false for node with undefined fromRelations', () => {
     const node = {
       id: '1',
+			name: 'Test Node',
       type: NodeType.ORGANIZATION,
-      label: 'Test Node'
     };
     expect(hasChildren(node)).toBe(false);
   });
@@ -78,7 +78,7 @@ describe('hasChildren', () => {
     const node = {
       id: '1',
       type: NodeType.ORGANIZATION,
-      label: 'Test Node',
+      name: 'Test Node',
       fromRelations: []
     };
     expect(hasChildren(node)).toBe(false);
@@ -88,7 +88,7 @@ describe('hasChildren', () => {
     const node = {
       id: '1',
       type: NodeType.ORGANIZATION,
-      label: 'Test Node',
+      name: 'Test Node',
       fromRelations: [
         {
           id: '2',
