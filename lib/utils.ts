@@ -1,7 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { NodeData, NodeType } from '@/types/graph';
-import { Node } from "@prisma/client";
 
 /**
  * Combines multiple class names or conditional classes using clsx and tailwind-merge.
