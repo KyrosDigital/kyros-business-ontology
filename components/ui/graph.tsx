@@ -23,6 +23,7 @@ export function Graph() {
     setIsPanelOpen,
     setSelectedRelationship,
     handleCreateRelationship,
+    viewMode,
   } = useGraph();
 
   const handleZoomIn = () => {
@@ -56,7 +57,7 @@ export function Graph() {
       ontologyData.nodes.length > 0 &&
       containerRef.current.offsetWidth > 0 &&
       containerRef.current.offsetHeight > 0 &&
-      !isInitializedRef.current // Only initialize if not already done
+      (!isInitializedRef.current || viewMode === 'graph')
     ) {
       try {
         // Clean up previous instance if it exists
@@ -87,13 +88,13 @@ export function Graph() {
 
         if (containerRef.current.__cy) {
           graphInitializedRef.current = true;
-          isInitializedRef.current = true; // Mark as initialized
+          isInitializedRef.current = true;
         }
       } catch (error) {
         console.error('Graph initialization error:', error);
       }
     }
-  }, [ontologyData, isDataReady]); // Keep these deps for initial load
+  }, [ontologyData, isDataReady, viewMode]);
 
   // Handle data updates after initialization
   useEffect(() => {
