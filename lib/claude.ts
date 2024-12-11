@@ -15,70 +15,74 @@ const anthropic = new Anthropic({
 // Define tool schemas
 const tools: Tool[] = [
   {
-    name: 'create_node',
-    description: "Creates a new node in the graph. It should be used when the user wants to create a new node in the ontology graph. Nodes represent entities like departments, roles, processes, etc.",
+    name: 'create_plan',
+    description: "Creates a sequential plan of operations to modify the ontology graph. Each operation in the sequence will be executed in order. When creating relationships, the fromNodeId and toNodeId must be either a uuid from context or a unique number. Return the operations array directly, not nested under properties.",
     input_schema: {
       type: "object",
       properties: {
-        type: {
-          type: "string",
-          enum: Object.values(NodeType),
-          description: "The type of node to create (e.g., DEPARTMENT, ROLE, PROCESS)"
-        },
-        name: {
-          type: "string",
-          description: "The name of the node (should be clear and professional)"
-        },
-        description: {
-          type: "string",
-          description: "A concise description of the node's purpose or function"
+        operations: {
+          type: "array",
+          description: "Array of sequential operations to perform. This should be a direct array, not nested under properties.",
+          items: {
+            type: "object",
+            properties: {
+              operationType: {
+                type: "string",
+                enum: ["create_node", "create_relationship", "delete_node_with_strategy"],
+                description: "The type of operation to perform"
+              },
+              order: {
+                type: "integer",
+                description: "The order in which this operation should be executed (1-based)"
+              },
+              params: {
+                type: "object",
+                properties: {
+                  // For create_node
+                  type: {
+                    type: "string",
+                    enum: Object.values(NodeType),
+                    description: "The type of node to create (required for create_node)"
+                  },
+                  name: {
+                    type: "string",
+                    description: "The name of the node (required for create_node)"
+                  },
+                  description: {
+                    type: "string",
+                    description: "A description of the node (optional for create_node)"
+                  },
+                  // For create_relationship
+                  fromNodeId: {
+                    type: "string",
+                    description: "The ID of the source node (required for create_relationship)."
+                  },
+                  toNodeId: {
+                    type: "string",
+                    description: "The ID of the target node (required for create_relationship)."
+                  },
+                  relationType: {
+                    type: "string",
+                    description: "The type of relationship (required for create_relationship)"
+                  },
+                  // For delete_node_with_strategy
+                  nodeId: {
+                    type: "string",
+                    description: "The ID of the node to delete (required for delete_node_with_strategy)."
+                  },
+                  strategy: {
+                    type: "string",
+                    enum: ["orphan", "cascade", "reconnect"],
+                    description: "The deletion strategy (required for delete_node_with_strategy)"
+                  }
+                }
+              }
+            },
+            required: ["operationType", "order", "params"]
+          }
         }
       },
-      required: ["type", "name"]
-    }
-  },
-  {
-    name: 'create_relationship',
-    description: "Creates a relationship between two existing nodes. It should be used when the user wants to create a relationship or connection between two nodes in the ontology graph.",
-    input_schema: {
-      type: "object",
-      properties: {
-        fromNodeId: {
-          type: "string",
-          description: "The ID of the source node"
-        },
-        toNodeId: {
-          type: "string",
-          description: "The ID of the target node"
-        },
-        relationType: {
-          type: "string",
-          description: "The type of relationship (e.g., 'Uses', 'Reports to', 'Manages', 'Has')"
-        }
-      },
-      required: ["fromNodeId", "toNodeId", "relationType"]
-    }
-  },
-  {
-    name: 'delete_node_with_strategy',
-    description: "Deletes a node from the graph using a specified strategy. Use this when you need to remove a node while handling its relationships in a specific way.",
-    input_schema: {
-      type: "object",
-      properties: {
-        nodeId: {
-          type: "string",
-          description: "The ID of the node to delete"
-        },
-        strategy: {
-          type: "string",
-          enum: ["orphan", "cascade", "reconnect"],
-          description: `The strategy to use when deleting:
-            - orphan: Simply deletes the node and its relationships
-            - cascade: Deletes the node and all its descendants
-            - reconnect: Deletes the node and connects its children to its parent`
-        }
-      },
-      required: ["nodeId", "strategy"]
+      required: ["operations"]
     }
   }
 ];
@@ -253,144 +257,169 @@ async function handleSequentialTools(
   previousMessages: { role: string; content: string }[],
   onProgress?: (update: string) => Promise<void>
 ): Promise<{ text: string; toolCalls: any[] | null }> {
-  let currentResponse = initialResponse;
   const allToolCalls: any[] = [];
   let finalTextContent = '';
   const createdNodes: Record<string, string> = {};
-  const existingRelationships = new Set<string>();
-  let toolCallCount = 0;
-  const MAX_TOOL_CALLS = 10;
 
-  // Extract existing relationships from the context
-  const contextMessages = previousMessages.find(msg => 
-    msg.role === 'assistant' && msg.content.includes('## Relationships')
-  );
-
-  if (contextMessages) {
-    // Parse existing relationships from context
-    const relationships = contextMessages.content
-      .split('\n')
-      .filter(line => line.includes('"type":"RELATIONSHIP"'))
-      .map(line => {
-        try {
-          const rel = JSON.parse(line);
-          return `${rel.fromNodeId}:${rel.toNodeId}:${rel.relationType}`;
-        } catch (e) {
-          console.error('Error parsing relationship:', e);
-          return null;
-        }
-      })
-      .filter(Boolean);
-
-    // Add to Set for O(1) lookup
-    relationships.forEach(rel => existingRelationships.add(rel));
-  }
-
-  while (currentResponse.stop_reason === 'tool_use' && toolCallCount < MAX_TOOL_CALLS) {
-    toolCallCount++;
-    
-    const toolCalls = currentResponse.content
-      .filter(block => block.type === 'tool_use')
-      .map(block => ({
-        tool: block.name,
-        input: block.input
-      }));
-
-    const currentTextContent = currentResponse.content
-      .filter(block => block.type === 'text')
-      .map(block => (block as MessageContentText).text)
-      .join('\n');
-
-    if (currentTextContent.trim()) {
-      previousMessages.push({ 
-        role: 'user', 
-        content: `Tool execution result: ${currentTextContent}`
-      });
-    }
-
-    // Execute each tool call and collect results
-    for (const call of toolCalls) {
-      if (call.tool === 'create_relationship') {
-        const input = call.input.properties || call.input;
-        const relationshipKey = `${input.fromNodeId}:${input.toNodeId}:${input.relationType}`;
-
-        // Skip if relationship already exists
-        if (existingRelationships.has(relationshipKey)) {
-          //console.log(`Skipping duplicate relationship: ${relationshipKey}`);
-          
-          // Add message about skipped relationship to inform Claude
-          previousMessages.push({ 
-            role: 'user', 
-            content: `Note: Skipped creating relationship "${input.relationType}" between nodes because it already exists.`
-          });
-          
-          continue;
-        }
-
-        const result = await executeToolCall(call.tool, input, organization, ontology);
-        
-        if (result.success) {
-          existingRelationships.add(relationshipKey);
-          allToolCalls.push(call);
-          
-          const toolMessage = `Successfully created relationship of type "${input.relationType}" between the nodes`;
-          previousMessages.push({ 
-            role: 'user', 
-            content: `Tool result: ${toolMessage}`
-          });
-
-          if (onProgress) {
-            await onProgress(toolMessage);
-          }
-        }
-      } else {
-        // Handle other tool calls (create_node, delete_node_with_strategy)
-        const result = await executeToolCall(call.tool, call.input, organization, ontology);
-        if (result.success) {
-          allToolCalls.push(call);
-          
-          let toolMessage = 'Operation completed successfully';
-          if (call.tool === 'create_node') {
-            const node = result.data as NodeWithRelations;
-            toolMessage = `Successfully created ${node.type.toLowerCase()} node "${node.name}"`;
-          }
-          
-          previousMessages.push({ 
-            role: 'user', 
-            content: `Tool result: ${toolMessage}`
-          });
-
-          if (onProgress) {
-            await onProgress(toolMessage);
-          }
-        }
-      }
-    }
-
-    // Continue with next Claude call
-    if (toolCallCount < MAX_TOOL_CALLS) {
-      currentResponse = await anthropic.messages.create({
-        model: 'claude-3-sonnet-20240229',
-        max_tokens: 1024,
-        messages: previousMessages.map(msg => ({
-          role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
-          content: msg.content
-        })),
-        tools
-      });
-
-			console.log("CURRENT RESPONSE", currentResponse)
-
-			console.log("CURRENT RESPONSE TOOL CALLS", currentResponse.content.filter(block => block.type === 'tool_use'))
-    }
-  }
-
-  // Add final response
-  const textBlocks = currentResponse.content
+  // Extract text content from initial response
+  const textBlocks = initialResponse.content
     .filter(block => block.type === 'text')
     .map(block => (block as MessageContentText).text);
   
   finalTextContent = textBlocks.join('\n');
+
+  // Get the plan from the tool use block
+  const planBlock = initialResponse.content.find(block => 
+    block.type === 'tool_use' && block.name === 'create_plan'
+  );
+
+  if (!planBlock) {
+    return {
+      text: finalTextContent,
+      toolCalls: null
+    };
+  }
+
+  // Normalize the input structure
+  const operations = (() => {
+    // Handle direct operations array
+    if (planBlock.input?.operations) {
+      return [...planBlock.input.operations];
+    }
+    // Handle nested properties structure
+    if (planBlock.input?.properties?.operations) {
+      return [...planBlock.input.properties.operations];
+    }
+    console.warn('Invalid plan structure:', planBlock.input);
+    return null;
+  })();
+
+  if (!operations) {
+    return {
+      text: finalTextContent,
+      toolCalls: null
+    };
+  }
+
+  // Sort operations by order
+  const sortedOperations = operations.sort((a, b) => a.order - b.order);
+
+  // Log the normalized plan for debugging
+  console.log("\nNORMALIZED PLAN OPERATIONS:");
+  sortedOperations.forEach((operation: any, index: number) => {
+    console.log(`\nOperation ${index + 1}:`);
+    console.log(`Type: ${operation.operationType}`);
+    console.log(`Order: ${operation.order}`);
+    console.log("Parameters:", operation.params);
+  });
+
+  // Function to store node ID
+  const storeNodeId = (nodeName: string, nodeId: string, order: number) => {
+    // Store using the order number as the placeholder key
+    createdNodes[order.toString()] = nodeId;
+    // Also store by node name as fallback
+    createdNodes[nodeName.toLowerCase().replace(/\s+/g, '')] = nodeId;
+  };
+
+  // Function to replace placeholder IDs with actual IDs
+  const replaceNodeId = (placeholder: string): string => {
+    // If it's a valid UUID, assume it's an existing node from context
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(placeholder)) {
+      return placeholder;
+    }
+
+    // If it's a number, treat it as a placeholder for a newly created node
+    if (/^\d+$/.test(placeholder)) {
+      if (createdNodes[placeholder]) {
+        return createdNodes[placeholder];
+      }
+      console.warn(`No node found for placeholder number: ${placeholder}`);
+      return placeholder;
+    }
+
+    // As fallback, try normalized name lookup
+    const normalizedPlaceholder = placeholder.toLowerCase().replace(/\s+/g, '');
+    if (createdNodes[normalizedPlaceholder]) {
+      return createdNodes[normalizedPlaceholder];
+    }
+
+    console.warn(`Could not find matching ID for placeholder: ${placeholder}`);
+    return placeholder;
+  };
+
+  // Execute each operation in sequence
+  for (const operation of sortedOperations) {
+    try {
+      // For relationship operations, replace placeholder IDs before execution
+      if (operation.operationType === 'create_relationship') {
+        operation.params.fromNodeId = replaceNodeId(operation.params.fromNodeId);
+        operation.params.toNodeId = replaceNodeId(operation.params.toNodeId);
+      }
+
+      const result = await executeToolCall(
+        operation.operationType,
+        operation.params,
+        organization,
+        ontology
+      );
+
+      if (result.success) {
+        allToolCalls.push({
+          tool: operation.operationType,
+          input: operation.params
+        });
+
+        // Store created node IDs with their operation order
+        if (operation.operationType === 'create_node' && result.data) {
+          const node = result.data as NodeWithRelations;
+          storeNodeId(node.name, node.id, operation.order);
+        }
+
+        let progressMessage = '';
+        switch (operation.operationType) {
+          case 'create_node':
+            progressMessage = `Created ${operation.params.type.toLowerCase()} "${operation.params.name}"`;
+            break;
+          case 'create_relationship':
+            progressMessage = `Created relationship "${operation.params.relationType}" between nodes`;
+            break;
+          case 'delete_node_with_strategy':
+            progressMessage = `Deleted node using ${operation.params.strategy} strategy`;
+            break;
+        }
+
+        if (onProgress && progressMessage) {
+          await onProgress(progressMessage);
+        }
+
+        previousMessages.push({
+          role: 'user',
+          content: `Tool result: ${progressMessage}`
+        });
+      }
+    } catch (error) {
+      console.error(`Error executing operation:`, operation, error);
+      throw error;
+    }
+  }
+
+  // Get final response from Claude if needed
+  const finalResponse = await anthropic.messages.create({
+    model: 'claude-3-sonnet-20240229',
+    max_tokens: 4000,
+    messages: previousMessages.map(msg => ({
+      role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
+      content: msg.content
+    })),
+    tools
+  });
+
+  // Add any additional text content from final response
+  const finalTextBlocks = finalResponse.content
+    .filter(block => block.type === 'text')
+    .map(block => (block as MessageContentText).text);
+  
+  finalTextContent += '\n' + finalTextBlocks.join('\n');
 
   return {
     text: finalTextContent || "Changes have been applied successfully.",
@@ -426,13 +455,6 @@ export async function sendMessage(
     - You have a strong understanding of the domain of the ontology and the terminology used in the ontology.
     - You are able to understand the user's prompt and the context of the ontology to provide insightful and actionable responses.
 
-    Tool Usage Guidelines:
-    - If a user asks you to create a new node (organization, department, role, process, etc.), you should use the create_node tool.
-    - If a user asks you to connect nodes or create a relationship, you should use the create_relationship tool.
-    - If a user asks you to create a new node, then connect it to another node, you should first use the create_node tool, then use the create_relationship tool.
-    - If a user asks you to create multiple nodes and relationships (example: "Create an organization with departments A, B, and C, with department A reporting to department B, and department C reporting to department B"), you should first use the create_node tool for each node, then use the create_relationship tool for each relationship.
-		- If a user asks you to delete a node, ensure they provided an associated strategy. If they did not, ask for clarification and inform them what the options are, and what each option does.
-
     When responding:
     1. Always use markdown formatting for your responses
     - Use headers (##) for main sections
@@ -448,20 +470,17 @@ export async function sendMessage(
       - Finally, summarize the proposed changes
 
     Available Tools:
-    1. create_node: Create a new node
-       - Required: type (${Object.values(NodeType).join(', ')}), name
-   - Optional: description
-   - Example: Creating a Marketing department node
-
-    2. create_relationship: Connect nodes
-       - Required: fromNodeId, toNodeId, relationType
-       - Common relationships: "Uses", "Report to", "Manages"
-       - Example: Connecting Marketing to CEO with "Reports To"
-
-    3. delete_node_with_strategy: Delete a node
-       - Required: nodeId, strategy
-       - Strategies: "orphan", "cascade", "reconnect"
-       - Example: Deleting Marketing department node with "cascade" strategy
+    1. create_plan: Create a sequential plan of operations
+       - Required: operations (array of operations)
+       - Each operation requires:
+         * operationType: "create_node", "create_relationship", or "delete_node_with_strategy"
+         * order: integer indicating execution order (1-based)
+         * params: object containing parameters specific to the operation type
+       - Operation-specific parameters:
+         * For create_node: type (${Object.values(NodeType).join(', ')}), name, description (optional)
+         * For create_relationship: fromNodeId, toNodeId, relationType
+         * For delete_node_with_strategy: nodeId, strategy ("orphan", "cascade", "reconnect")
+				 * fromNodeId and toNodeId must be either a uuid from context or a unique number 
 
     Guidelines:
     - Use clear, professional names for nodes
@@ -471,10 +490,10 @@ export async function sendMessage(
     - If context provided lacks required information, ask for clarification before using a tool.
     - Explain your reasoning before making changes
     - Do not fabricate information
-    - Do not include ID's in your final response
 
 		Common Mistakes to avoid:
-		- Relationships to Nodes have unique contraints, in that fromNodeId, toNodeId, and relationType must be unique. (you cannot have duplicate relationships between the same two nodes)
+		- Relationships to Nodes have unique constraints, in that fromNodeId, toNodeId, and relationType must be unique. (you cannot have duplicate relationships between the same two nodes)
+		- 
 
 ${contextPrompt}
 
@@ -493,7 +512,7 @@ ${contextPrompt}
 
     const initialResponse = await anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',
-      max_tokens: 1024,
+      max_tokens: 4000,
       messages,
       tools
     });
@@ -501,9 +520,22 @@ ${contextPrompt}
     console.log("INITIAL RESPONSE", initialResponse)
     initialResponse.content.forEach(block => {
       if (block.type === 'tool_use') {
-        console.log("TOOL INPUT", block.input)
+        console.log("TOOL INPUT", block.input);
+        // Handle both direct and nested operations structure
+        const operations = block.input?.operations || block.input?.properties?.operations;
+        if (operations) {
+          console.log("\nPLAN OPERATIONS:");
+          operations.forEach((operation: any, index: number) => {
+            console.log(`\nOperation ${index + 1}:`);
+            console.log(`Type: ${operation.operationType}`);
+            console.log(`Order: ${operation.order}`);
+            console.log("Parameters:", operation.params);
+          });
+        } else {
+          console.warn("Unexpected tool input structure:", block.input);
+        }
       }
-    })
+    });
 
     // If the response indicates tool use, handle it sequentially
     if (initialResponse.stop_reason === 'tool_use') {
