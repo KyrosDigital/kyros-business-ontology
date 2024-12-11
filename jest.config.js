@@ -12,6 +12,7 @@ const customJestConfig = {
   moduleNameMapper: {
     // Handle module aliases (if you're using them in your Next.js project)
     '^@/(.*)$': '<rootDir>/src/$1',
+    '@prisma/client': '<rootDir>/node_modules/@prisma/client'
   },
   testPathIgnorePatterns: ['<rootDir>/node_modules/', '<rootDir>/.next/'],
   collectCoverage: true,

@@ -22,4 +22,15 @@ jest.mock('next/image', () => ({
     // eslint-disable-next-line jsx-a11y/alt-text
     return <img {...props} />
   },
-})) 
+}))
+
+jest.mock('@prisma/client', () => {
+  return {
+    PrismaClient: jest.fn().mockImplementation(() => ({
+      _engineConfig: {
+        activeProvider: 'postgresql',
+        logLevels: ['warn', 'error']
+      }
+    }))
+  };
+}); 
