@@ -94,23 +94,6 @@ interface RelevantContext {
   metadata: VectorMetadata;
 }
 
-interface ExistingRelationship {
-  fromNodeId: string;
-  toNodeId: string;
-  relationType: string;
-}
-
-function isExistingRelationship(
-  relationship: ExistingRelationship,
-  existingRelationships: any[]
-): boolean {
-  return existingRelationships.some(existing => 
-    existing.fromNodeId === relationship.fromNodeId &&
-    existing.toNodeId === relationship.toNodeId &&
-    existing.relationType === relationship.relationType
-  );
-}
-
 /**
  * Get relevant context from Pinecone based on query embedding
  */
@@ -485,7 +468,7 @@ export async function sendMessage(
     Guidelines:
     - Use clear, professional names for nodes
     - Write concise but informative descriptions
-    - Choose appropriate relationship types
+    - Choose appropriate and relevant relationship types (Has, Implements, Manages, Proceeds, etc.)
     - If uncertain, ask for clarification
     - If context provided lacks required information, ask for clarification before using a tool.
     - Explain your reasoning before making changes
