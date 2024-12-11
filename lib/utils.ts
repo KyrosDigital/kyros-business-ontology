@@ -2,23 +2,17 @@ import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import { NodeData, NodeType } from '@/types/graph';
 
+/**
+ * Combines multiple class names or conditional classes using clsx and tailwind-merge.
+ * This utility helps merge Tailwind CSS classes safely while handling conflicts.
+ * @param inputs - Array of class values, objects, or conditional classes
+ * @returns Merged className string with resolved Tailwind conflicts
+ * @example
+ * cn('px-2 bg-red', {'text-blue': true, 'text-red': false}, 'py-4')
+ * // Returns: 'px-2 bg-red text-blue py-4'
+ */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
-}
-
-export function getRelationshipType(type: string) {
-  switch(type) {
-    case 'Department': return 'has department';
-    case 'Role': return 'has role';
-    case 'Process': return 'has process';
-    case 'Task': return 'has task';
-    case 'Integration': return 'integrates';
-    case 'DataSource': return 'uses';
-    case 'AIComponent': return 'implements';
-    case 'Analytics': return 'analyzes';
-    case 'SoftwareTool': return 'uses tool';
-    default: return 'connects to';
-  }
 }
 
 export const graphColors = {
