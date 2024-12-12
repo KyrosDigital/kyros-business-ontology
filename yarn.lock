@@ -1534,6 +1534,13 @@
   dependencies:
     "@types/cytoscape" "*"
 
+"@types/cytoscape-edgehandles@^4.0.4":
+  version "4.0.4"
+  resolved "https://registry.yarnpkg.com/@types/cytoscape-edgehandles/-/cytoscape-edgehandles-4.0.4.tgz#c29d8dee6104a7ce14dfbf481aacd8937b803265"
+  integrity sha512-e88HA5fpRxISQ/x8MbRDIDcTc0fLfFZSF0NmHHsTdtCWscWbv+Ty9oYizVXGDqpkKCx2FUdEK60WTf6eauSkMg==
+  dependencies:
+    "@types/cytoscape" "*"
+
 "@types/cytoscape-klay@^3.1.4":
   version "3.1.4"
   resolved "https://registry.yarnpkg.com/@types/cytoscape-klay/-/cytoscape-klay-3.1.4.tgz#809fe7ee75642132be3df53f22a9cbd1fcbf9225"
@@ -1899,6 +1906,13 @@
   version "18.3.1"
   resolved "https://registry.yarnpkg.com/@types/react-dom/-/react-dom-18.3.1.tgz#1e4654c08a9cdcfb6594c780ac59b55aad42fe07"
   integrity sha512-qW1Mfv8taImTthu4KoXgDfLuk4bydU6Q/TkADnDWWHwi4NX4BR+LWfTp2sVmTqRrsHvyDDTelgelxJ+SsejKKQ==
+  dependencies:
+    "@types/react" "*"
+
+"@types/react-syntax-highlighter@^15.5.13":
+  version "15.5.13"
+  resolved "https://registry.yarnpkg.com/@types/react-syntax-highlighter/-/react-syntax-highlighter-15.5.13.tgz#c5baf62a3219b3bf28d39cfea55d0a49a263d1f2"
+  integrity sha512-uLGJ87j6Sz8UaBAooU0T6lWJ0dBmjZgN1PZTrj05TNql2/XpC6+4HhMT5syIdFUUt+FASfCeLLv4kBygNU+8qA==
   dependencies:
     "@types/react" "*"
 

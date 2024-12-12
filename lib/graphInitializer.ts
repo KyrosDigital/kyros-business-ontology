@@ -2,7 +2,8 @@ import cytoscape from 'cytoscape';
 import edgehandles from 'cytoscape-edgehandles';
 import { NodeData, OntologyData } from '@/types/graph';
 import { NODE_COLORS } from '@/components/ui/legend';
-import type { EdgeHandlesInstance, EdgeHandlesOptions } from 'cytoscape-edgehandles';
+import EdgeHandlesInstance from 'cytoscape-edgehandles';
+import EdgeHandlesOptions from 'cytoscape-edgehandles';
 import type { NodeSingular, LayoutOptions as CytoscapeLayoutOptions } from 'cytoscape';
 import { Node } from '@prisma/client';
 import { NodeWithRelations } from '@/services/ontology';
@@ -14,7 +15,7 @@ declare global {
   interface HTMLDivElement {
     __cy?: cytoscape.Core;
     unlockNodes?: () => void;
-    ehInstance?: EdgeHandlesInstance;
+    ehInstance?: typeof EdgeHandlesInstance;
     filterByNodeType?: (nodeType: string | null) => void;
   }
 }
@@ -277,7 +278,7 @@ export function initializeGraph(
     container.__cy = cy;
 
     // Initialize edge handles
-    const ehOptions: EdgeHandlesOptions = {
+    const ehOptions: typeof EdgeHandlesOptions = {
       snap: true,
       noEdgeEventsInDraw: true,
       disableBrowserGestures: true,
