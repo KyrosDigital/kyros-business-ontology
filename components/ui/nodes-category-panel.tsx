@@ -1,20 +1,18 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { X, Plus, Edit, Trash2, Link as LinkIcon } from "lucide-react";
-import { NodeType } from '@prisma/client';
+import { X, Edit, Trash2, Link as LinkIcon } from "lucide-react";
 import { NodeData, Note } from '@/types/graph';
-import { NODE_TYPES } from '@/components/ui/legend';
+import { useCustomNodeTypes } from '@/contexts/CustomNodeTypeContext';
 
 interface NodesCategoryProps {
   isPanelOpen: boolean;
   selectedNode: NodeData | null;
-  selectedType: NodeType | null;
+  selectedType: string | null;
   nodes: NodeData[];
   onClose: () => void;
   onUpdateNode: (nodeId: string, nodeData: Partial<Omit<NodeData, "id">>) => void;
   onDeleteNode: (nodeId: string) => void;
   onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => void;
-  onCreateNode: (data: { type: NodeType }) => void;
 }
 
 export function NodesCategoryPanel({ 
@@ -26,18 +24,22 @@ export function NodesCategoryPanel({
   onUpdateNode,
   onDeleteNode,
   onCreateRelationship,
-  onCreateNode
 }: NodesCategoryProps) {
+  const { nodeTypes } = useCustomNodeTypes();
+  
   // Filter nodes by selected type
-  const categoryNodes = nodes.filter(node => node.type === selectedType);
+  const categoryNodes = nodes.filter(node => node.typeId === selectedType);
+
+  // Get the current node type details
+  const currentNodeType = nodeTypes.find(nt => nt.id === selectedType);
 
   // Helper function to render metadata
-  const renderMetadata = (metadata: Record<string, any>) => {
+  const renderMetadata = (metadata: Record<string, unknown>) => {
     return Object.entries(metadata).map(([key, value]) => (
       <div key={key} className="text-sm">
         <span className="font-medium">{key}: </span>
         <span className="text-gray-600">
-          {typeof value === 'object' ? JSON.stringify(value) : value.toString()}
+          {typeof value === 'object' ? JSON.stringify(value) : String(value)}
         </span>
       </div>
     ));
@@ -97,7 +99,7 @@ export function NodesCategoryPanel({
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-semibold">
-            {selectedType ? `${NODE_TYPES.find(nt => nt.type === selectedType)?.label}'s` || selectedType : 'Node Details'}
+            {selectedType ? `${currentNodeType?.name || 'Unknown Type'}'s` : 'Node Details'}
           </h2>
           <Button
             variant="ghost"
@@ -113,7 +115,7 @@ export function NodesCategoryPanel({
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-lg font-medium">
-                Total {NODE_TYPES.find(nt => nt.type === selectedType)?.label || selectedType} Nodes: {categoryNodes.length}
+                Total {currentNodeType?.name || 'Unknown Type'} Nodes: {categoryNodes.length}
               </h3>
             </div>
             
@@ -176,7 +178,7 @@ export function NodesCategoryPanel({
 
               {categoryNodes.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  No {selectedType} nodes found
+                  No {currentNodeType?.name || 'matching'} nodes found
                 </div>
               )}
             </div>

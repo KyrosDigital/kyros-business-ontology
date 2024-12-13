@@ -7,3 +7,16 @@
 
 ### Middleware
 - Use import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server' instead of '@clerk/nextjs'
+
+### Code Architecture Patterns
+- Frontend uses contexts, contexts interact with routes, routes utilize services, services interact with prisma. 
+- Services are in the /services directory, contexts are in the /contexts directory, routes are in the /app/api/v1/ directory. 
+
+### clerk
+- access to the auth object with clerk uses '@clerk/nextjs/server'
+- const { userId }: { userId: string | null } = await auth()
+
+### Services
+- Services are in the /services directory, services interact with prisma. 
+- All prisma interactions should be handled by a service. 
+- Services should be named like the prisma model they interact with, but with a Service suffix. 

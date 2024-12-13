@@ -1,11 +1,10 @@
 import cytoscape from 'cytoscape';
 import edgehandles from 'cytoscape-edgehandles';
 import { NodeData, OntologyData } from '@/types/graph';
-import { NODE_COLORS } from '@/components/ui/legend';
 import EdgeHandlesInstance from 'cytoscape-edgehandles';
 import EdgeHandlesOptions from 'cytoscape-edgehandles';
 import type { NodeSingular, LayoutOptions as CytoscapeLayoutOptions } from 'cytoscape';
-import { Node } from '@prisma/client';
+import { Node, CustomNodeType } from '@prisma/client';
 import { NodeWithRelations } from '@/services/ontology';
 
 // Register the edgehandles extension
@@ -20,8 +19,14 @@ declare global {
   }
 }
 
-// Add this helper function at the top of the file
-function detectCircularDependencies(relationships: any[]): boolean {
+// Helper function to get node color
+function getNodeColor(typeId: string, nodeTypes: CustomNodeType[]) {
+  const nodeType = nodeTypes.find(nt => nt.id === typeId);
+  return nodeType?.hexColor || '#cccccc';
+}
+
+// Helper function to detect circular dependencies
+function detectCircularDependencies(relationships: Array<{ fromNodeId: string; toNodeId: string }>): boolean {
   const graph: Record<string, string[]> = {};
   
   // Build adjacency list
@@ -63,7 +68,8 @@ export function initializeGraph(
   setIsPanelOpen: (isOpen: boolean) => void,
   setSelectedRelationship: (rel: { sourceNode: NodeData; targetNode: NodeData; relationType: string; } | null) => void,
   layout: CytoscapeLayoutOptions,
-  onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => Promise<void>
+  onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => Promise<void>,
+  nodeTypes: CustomNodeType[]
 ): () => void {
   // Validate input data
   if (!container || !data.nodes || !data.relationships) {
@@ -84,7 +90,7 @@ export function initializeGraph(
     nodes: data.nodes.map(node => ({
       data: {
         id: node.id,
-        type: node.type,
+        typeId: node.typeId,
         name: node.name,
       }
     })),
@@ -123,8 +129,8 @@ export function initializeGraph(
           selector: 'node',
           style: {
             'background-color': (ele) => {
-              const nodeType = ele.data('type') as keyof typeof NODE_COLORS;
-              return NODE_COLORS[nodeType] || '#cccccc';
+              const typeId = ele.data('typeId');
+              return getNodeColor(typeId, nodeTypes);
             },
             'width': 30,
             'height': 30,
@@ -230,8 +236,8 @@ export function initializeGraph(
             'opacity': 1,
             // Preserve original node appearance
             'background-color': (ele) => {
-              const nodeType = ele.data('type') as keyof typeof NODE_COLORS;
-              return NODE_COLORS[nodeType] || '#cccccc';
+              const typeId = ele.data('typeId');
+              return getNodeColor(typeId, nodeTypes);
             },
             'width': 30,
             'height': 30,
@@ -393,7 +399,7 @@ export function initializeGraph(
         return;
       }
 
-      const matchingNodes = cy.nodes(`[type = "${nodeType}"]`);
+      const matchingNodes = cy.nodes(`[typeId = "${nodeType}"]`);
       const connectedEdges = matchingNodes.connectedEdges();
       
       cy.elements().addClass('faded');

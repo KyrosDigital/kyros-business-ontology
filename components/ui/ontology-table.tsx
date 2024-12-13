@@ -6,9 +6,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { NODE_COLORS, NODE_TYPES } from '@/components/ui/legend';
 import { NodeData, OntologyData } from '@/types/graph';
 import { useGraph } from '@/contexts/GraphContext';
+import { useCustomNodeTypes } from '@/contexts/CustomNodeTypeContext';
+import { Node } from "@prisma/client";
 
 interface OntologyTableProps {
   data: OntologyData;
@@ -21,11 +22,11 @@ export function OntologyTable({ data }: OntologyTableProps) {
     setIsPanelOpen,
     selectedNodeId
   } = useGraph();
+  const { nodeTypes } = useCustomNodeTypes();
 
-  // Helper function to get the label for a node type
-  const getNodeTypeLabel = (type: string): string => {
-    const nodeType = NODE_TYPES.find(nt => nt.type === type);
-    return nodeType?.label || type;
+  // Helper function to get node type details
+  const getNodeType = (typeId: string) => {
+    return nodeTypes.find(nt => nt.id === typeId);
   };
 
   // Helper function to format relationships
@@ -49,7 +50,7 @@ export function OntologyTable({ data }: OntologyTableProps) {
     return relationships.join('\n');
   };
 
-  const handleRowClick = (node: NodeData) => {
+  const handleRowClick = (node: Node) => {
     setSelectedNode(node);
     setSelectedNodeId(node.id);
     setIsPanelOpen(true);
@@ -68,44 +69,47 @@ export function OntologyTable({ data }: OntologyTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data.nodes.map((node) => (
-              <TableRow 
-                key={node.id}
-                className={`
-                  cursor-pointer 
-                  transition-colors
-                  ${selectedNodeId === node.id 
-                    ? 'bg-gray-200 hover:bg-gray-300' 
-                    : 'hover:bg-gray-100'
-                  }
-                `}
-                onClick={() => handleRowClick(node)}
-              >
-                <TableCell className="font-medium">{node.name}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="w-3 h-3 rounded-sm inline-block"
-                      style={{ 
-                        backgroundColor: NODE_COLORS[node.type] || '#cccccc',
-                      }}
-                    />
-                    <span>{getNodeTypeLabel(node.type)}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-sm text-gray-600">
-                  {node.description || '-'}
-                </TableCell>
-                <TableCell className="text-sm">
-                  <div className="whitespace-pre-line">
-                    {formatRelationships(node) || '-'}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+            {data.nodes.map((node) => {
+              const nodeType = getNodeType(node.typeId);
+              return (
+                <TableRow 
+                  key={node.id}
+                  className={`
+                    cursor-pointer 
+                    transition-colors
+                    ${selectedNodeId === node.id 
+                      ? 'bg-gray-200 hover:bg-gray-300' 
+                      : 'hover:bg-gray-100'
+                    }
+                  `}
+                  onClick={() => handleRowClick(node)}
+                >
+                  <TableCell className="font-medium">{node.name}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="w-3 h-3 rounded-sm inline-block"
+                        style={{ 
+                          backgroundColor: nodeType?.hexColor || '#cccccc',
+                        }}
+                      />
+                      <span>{nodeType?.name || 'Unknown Type'}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-gray-600">
+                    {node.description || '-'}
+                  </TableCell>
+                  <TableCell className="text-sm">
+                    <div className="whitespace-pre-line">
+                      {formatRelationships(node) || '-'}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
     </div>
-  )
+  );
 }

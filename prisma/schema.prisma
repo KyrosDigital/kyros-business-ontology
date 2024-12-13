@@ -29,6 +29,9 @@ model Organization {
   users       User[]
   ontologies  Ontology[]
   
+  // Add this line
+  customNodeTypes CustomNodeType[]
+  
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -87,22 +90,33 @@ model OntologyLink {
   @@map("ontology_links")
 }
 
-enum NodeType {
-  ORGANIZATION
-  DEPARTMENT
-  ROLE
-  PROCESS
-  TASK
-  INTEGRATION
-  SOFTWARE_TOOL
-  DATA_SOURCE
-  ANALYTICS
-  AI_COMPONENT
+model CustomNodeType {
+  id            String    @id @default(uuid())
+  name          String    
+  description   String?
+	hexColor      String
+  isSystem      Boolean   @default(false)  // To distinguish between system-defined and custom types
+  isDeprecated  Boolean   @default(false)  // Instead of deletion, we mark as deprecated
+
+  
+  // Relationship to Organization (each org can have their own custom types)
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  organizationId String
+  
+  // Reference from nodes
+  nodes         Node[]
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([organizationId, name])
+  @@map("custom_node_types")
 }
 
 model Node {
   id            String       @id @default(uuid())
-  type          NodeType
+  type          CustomNodeType @relation(fields: [typeId], references: [id])
+  typeId        String
   name          String
   description   String?
   metadata      Json?

@@ -5,10 +5,9 @@ import { Label } from './label';
 import { Textarea } from './textarea';
 import { Button } from './button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
-import { NodeType } from '@/types/graph';
-import { NODE_TYPES } from './legend';
 import { useGraph } from '@/contexts/GraphContext';
 import { useOrganization } from '@/contexts/OrganizationContext';
+import { useCustomNodeTypes } from '@/contexts/CustomNodeTypeContext';
 
 interface CreateNodeModalProps {
   isOpen: boolean;
@@ -18,14 +17,15 @@ interface CreateNodeModalProps {
 export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
   const { refreshGraph, ontologyId } = useGraph();
   const { organization } = useOrganization();
-  const [nodeType, setNodeType] = useState<NodeType | ''>('');
+  const { nodeTypes, isLoading: isLoadingNodeTypes } = useCustomNodeTypes();
+  const [selectedNodeTypeId, setSelectedNodeTypeId] = useState<string>('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nodeType || !name || !ontologyId || !organization?.id) return;
+    if (!selectedNodeTypeId || !name || !ontologyId || !organization?.id) return;
 
     setIsLoading(true);
     try {
@@ -35,7 +35,7 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          type: nodeType,
+          typeId: selectedNodeTypeId,
           name,
           description: description || undefined,
           ontologyId,
@@ -51,7 +51,7 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
       await refreshGraph();
       onClose();
       // Reset form
-      setNodeType('');
+      setSelectedNodeTypeId('');
       setName('');
       setDescription('');
     } catch (error) {
@@ -74,14 +74,26 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="type">Node Type</Label>
-            <Select value={nodeType} onValueChange={(value) => setNodeType(value as NodeType)}>
+            <Select 
+              value={selectedNodeTypeId} 
+              onValueChange={setSelectedNodeTypeId}
+              disabled={isLoadingNodeTypes}
+            >
               <SelectTrigger>
-                <SelectValue placeholder="Select node type" />
+                <SelectValue placeholder={isLoadingNodeTypes ? "Loading..." : "Select node type"} />
               </SelectTrigger>
               <SelectContent>
-                {NODE_TYPES.map(({ type, label }) => (
-                  <SelectItem key={type} value={type}>
-                    {label}
+                {nodeTypes.map((nodeType) => (
+                  <SelectItem 
+                    key={nodeType.id} 
+                    value={nodeType.id}
+                    className="flex items-center gap-2"
+                  >
+                    <span 
+                      className="w-3 h-3 rounded-sm"
+                      style={{ backgroundColor: nodeType.hexColor }}
+                    />
+                    {nodeType.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -115,7 +127,7 @@ export function CreateNodeModal({ isOpen, onClose }: CreateNodeModalProps) {
             <Button 
               type="submit" 
               className="bg-green-500 hover:bg-green-600"
-              disabled={isLoading || !nodeType || !name || !ontologyId || !organization?.id}
+              disabled={isLoading || !selectedNodeTypeId || !name || !ontologyId || !organization?.id}
             >
               {isLoading ? 'Creating...' : 'Create'}
             </Button>

@@ -1,7 +1,3 @@
-import { NodeType } from '@prisma/client';
-
-export { NodeType };
-
 export interface NodeRelationship {
   id: string;
   fromNodeId: string;
@@ -25,7 +21,7 @@ export interface Note {
 export interface NodeData {
   id: string;
   name: string;
-  type: NodeType;
+  typeId: string;
   description?: string;
   metadata?: Record<string, unknown>;
   notes?: Note[];
@@ -33,7 +29,7 @@ export interface NodeData {
     toNode: {
       id: string;
       name: string;
-      type: NodeType;
+      typeId: string;
       description?: string;
       metadata?: Record<string, unknown>;
     };
@@ -43,7 +39,7 @@ export interface NodeData {
     fromNode: {
       id: string;
       name: string;
-      type: NodeType;
+      typeId: string;
       description?: string;
       metadata?: Record<string, unknown>;
     };

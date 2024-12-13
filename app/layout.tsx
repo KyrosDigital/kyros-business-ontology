@@ -15,6 +15,7 @@ import { LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toaster } from "sonner";
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
+import { CustomNodeTypeProvider } from '@/contexts/CustomNodeTypeContext';
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -46,12 +47,14 @@ export default function RootLayout({
               <UserProvider>
                 <OrganizationProvider>
                   <SubscriptionProvider>
-                    <div className="absolute top-4 right-4 z-50">
-                      <OrganizationSwitcher />
-                      <UserButton afterSignOutUrl="/" />
-                    </div>
-                    {children}
-                    <Toaster richColors position="top-center" />
+                    <CustomNodeTypeProvider>
+                      <div className="absolute top-4 right-4 z-50">
+                        <OrganizationSwitcher />
+                        <UserButton afterSignOutUrl="/" />
+                      </div>
+                      {children}
+                      <Toaster richColors position="top-center" />
+                    </CustomNodeTypeProvider>
                   </SubscriptionProvider>
                 </OrganizationProvider>
               </UserProvider>

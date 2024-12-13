@@ -6,20 +6,20 @@ import { ontologyUsageService } from './ontology-usage'
 
 // Types
 type CreateNodeData = {
-  type: NodeType
-  name: string
-  description?: string
-  metadata?: Prisma.JsonValue
-  organizationId: string
-  ontologyId: string
+  type: string;
+  name: string;
+  description?: string;
+  metadata?: Prisma.JsonValue;
+  organizationId: string;
+  ontologyId: string;
 }
 
 type CreateNoteData = {
-  content: string
-  author: string
-  nodeId: string
-  organizationId: string
-  ontologyId: string
+  content: string;
+  author: string;
+  nodeId: string;
+  organizationId: string;
+  ontologyId: string;
 }
 
 // Default includes for consistent node queries
@@ -1011,16 +1011,31 @@ export async function createNode(data: CreateNodeData) {
     data.ontologyId
   );
 
+  // Find the CustomNodeType by name
+  const nodeType = await prisma.customNodeType.findFirst({
+    where: {
+      organizationId: data.organizationId,
+      name: data.type,
+      isDeprecated: false
+    }
+  });
+
+  if (!nodeType) {
+    throw new Error(`Node type "${data.type}" not found`);
+  }
+
   const textForEmbedding = generateNodeEmbeddingContent(data);
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
   const createData: Prisma.NodeCreateInput = {
-    type: data.type,
     name: data.name,
     description: data.description,
     metadata: data.metadata || {},
     ontology: {
       connect: { id: data.ontologyId }
+    },
+    type: {
+      connect: { id: nodeType.id }  // Connect to the CustomNodeType
     }
   };
 
