@@ -1,20 +1,27 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { PineconeService, type VectorMetadata } from '@/services/pinecone';
 import { openAIService } from '@/services/openai';
-import { NodeType } from '@prisma/client';
-import type { Organization, Ontology } from '@prisma/client';
+import type { Organization, Ontology, CustomNodeType } from '@prisma/client';
 import { Tool } from '@anthropic-ai/sdk/resources/messages.mjs';
 import { createNode, connectNodes, deleteNodeWithStrategy } from '@/services/ontology';
 import type { NodeWithRelations } from '@/services/ontology';
 import type { Message, MessageContentText } from '@anthropic-ai/sdk';
+import { customNodeTypesService } from '@/services/custom-node-types';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!,
 });
 
+// Get available node types from the database
+async function getAvailableNodeTypes(organizationId: string): Promise<CustomNodeType[]> {
+  return customNodeTypesService.getByOrganization(organizationId);
+}
+
 // Define tool schemas
-const tools: Tool[] = [
-  {
+const createToolSchemas = async (organizationId: string): Promise<Tool[]> => {
+  const nodeTypes = await getAvailableNodeTypes(organizationId);
+  
+  return [{
     name: 'create_plan',
     description: "Creates a sequential plan of operations to modify the ontology graph. Each operation in the sequence will be executed in order. When creating relationships, the fromNodeId and toNodeId must be either a uuid from context or a unique number. Return the operations array directly, not nested under properties.",
     input_schema: {
@@ -41,7 +48,7 @@ const tools: Tool[] = [
                   // For create_node
                   type: {
                     type: "string",
-                    enum: Object.values(NodeType),
+                    enum: nodeTypes.map(nt => nt.name),
                     description: "The type of node to create (required for create_node)"
                   },
                   name: {
@@ -84,8 +91,8 @@ const tools: Tool[] = [
       },
       required: ["operations"]
     }
-  }
-];
+  }];
+};
 
 interface RelevantContext {
   type: 'NODE' | 'RELATIONSHIP' | 'NOTE';
@@ -397,7 +404,7 @@ async function handleSequentialTools(
       role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
       content: msg.content
     })),
-    tools
+    tools: await createToolSchemas(organization.id)
   });
 
   // Add any additional text content from final response
@@ -419,17 +426,22 @@ export async function sendMessage(
   ontology: Ontology,
   previousMessages: { role: string; content: string }[],
   activeFilters?: Set<'NODE' | 'RELATIONSHIP' | 'NOTE'>,
-  onProgress?: (update: string, operationResult?: { type: string; data: any }) => Promise<void>
+  onProgress?: (update: string, operationResult?: { type: string; data: unknown }) => Promise<void>
 ) {
   try {
+    const tools = await createToolSchemas(organization.id);
     const relevantContext = await getRelevantContext(message, organization, ontology, activeFilters);
     const contextPrompt = formatContextForPrompt(relevantContext);
+    const nodeTypes = await getAvailableNodeTypes(organization.id);
 
     const systemPrompt = `You are an AI assistant helping users understand, improve, and modify their business structure and processes. 
     Users will ask you questions pertaining to the knowledge graph they see. The knowledge graph represents an ontology the user has created.
     Ontologies are used to describe the structure of an organization, including its departments, roles, processes, and the relationships between them.
     Users in this application are able to document an ontology by adding nodes and relationships to the graph.
     Nodes represent entities like departments, roles, processes, etc. Relationships represent connections between nodes.
+    
+    Available Node Types:
+    ${nodeTypes.map(nt => `- ${nt.name} (${nt.description || 'No description'})`).join('\n')}
     
     Your Purpose: 
     - (Insights): To help the user better understand the ontology and the relationships between the nodes.
@@ -463,7 +475,7 @@ export async function sendMessage(
          * order: integer indicating execution order (1-based)
          * params: object containing parameters specific to the operation type
        - Operation-specific parameters:
-         * For create_node: type (${Object.values(NodeType).join(', ')}), name, description (optional)
+         * For create_node: type (${nodeTypes.map(nt => nt.name).join(', ')}), name, description (optional)
          * For create_relationship: fromNodeId, toNodeId, relationType
          * For delete_node_with_strategy: nodeId, strategy ("orphan", "cascade", "reconnect")
 				 * fromNodeId and toNodeId must be either a uuid from context or a unique number 
