@@ -8,6 +8,7 @@ import {
   Settings,
   Users,
   Zap,
+  Shapes,
 } from "lucide-react";
 import { useSubscription } from "@/contexts/SubscriptionContext";
 import { useOrganization } from "@/contexts/OrganizationContext";
@@ -38,6 +39,11 @@ export function DashboardNav({ className, ...props }: SidebarNavProps) {
       title: "Ontologies",
       href: "/dashboard",
       icon: Network,
+    },
+    {
+      title: "Node Types",
+      href: "/dashboard/node-types",
+      icon: Shapes,
     },
     {
       title: "Team",
