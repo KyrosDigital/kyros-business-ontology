@@ -1,6 +1,7 @@
 ### General
 
 - Use yarn instead of npm
+- Use shadcn components
 
 ### Next.js
 - We use /app directory instead of /src
