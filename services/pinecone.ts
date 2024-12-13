@@ -1,5 +1,5 @@
 import { Pinecone, PineconeRecord } from '@pinecone-database/pinecone';
-import { NodeType, Organization, Ontology } from '@prisma/client';
+import { NodeType, Organization, Ontology, CustomNodeType } from '@prisma/client';
 import { NodeWithRelations } from './ontology';
 
 // Define metadata types that conform to RecordMetadata constraints
@@ -120,7 +120,7 @@ export class PineconeService {
     const metadata: NodeMetadata = {
       type: 'NODE',
       id: nodeId,
-      nodeType: node.type,
+      nodeType: node.type.name,
       name: node.name,
       content,
       ontologyId: node.ontologyId
@@ -139,8 +139,8 @@ export class PineconeService {
   async upsertRelationshipVector(
     relationshipId: string,
     vector: number[],
-    fromNode: { id: string; type: NodeType; name: string },
-    toNode: { id: string; type: NodeType; name: string },
+    fromNode: { id: string; type: CustomNodeType["name"]; name: string },
+    toNode: { id: string; type: CustomNodeType["name"]; name: string },
     relationType: string,
     content: string
   ): Promise<string> {

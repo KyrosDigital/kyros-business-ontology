@@ -1,5 +1,5 @@
 import { prisma } from '../prisma/prisma-client'
-import { NodeType, Prisma, Organization, Ontology } from '@prisma/client'
+import { CustomNodeType, Prisma } from '@prisma/client'
 import { openAIService } from './openai'
 import { createPineconeService } from './pinecone'
 import { ontologyUsageService } from './ontology-usage'
@@ -34,12 +34,13 @@ const defaultIncludes = {
       fromNode: true
     }
   },
+  type: true,
   notes: true
 }
 
 export interface NodeWithRelations {
   id: string;
-  type: NodeType;
+  type: CustomNodeType;
   name: string;
   description?: string | null;
   ontologyId: string;
@@ -49,7 +50,7 @@ export interface NodeWithRelations {
     relationType: string;
     toNode: {
       id: string;
-      type: NodeType;
+      type: CustomNodeType;
       name: string;
     };
   }[];
@@ -58,7 +59,7 @@ export interface NodeWithRelations {
     relationType: string;
     fromNode: {
       id: string;
-      type: NodeType;
+      type: CustomNodeType;
       name: string;
     };
   }[];
@@ -211,12 +212,14 @@ export async function createChildNode(
     const nodeVector = await openAIService.generateEmbedding(nodeTextForEmbedding);
 
     const createData: Prisma.NodeCreateInput = {
-      type: data.type,
       name: data.name,
       description: data.description,
       metadata: data.metadata || {},
       ontology: {
         connect: { id: data.ontologyId }
+      },
+      type: {
+        connect: { id: data.type }
       }
     };
 
@@ -227,6 +230,8 @@ export async function createChildNode(
 
     // Update node count
     await ontologyUsageService.incrementNodeCount(data.organizationId, data.ontologyId);
+
+		console.log('childNode', childNode)
 
     const nodeVectorId = await pineconeService.upsertNodeVector(
       childNode.id,
@@ -281,12 +286,12 @@ export async function createChildNode(
       relationshipVector,
       {
         id: parentNode.id,
-        type: parentNode.type,
+        type: parentNode.type.name,
         name: parentNode.name
       },
       {
         id: childNode.id,
-        type: childNode.type,
+        type: childNode.type.name,
         name: childNode.name
       },
       relationType,
@@ -378,12 +383,12 @@ export async function connectNodes(
     vector,
     {
       id: fromNode.id,
-      type: fromNode.type,
+      type: fromNode.type.name,
       name: fromNode.name
     },
     {
       id: toNode.id,
-      type: toNode.type,
+      type: toNode.type.name,
       name: toNode.name
     },
     relationType,
@@ -716,12 +721,12 @@ export async function deleteNodeWithStrategy(nodeId: string, strategy: 'orphan' 
                 vector,
                 {
                   id: parentRel.fromNode.id,
-                  type: parentRel.fromNode.type,
+                  type: parentRel.fromNode.type.name,
                   name: parentRel.fromNode.name
                 },
                 {
                   id: childRel.toNode.id,
-                  type: childRel.toNode.type,
+                  type: childRel.toNode.type.name,
                   name: childRel.toNode.name
                 },
                 childRel.relationType,
@@ -866,10 +871,16 @@ export async function updateRelationType(
       }
     }),
     prisma.node.findUnique({
-      where: { id: fromNodeId }
+      where: { id: fromNodeId },
+      include: {
+        type: true
+      }
     }),
     prisma.node.findUnique({
-      where: { id: toNodeId }
+      where: { id: toNodeId },
+      include: {
+        type: true
+      }
     })
   ]);
 
@@ -908,12 +919,12 @@ export async function updateRelationType(
     vector,
     {
       id: fromNode.id,
-      type: fromNode.type,
+      type: fromNode.type.name,
       name: fromNode.name
     },
     {
       id: toNode.id,
-      type: toNode.type,
+      type: toNode.type.name,
       name: toNode.name
     },
     newType,
@@ -998,7 +1009,7 @@ export async function deleteRelationship(sourceId: string, targetId: string) {
 
 // Add this with the other type definitions at the top
 export type CreateNodeInput = {
-  type: NodeType
+  type: CustomNodeType
   name: string
   description?: string
   metadata?: Prisma.JsonValue
