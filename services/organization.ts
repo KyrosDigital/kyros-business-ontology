@@ -1,6 +1,7 @@
 import { Organization, PrismaClient } from '@prisma/client';
 import { prisma } from '@/prisma/prisma-client';
 import { PLAN_FEATURES, PLAN_LIMITS, SubscriptionPlan } from '@/types/subscription';
+import { customNodeTypesService } from './custom-node-types';
 
 export interface CreateOrganizationData {
   name: string;
@@ -34,8 +35,11 @@ export class OrganizationService {
           description: data.description,
           pineconeIndex: data.pineconeIndex,
           clerkId: data.clerkId,
-        },
+        }
       });
+
+      // Create default node types
+      await customNodeTypesService.createDefaultTypes(organization.id);
 
       // Create a FREE_TRIAL subscription for the organization
       await tx.subscription.create({
@@ -116,19 +120,6 @@ export class OrganizationService {
             ontologies: true,
           },
         },
-      },
-    });
-  }
-
-  /**
-   * Add a user to an organization
-   */
-  async addUser(organizationId: string, userData: { email: string; name: string }) {
-    return this.prisma.user.create({
-      data: {
-        email: userData.email,
-        name: userData.name,
-        organizationId,
       },
     });
   }

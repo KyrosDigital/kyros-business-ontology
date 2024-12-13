@@ -1,9 +1,9 @@
 import { prisma } from "./prisma-client"
-import { NodeType } from "@prisma/client"
-import { openAIService } from "../services/openai"
-import { PineconeService, createPineconeService } from "../services/pinecone"
-import { generateNodeEmbeddingContent } from "../services/ontology"
-import { Pinecone } from '@pinecone-database/pinecone';
+// import { NodeType } from "@prisma/client"
+// import { openAIService } from "../services/openai"
+// import { PineconeService, createPineconeService } from "../services/pinecone"
+// import { generateNodeEmbeddingContent } from "../services/ontology"
+// import { Pinecone } from '@pinecone-database/pinecone';
 
 // Add helper function to check and delete existing index
 // async function cleanupExistingIndex(indexName: string): Promise<void> {

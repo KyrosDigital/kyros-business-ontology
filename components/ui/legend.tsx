@@ -1,54 +1,21 @@
 import { Card } from '@/components/ui/card';
 import { Switch } from "@/components/ui/switch"
-import { NodeType } from '@prisma/client';
 import { Button } from './button';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { LAYOUT_OPTIONS } from './layout-select'
+import { useCustomNodeTypes } from '@/contexts/CustomNodeTypeContext';
 
 interface LegendProps {
-  selectedType: NodeType | null;
-  onLegendClick: (type: NodeType) => void;
+  selectedType: string | null;
+  onLegendClick: (typeId: string) => void;
   viewMode: 'graph' | 'table';
   onViewModeChange: (checked: boolean) => void;
   setIsCreateModalOpen: (open: boolean) => void;
   onOpenChat: () => void;
-  onLayoutChange: (layoutConfig: any) => void;
+  onLayoutChange: (layoutConfig: Record<string, unknown>) => void;
 }
-
-type NodeTypeConfig = {
-  type: NodeType;
-  color: string;
-  label: string;
-}
-
-// Export the color mapping
-export const NODE_COLORS = {
-  [NodeType.ORGANIZATION]: '#000000',
-  [NodeType.DEPARTMENT]: '#ffcc00',
-  [NodeType.ROLE]: '#ff6600',
-  [NodeType.PROCESS]: '#0066cc',
-  [NodeType.TASK]: '#cc0066',
-  [NodeType.INTEGRATION]: '#9900cc',
-  [NodeType.SOFTWARE_TOOL]: '#00cc99',
-  [NodeType.DATA_SOURCE]: '#ff3333',
-  [NodeType.ANALYTICS]: '#3333ff',
-  [NodeType.AI_COMPONENT]: '#ff99cc',
-} as const;
-
-export const NODE_TYPES: NodeTypeConfig[] = [
-  { type: NodeType.ORGANIZATION, color: NODE_COLORS[NodeType.ORGANIZATION], label: 'Organization' },
-  { type: NodeType.DEPARTMENT, color: NODE_COLORS[NodeType.DEPARTMENT], label: 'Department' },
-  { type: NodeType.ROLE, color: NODE_COLORS[NodeType.ROLE], label: 'Role' },
-  { type: NodeType.PROCESS, color: NODE_COLORS[NodeType.PROCESS], label: 'Process' },
-  { type: NodeType.TASK, color: NODE_COLORS[NodeType.TASK], label: 'Task' },
-  { type: NodeType.INTEGRATION, color: NODE_COLORS[NodeType.INTEGRATION], label: 'Integration' },
-  { type: NodeType.SOFTWARE_TOOL, color: NODE_COLORS[NodeType.SOFTWARE_TOOL], label: 'Software Tool' },
-  { type: NodeType.DATA_SOURCE, color: NODE_COLORS[NodeType.DATA_SOURCE], label: 'Data Source' },
-  { type: NodeType.ANALYTICS, color: NODE_COLORS[NodeType.ANALYTICS], label: 'Analytics' },
-  { type: NodeType.AI_COMPONENT, color: NODE_COLORS[NodeType.AI_COMPONENT], label: 'AI Component' },
-];
 
 export function Legend({ 
   selectedType, 
@@ -60,6 +27,7 @@ export function Legend({
   onLayoutChange
 }: LegendProps) {
   const router = useRouter();
+  const { nodeTypes, isLoading } = useCustomNodeTypes();
 
   return (
     <div className="absolute top-4 left-4 z-20 flex flex-col gap-4">
@@ -74,19 +42,21 @@ export function Legend({
 
       <Card className="bg-white/80 backdrop-blur-sm p-4 rounded-lg border">
         <div className="space-y-2">
-          {NODE_TYPES.map(({ type, color, label }) => (
+          {isLoading ? (
+            <div className="text-sm text-gray-500">Loading node types...</div>
+          ) : nodeTypes.map((nodeType) => (
             <div
-              key={type}
+              key={nodeType.id}
               className={`flex items-center gap-2 p-1 rounded hover:bg-gray-100 cursor-pointer transition-colors duration-200 ${
-                selectedType === type ? 'bg-gray-200 ring-2 ring-gray-400' : ''
+                selectedType === nodeType.id ? 'bg-gray-200 ring-2 ring-gray-400' : ''
               }`}
-              onClick={() => onLegendClick(type)}
+              onClick={() => onLegendClick(nodeType.id)}
             >
               <span
                 className="w-3 h-3 rounded-sm"
-                style={{ backgroundColor: color }}
+                style={{ backgroundColor: nodeType.hexColor }}
               />
-              <span className="text-sm">{label}</span>
+              <span className="text-sm">{nodeType.name}</span>
             </div>
           ))}
         </div>
