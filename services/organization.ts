@@ -1,7 +1,7 @@
 import { Organization, PrismaClient } from '@prisma/client';
 import { prisma } from '@/prisma/prisma-client';
 import { PLAN_FEATURES, PLAN_LIMITS, SubscriptionPlan } from '@/types/subscription';
-import { customNodeTypesService } from './custom-node-types';
+import { DEFAULT_NODE_TYPES } from './custom-node-types';
 
 export interface CreateOrganizationData {
   name: string;
@@ -28,30 +28,39 @@ export class OrganizationService {
    */
   async create(data: CreateOrganizationData): Promise<Organization> {
     return this.prisma.$transaction(async (tx) => {
-      // Create the organization
+      // Create the organization with default node types in the same transaction
       const organization = await tx.organization.create({
         data: {
           name: data.name,
           description: data.description,
           pineconeIndex: data.pineconeIndex,
           clerkId: data.clerkId,
+          // Create default node types inline
+          customNodeTypes: {
+            create: DEFAULT_NODE_TYPES.map(type => ({
+              name: type.name,
+              hexColor: type.hexColor,
+              isSystem: true,
+              description: `System default type for ${type.name}`
+            }))
+          }
+        },
+        include: {
+          customNodeTypes: true
         }
       });
 
-      // Create default node types
-      await customNodeTypesService.createDefaultTypes(organization.id);
-
-      // Create a FREE_TRIAL subscription for the organization
+      // Create subscription
       await tx.subscription.create({
         data: {
           organizationId: organization.id,
           plan: SubscriptionPlan.FREE_TRIAL,
           status: 'ACTIVE',
-          stripeCustomerId: '', // Empty for free trial
-          stripeSubscriptionId: '', // Empty for free trial
-          stripePriceId: '', // Empty for free trial
+          stripeCustomerId: '',
+          stripeSubscriptionId: '',
+          stripePriceId: '',
           currentPeriodStart: new Date(),
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           features: {
             _version: 1,
             ...PLAN_FEATURES[SubscriptionPlan.FREE_TRIAL]
