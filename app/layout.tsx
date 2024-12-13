@@ -49,7 +49,7 @@ export default function RootLayout({
                   <SubscriptionProvider>
                     <CustomNodeTypeProvider>
                       <div className="absolute top-4 right-4 z-50">
-                        <OrganizationSwitcher />
+                        <OrganizationSwitcher hidePersonal={true}/>
                         <UserButton afterSignOutUrl="/" />
                       </div>
                       {children}

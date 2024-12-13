@@ -1,17 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { useSignIn } from '@clerk/clerk-react'
+import { Organization } from '@prisma/client';
 
-interface Organization {
-  id: string;
-  name: string;
-  description?: string;
-  pineconeIndex: string;
-  _count?: {
-    users: number;
-    ontologies: number;
-  };
-}
 
 interface OrganizationContextType {
   organization: Organization | null;
@@ -28,6 +20,14 @@ export function OrganizationProvider({ children }: { children: ReactNode }) {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+	const { isLoaded, setActive } = useSignIn()
+
+	// Set the active organization when the organization is loaded
+	useEffect(() => {
+		if (organization && isLoaded) {
+			setActive({ organization: organization.clerkId })
+		}
+	}, [organization, isLoaded])
 
   const fetchOrganization = async (clerkUserId: string) => {
     if (isLoading || organization) {
