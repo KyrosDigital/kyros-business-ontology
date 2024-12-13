@@ -399,7 +399,7 @@ export function initializeGraph(
         return;
       }
 
-      const matchingNodes = cy.nodes(`[type = "${nodeType}"]`);
+      const matchingNodes = cy.nodes(`[typeId = "${nodeType}"]`);
       const connectedEdges = matchingNodes.connectedEdges();
       
       cy.elements().addClass('faded');
