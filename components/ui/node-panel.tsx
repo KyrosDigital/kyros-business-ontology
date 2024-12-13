@@ -1,15 +1,16 @@
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { X, Plus, Pencil } from "lucide-react";
-import { NodeData, Note, NodeType, DeletionStrategy } from '@/types/graph';
+import { NodeData, Note, DeletionStrategy } from '@/types/graph';
 import { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { NODE_TYPES } from './legend';
 import { AlertDialog, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { formatNodeType, hasChildren } from '@/lib/utils';
+import { hasChildren } from '@/lib/utils';
 import { useOrganization } from '@/contexts/OrganizationContext';
 import { useGraph } from '@/contexts/GraphContext';
+import { useCustomNodeTypes } from '@/contexts/CustomNodeTypeContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 
 interface NodePanelProps {
   isPanelOpen: boolean;
@@ -25,14 +26,14 @@ interface NodePanelProps {
 interface CreateFormData {
   name: string;
   description?: string;
-  type: NodeType | '';
+  typeId: string;
   relationType: string;
 }
 
 interface ConnectedNode {
   id: string;
   name: string;
-  type: string;
+  typeId: string;
   description?: string;
   metadata?: Record<string, unknown>;
   relationType: string;
@@ -40,24 +41,28 @@ interface ConnectedNode {
 }
 
 export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, refreshNode, onNodeUpdate, onDeleteNode }: NodePanelProps) {
+  const { nodeTypes } = useCustomNodeTypes();
   const [noteContent, setNoteContent] = useState('')
   const [isAddingNote, setIsAddingNote] = useState(false)
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedDescription, setEditedDescription] = useState(selectedNode?.description || '');
   const [isEditingType, setIsEditingType] = useState(false);
-  const [editedType, setEditedType] = useState<NodeType>(selectedNode?.type || NodeType.ORGANIZATION);
+  const [editedTypeId, setEditedTypeId] = useState<string>(selectedNode?.typeId || '');
   const [isAlertOpen, setIsAlertOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState<CreateFormData>({
     name: '',
     description: '',
-    type: '',
+    typeId: '',
     relationType: ''
   });
   const [isEditingName, setIsEditingName] = useState(false);
   const [editedName, setEditedName] = useState(selectedNode?.name || '');
   const { organization } = useOrganization();
   const { ontologyId } = useGraph();
+
+  // Get current node type
+  const currentNodeType = nodeTypes.find(nt => nt.id === selectedNode?.typeId);
   
   const getConnectedNodes = () => {
     if (!selectedNode) return [];
@@ -69,7 +74,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
       const outgoingNodes = selectedNode.fromRelations.map((rel) => ({
         id: rel.toNode.id,
         name: rel.toNode.name,
-        type: rel.toNode.type,
+        typeId: rel.toNode.typeId,
         description: rel.toNode.description,
         metadata: rel.toNode.metadata,
         relationType: rel.relationType,
@@ -83,7 +88,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
       const incomingNodes = selectedNode.toRelations.map((rel) => ({
         id: rel.fromNode.id,
         name: rel.fromNode.name,
-        type: rel.fromNode.type,
+        typeId: rel.fromNode.typeId,
         description: rel.fromNode.description,
         metadata: rel.fromNode.metadata,
         relationType: rel.relationType,
@@ -101,10 +106,10 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   };
 
   const handleCreateNode = async () => {
-    if (!formData.name || !formData.type || !formData.relationType) return;
+    if (!formData.name || !formData.typeId || !formData.relationType) return;
 
     onCreateNode({
-      type: formData.type as NodeType,
+      typeId: formData.typeId,
       name: formData.name,
       description: formData.description,
       relationType: formData.relationType
@@ -118,7 +123,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     setFormData({
       name: '',
       description: '',
-      type: '',
+      typeId: '',
       relationType: ''
     });
   };
@@ -168,9 +173,9 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const handleUpdateType = async () => {
     if (!selectedNode) return;
     try {
-      onNodeUpdate(selectedNode.id, { type: editedType });
+      onNodeUpdate(selectedNode.id, { typeId: editedTypeId });
       setIsEditingType(false);
-      setEditedType(editedType);
+      setEditedTypeId(editedTypeId);
     } catch (error) {
       console.error('Error updating type:', error);
     }
@@ -196,10 +201,10 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
     }
   };
 
-  // When the selectedNode changes, update the editedType
+  // When the selectedNode changes, update the editedTypeId
   useEffect(() => {
     if (selectedNode) {
-      setEditedType(selectedNode.type);
+      setEditedTypeId(selectedNode.typeId);
       setEditedName(selectedNode.name);
     }
   }, [selectedNode]);
@@ -356,7 +361,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                   size="sm"
                   onClick={() => {
                     setIsEditingType(true);
-                    setEditedType(selectedNode.type);
+                    setEditedTypeId(selectedNode.typeId);
                   }}
                 >
                   <Pencil className="h-4 w-4" />
@@ -365,17 +370,29 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
             </div>
             {isEditingType ? (
               <div className="mt-2 space-y-2">
-                <select 
-                  className="w-full p-2 border rounded"
-                  value={editedType}
-                  onChange={(e) => setEditedType(e.target.value as NodeType)}
+                <Select
+                  value={editedTypeId}
+                  onValueChange={setEditedTypeId}
                 >
-                  {NODE_TYPES.map((type) => (
-                    <option key={type.type} value={type.type}>
-                      {formatNodeType(type.type)}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select node type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {nodeTypes.map((nodeType) => (
+                      <SelectItem
+                        key={nodeType.id}
+                        value={nodeType.id}
+                        className="flex items-center gap-2"
+                      >
+                        <span
+                          className="w-3 h-3 rounded-sm"
+                          style={{ backgroundColor: nodeType.hexColor }}
+                        />
+                        {nodeType.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <div className="flex space-x-2">
                   <Button
                     size="sm"
@@ -388,7 +405,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                     variant="outline"
                     onClick={() => {
                       setIsEditingType(false);
-                      setEditedType(selectedNode?.type || NodeType.ORGANIZATION);
+                      setEditedTypeId(selectedNode?.typeId || '');
                     }}
                   >
                     Cancel
@@ -396,7 +413,13 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                 </div>
               </div>
             ) : (
-              <p className="mt-1">{selectedNode?.type && formatNodeType(selectedNode.type)}</p>
+              <p className="mt-1">
+                <span
+                  className="inline-block w-3 h-3 rounded-sm mr-2"
+                  style={{ backgroundColor: currentNodeType?.hexColor }}
+                />
+                {currentNodeType?.name || 'Unknown Type'}
+              </p>
             )}
           </div>
 
@@ -527,17 +550,29 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
             
             {isCreating && selectedNode && (
               <div className="mt-4 space-y-4">
-                <select 
-                  className="w-full p-2 border rounded"
-                  value={formData.type}
-                  onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as NodeType }))}
-                  required
+                <Select
+                  value={formData.typeId}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, typeId: value }))}
                 >
-                  <option value="">Select Type</option>
-                  {Object.values(NodeType).map((type) => (
-                    <option key={type} value={type}>{formatNodeType(type)}</option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select node type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {nodeTypes.map((nodeType) => (
+                      <SelectItem
+                        key={nodeType.id}
+                        value={nodeType.id}
+                        className="flex items-center gap-2"
+                      >
+                        <span
+                          className="w-3 h-3 rounded-sm"
+                          style={{ backgroundColor: nodeType.hexColor }}
+                        />
+                        {nodeType.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
                 <Input
                   placeholder="Name"
@@ -562,7 +597,7 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                 <div className="flex space-x-2">
                   <Button 
                     onClick={handleCreateNode}
-                    disabled={!formData.name || !formData.type || !formData.relationType}
+                    disabled={!formData.name || !formData.typeId || !formData.relationType}
                   >
                     Create
                   </Button>
@@ -590,11 +625,11 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
                           <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                             {node.direction === 'outgoing' ? (
                               <>
-                                {node.relationType} {' → '} {formatNodeType(node.type as NodeType)}
+                                {node.relationType} {' → '} {currentNodeType?.name || 'Unknown Type'}
                               </>
                             ) : (
                               <>
-                                {formatNodeType(node.type as NodeType)} {' ← '} {node.relationType}
+                                {currentNodeType?.name || 'Unknown Type'} {' ← '} {node.relationType}
                               </>
                             )}
                           </span>

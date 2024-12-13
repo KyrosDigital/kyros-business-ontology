@@ -5,11 +5,13 @@ import { Button } from '@/components/ui/button';
 import { Download } from "lucide-react";
 import { initializeGraph } from '@/lib/graphInitializer';
 import { useGraph } from '@/contexts/GraphContext';
+import { useCustomNodeTypes } from '@/contexts/CustomNodeTypeContext';
 
 export function Graph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphInitializedRef = useRef(false);
   const isInitializedRef = useRef(false);
+  const { nodeTypes } = useCustomNodeTypes();
   
   const {
     ontologyData,
@@ -83,7 +85,8 @@ export function Graph() {
           setIsPanelOpen,
           setSelectedRelationship,
           currentLayout,
-          handleCreateRelationship
+          handleCreateRelationship,
+          nodeTypes
         );
 
         if (containerRef.current.__cy) {
@@ -94,7 +97,7 @@ export function Graph() {
         console.error('Graph initialization error:', error);
       }
     }
-  }, [ontologyData, isDataReady, viewMode]);
+  }, [ontologyData, isDataReady, viewMode, nodeTypes]);
 
   // Handle data updates after initialization
   useEffect(() => {
