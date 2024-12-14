@@ -97,7 +97,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     const userMessage: ChatMessage = { 
       role: "user", 
       content: attachment 
-        ? `[Attached PDF: ${attachment.name}]\n\n${input}`
+        ? `I have provided text from a PDF file named "${attachment.name}". When analyzing this text, please look for any Nodes and Relationships that could exist in the text that should be added to the graph. Here is the text content:\n\n${attachment.text}\n\nMy question/prompt: ${input}`
         : input 
     }
     setMessages(prev => [...prev, userMessage])
@@ -110,7 +110,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: input,
+          message: userMessage.content,
           previousMessages: messages,
           activeFilters: Array.from(activeFilters),
           organizationId: organization.id,
