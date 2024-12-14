@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { X } from "lucide-react"
+import { X, Paperclip } from "lucide-react"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -18,6 +18,11 @@ type FilterType = 'NODE' | 'RELATIONSHIP' | 'NOTE';
 interface ChatMessage {
   role: "user" | "assistant"
   content: string
+}
+
+interface FileAttachment {
+  name: string;
+  text: string;
 }
 
 interface MarkdownComponentProps {
@@ -70,6 +75,8 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
   const [isResizing, setIsResizing] = useState(false)
   const [resizeDirection, setResizeDirection] = useState<string>('')
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 })
+  const [attachment, setAttachment] = useState<FileAttachment | null>(null)
+  const [isProcessingFile, setIsProcessingFile] = useState(false)
 
   const toggleFilter = (filter: FilterType) => {
     const newFilters = new Set(activeFilters);
@@ -83,10 +90,16 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!input.trim() || isLoading || !organization?.id || !ontologyId) return
+    if (!input.trim() && !attachment) return
+    if (isLoading || !organization?.id || !ontologyId) return
 
     setIsLoading(true)
-    const userMessage: ChatMessage = { role: "user", content: input }
+    const userMessage: ChatMessage = { 
+      role: "user", 
+      content: attachment 
+        ? `[Attached PDF: ${attachment.name}]\n\n${input}`
+        : input 
+    }
     setMessages(prev => [...prev, userMessage])
     setInput("")
 
@@ -101,7 +114,11 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
           previousMessages: messages,
           activeFilters: Array.from(activeFilters),
           organizationId: organization.id,
-          ontologyId
+          ontologyId,
+          attachment: attachment ? {
+            name: attachment.name,
+            text: attachment.text
+          } : null
         }),
       });
 
@@ -296,6 +313,48 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     }
   }, [isResizing])
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (file.type !== 'application/pdf') {
+      alert('Please select a PDF file')
+      e.target.value = '' // Reset input
+      return
+    }
+
+    setIsProcessingFile(true)
+    try {
+      // Create FormData and append file
+      const formData = new FormData()
+      formData.append('file', file)
+
+      // Send file to process-attachment endpoint
+      const response = await fetch('/api/v1/process-attachment', {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to process PDF')
+      }
+
+      const { text, filename } = await response.json()
+      
+      setAttachment({
+        name: filename,
+        text: text
+      })
+    } catch (error) {
+      console.error('Error processing PDF:', error)
+      alert('Error processing PDF file')
+    } finally {
+      setIsProcessingFile(false)
+      e.target.value = '' // Reset input
+    }
+  }
+
   return (
     <div 
       ref={cardRef}
@@ -399,17 +458,50 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
         </CardContent>
         <CardFooter>
           <form onSubmit={handleSubmit} className="flex w-full gap-2">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..."
-              className="flex-1"
-              disabled={isLoading}
-            />
-            <Button type="submit" disabled={isLoading}>
+            <div className="flex-1 flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder={isProcessingFile ? "Processing PDF..." : "Type your message..."}
+                className="flex-1"
+                disabled={isLoading || isProcessingFile}
+              />
+              <div className="relative">
+                <input
+                  type="file"
+                  accept=".pdf"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  id="file-upload"
+                  disabled={isLoading || isProcessingFile}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={isLoading || isProcessingFile}
+                  onClick={() => document.getElementById('file-upload')?.click()}
+                >
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <Button type="submit" disabled={isLoading || isProcessingFile}>
               {isLoading ? "Sending..." : "Send"}
             </Button>
           </form>
+          {attachment && (
+            <div className="absolute bottom-20 left-4 right-4 bg-muted p-2 rounded-md flex justify-between items-center">
+              <span className="text-sm truncate">{attachment.name}</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setAttachment(null)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </CardFooter>
       </Card>
     </div>
