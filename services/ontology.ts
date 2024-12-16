@@ -149,19 +149,6 @@ export async function updateNode(
   );
 
 	return updatedNode
-  // const vectorId = await pineconeService.updateNodeVector(
-  //   nodeId,
-  //   vector,
-  //   updatedNode,
-  //   textForEmbedding
-  // );
-
-  // Finally, update just the vectorId
-  // return prisma.node.update({
-  //   where: { id: nodeId },
-  //   data: { vectorId },
-  //   include: defaultIncludes
-  // });
 }
 
 // Note Operations
@@ -1244,5 +1231,106 @@ export async function deleteOntology(ontologyId: string) {
       error: error instanceof Error ? error.message : 'Failed to delete ontology'
     };
   }
+}
+
+export async function updateRelationship(
+  relationshipId: string,
+  data: {
+    fromNodeId?: string;
+    toNodeId?: string;
+    relationType?: string;
+    organizationId: string;
+    ontologyId: string;
+  }
+) {
+  // Get organization and ontology for pinecone service
+  const { organization, ontology } = await getOrgAndOntology(
+    data.organizationId,
+    data.ontologyId
+  );
+
+  // Find the existing relationship with related nodes
+  const existingRelationship = await prisma.nodeRelationship.findUnique({
+    where: { id: relationshipId },
+    include: {
+      fromNode: {
+        include: { type: true }
+      },
+      toNode: {
+        include: { type: true }
+      }
+    }
+  });
+
+  if (!existingRelationship) {
+    throw new Error('Relationship not found');
+  }
+
+  // If changing nodes, verify they exist
+  let fromNode = existingRelationship.fromNode;
+  let toNode = existingRelationship.toNode;
+
+  if (data.fromNodeId && data.fromNodeId !== existingRelationship.fromNodeId) {
+    const newFromNode = await prisma.node.findUnique({
+      where: { id: data.fromNodeId },
+      include: { type: true }
+    });
+    if (!newFromNode) throw new Error('New fromNode not found');
+    fromNode = newFromNode;
+  }
+
+  if (data.toNodeId && data.toNodeId !== existingRelationship.toNodeId) {
+    const newToNode = await prisma.node.findUnique({
+      where: { id: data.toNodeId },
+      include: { type: true }
+    });
+    if (!newToNode) throw new Error('New toNode not found');
+    toNode = newToNode;
+  }
+
+  // Update the relationship in the database
+  const updatedRelationship = await prisma.nodeRelationship.update({
+    where: { id: relationshipId },
+    data: {
+      fromNodeId: data.fromNodeId || existingRelationship.fromNodeId,
+      toNodeId: data.toNodeId || existingRelationship.toNodeId,
+      relationType: data.relationType || existingRelationship.relationType
+    },
+    include: {
+      fromNode: {
+        include: { type: true }
+      },
+      toNode: {
+        include: { type: true }
+      }
+    }
+  });
+
+  // Create pinecone service
+  const pineconeService = createPineconeService(organization, ontology);
+
+  // Generate new embedding for updated relationship
+  const relationshipText = `${fromNode.name} ${updatedRelationship.relationType} ${toNode.name}`;
+  const vector = await openAIService.generateEmbedding(relationshipText);
+
+  // Update the vector in Pinecone
+  await pineconeService.updateRelationshipVector(
+    relationshipId,
+    vector,
+    {
+      id: fromNode.id,
+      type: fromNode.type.name,
+      name: fromNode.name
+    },
+    {
+      id: toNode.id,
+      type: toNode.type.name,
+      name: toNode.name
+    },
+    updatedRelationship.relationType,
+    relationshipText
+  );
+
+  return updatedRelationship;
 }
 

@@ -3,7 +3,7 @@ import { PineconeService, type VectorMetadata } from '@/services/pinecone';
 import { openAIService } from '@/services/openai';
 import type { Organization, Ontology, CustomNodeType } from '@prisma/client';
 import { Tool } from '@anthropic-ai/sdk/resources/messages.mjs';
-import { createNode, connectNodes, deleteNodeWithStrategy, updateNode, updateRelationType } from '@/services/ontology';
+import { createNode, connectNodes, deleteNodeWithStrategy, updateNode, updateRelationship } from '@/services/ontology';
 import type { NodeWithRelations } from '@/services/ontology';
 import type { Message, MessageContentText } from '@anthropic-ai/sdk';
 import { customNodeTypesService } from '@/services/custom-node-types';
@@ -65,6 +65,10 @@ const createToolSchemas = async (organizationId: string): Promise<Tool[]> => {
                     description: "The ID of the node to update or delete (required for update_node and delete_node_with_strategy)"
                   },
                   // For create_relationship and update_relationship
+                  relationshipId: {
+                    type: "string",
+                    description: "The ID of the relationship to update (required for update_relationship)"
+                  },
                   fromNodeId: {
                     type: "string",
                     description: "The ID of the source node (required for create_relationship and update_relationship). Existing nodes from context will be a uuid (e.g. 123e4567-e89b-12d3-a456-426614174000), new nodes will be the order integer (e.g. 1)."
@@ -227,11 +231,18 @@ async function executeToolCall(
     }
 
     else if (tool === 'update_relationship') {
-      const relationship = await updateRelationType(
-        normalizedInput.fromNodeId,
-        normalizedInput.toNodeId,
-        normalizedInput.relationType
+      const relationship = await updateRelationship(
+        normalizedInput.relationshipId,
+        {
+          fromNodeId: normalizedInput.fromNodeId,
+          toNodeId: normalizedInput.toNodeId,
+          relationType: normalizedInput.relationType,
+          organizationId: organization.id,
+          ontologyId: ontology.id
+        }
       );
+			console.log("tool is update_relationship")
+			console.log("relationship", relationship)
       return { success: true, data: relationship };
     }
 
@@ -514,7 +525,7 @@ export async function sendMessage(
 
 		Common Mistakes to avoid:
 		- Relationships to Nodes have unique constraints, in that fromNodeId, toNodeId, and relationType must be unique. (you cannot have duplicate relationships between the same two nodes)
-		- 
+		- Deleting and then creating relationships is not allowed. Instead, use update_relationship to change the relationType or the connection from one node to another.
 
 ${contextPrompt}
 

@@ -245,6 +245,36 @@ export class PineconeService {
 
     return `node_${nodeId}`;
   }
+
+  async updateRelationshipVector(
+    relationshipId: string,
+    vector: number[],
+    fromNode: { id: string; type: CustomNodeType["name"]; name: string },
+    toNode: { id: string; type: CustomNodeType["name"]; name: string },
+    relationType: string,
+    content: string
+  ): Promise<string> {
+    const metadata: RelationshipMetadata = {
+      type: 'RELATIONSHIP',
+      id: relationshipId,
+      relationType,
+      fromNodeId: fromNode.id,
+      fromNodeType: fromNode.type,
+      fromNodeName: fromNode.name,
+      toNodeId: toNode.id,
+      toNodeType: toNode.type,
+      toNodeName: toNode.name,
+      content,
+    };
+
+    await this.index.namespace(this.namespace).update({
+      id: `rel_${relationshipId}`,
+      values: vector,
+      metadata
+    });
+
+    return `rel_${relationshipId}`;
+  }
 }
 
 // Helper function to create a new PineconeService instance
