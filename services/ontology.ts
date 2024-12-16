@@ -106,46 +106,62 @@ export async function updateNode(
     throw new Error('Node not found');
   }
 
-  const updatedNode = {
-    ...existingNode,
+  // Find the CustomNodeType by name
+  const nodeType = await prisma.customNodeType.findFirst({
+    where: {
+      organizationId: data.organizationId,
+      name: data.type,
+      isDeprecated: false
+    }
+  });
+
+  if (!nodeType) {
+    throw new Error(`Node type "${data.type}" not found`);
+  }
+
+  // Update node in database first
+  const updateData: Prisma.NodeUpdateInput = {
     name: data.name || existingNode.name,
     description: data.description ?? existingNode.description,
-    type: data.type || existingNode.type,
-    metadata: data.metadata === null ? null : (data.metadata || existingNode.metadata)
+    type: {
+      connect: { id: nodeType.id }
+    },
+    metadata: data.metadata === null ? Prisma.JsonNull : (data.metadata || existingNode.metadata)
   };
 
+  const updatedNode = await prisma.node.update({
+    where: { id: nodeId },
+    data: updateData,
+    include: defaultIncludes
+  });
+
+  // Now update the vector with the updated node data
   const textForEmbedding = generateNodeEmbeddingContent(updatedNode);
   const vector = await openAIService.generateEmbedding(textForEmbedding);
 
   const pineconeService = createPineconeService(organization, ontology);
-  
-  // Delete the old vector if it exists
-  if (existingNode.vectorId) {
-    await pineconeService.deleteVector(existingNode.vectorId);
-  }
 
-  // Create new vector
-  const vectorId = await pineconeService.upsertNodeVector(
+	await pineconeService.updateNodeVector(
     nodeId,
     vector,
     updatedNode,
     textForEmbedding
   );
 
-  const { organizationId, ontologyId, ...updateFields } = data;
+	return updatedNode
+  // const vectorId = await pineconeService.updateNodeVector(
+  //   nodeId,
+  //   vector,
+  //   updatedNode,
+  //   textForEmbedding
+  // );
 
-  const updateData: Prisma.NodeUpdateInput = {
-    ...updateFields,
-    type: data.type,
-    vectorId,
-    metadata: data.metadata === null ? Prisma.JsonNull : data.metadata
-  };
-
-  return prisma.node.update({
-    where: { id: nodeId },
-    data: updateData,
-    include: defaultIncludes
-  });
+  // Finally, update just the vectorId
+  // return prisma.node.update({
+  //   where: { id: nodeId },
+  //   data: { vectorId },
+  //   include: defaultIncludes
+  // });
 }
 
 // Note Operations
