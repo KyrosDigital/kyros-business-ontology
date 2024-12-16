@@ -173,7 +173,8 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const handleUpdateType = async () => {
     if (!selectedNode) return;
     try {
-      onNodeUpdate(selectedNode.id, { typeId: editedTypeId });
+			const nodeTypeName = nodeTypes.find(nt => nt.id === editedTypeId)?.name;
+      onNodeUpdate(selectedNode.id, { type: nodeTypeName });
       setIsEditingType(false);
       setEditedTypeId(editedTypeId);
     } catch (error) {
