@@ -221,6 +221,30 @@ export class PineconeService {
   async deleteVectors(vectorIds: string[]) {
     await this.index.namespace(this.namespace).deleteMany(vectorIds);
   }
+
+  async updateNodeVector(
+    nodeId: string,
+    vector: number[],
+    node: NodeWithRelations,
+    content: string
+  ): Promise<string> {
+    const metadata: NodeMetadata = {
+      type: 'NODE',
+      id: nodeId,
+      nodeType: node.type.name,
+      name: node.name,
+      content,
+      ontologyId: node.ontologyId
+    };
+
+    await this.index.namespace(this.namespace).update({
+      id: `node_${nodeId}`,
+      values: vector,
+      metadata
+    });
+
+    return `node_${nodeId}`;
+  }
 }
 
 // Helper function to create a new PineconeService instance

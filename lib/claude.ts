@@ -3,7 +3,7 @@ import { PineconeService, type VectorMetadata } from '@/services/pinecone';
 import { openAIService } from '@/services/openai';
 import type { Organization, Ontology, CustomNodeType } from '@prisma/client';
 import { Tool } from '@anthropic-ai/sdk/resources/messages.mjs';
-import { createNode, connectNodes, deleteNodeWithStrategy } from '@/services/ontology';
+import { createNode, connectNodes, deleteNodeWithStrategy, updateNode, updateRelationType } from '@/services/ontology';
 import type { NodeWithRelations } from '@/services/ontology';
 import type { Message, MessageContentText } from '@anthropic-ai/sdk';
 import { customNodeTypesService } from '@/services/custom-node-types';
@@ -35,8 +35,8 @@ const createToolSchemas = async (organizationId: string): Promise<Tool[]> => {
             properties: {
               operationType: {
                 type: "string",
-                enum: ["create_node", "create_relationship", "delete_node_with_strategy"],
-                description: "The type of operation to perform"
+                enum: ["create_node", "update_node", "create_relationship", "update_relationship", "delete_node_with_strategy"],
+                description: "The type of operation to perform."
               },
               order: {
                 type: "integer",
@@ -49,34 +49,35 @@ const createToolSchemas = async (organizationId: string): Promise<Tool[]> => {
                   type: {
                     type: "string",
                     enum: nodeTypes.map(nt => nt.name),
-                    description: "The type of node to create (required for create_node)"
+                    description: "The type of node to create/update (required for create_node and update_node)"
                   },
                   name: {
                     type: "string",
-                    description: "The name of the node (required for create_node)"
+                    description: "The name of the node (required for create_node and update_node)"
                   },
                   description: {
                     type: "string",
                     description: "A detailed and relevant description of the node"
                   },
-                  // For create_relationship
+                  // For update_node
+                  nodeId: {
+                    type: "string",
+                    description: "The ID of the node to update or delete (required for update_node and delete_node_with_strategy)"
+                  },
+                  // For create_relationship and update_relationship
                   fromNodeId: {
                     type: "string",
-                    description: "The ID of the source node (required for create_relationship). Existing nodes from context will be a uuid (e.g. 123e4567-e89b-12d3-a456-426614174000), new nodes will be the order integer (e.g. 1)."
+                    description: "The ID of the source node (required for create_relationship and update_relationship). Existing nodes from context will be a uuid (e.g. 123e4567-e89b-12d3-a456-426614174000), new nodes will be the order integer (e.g. 1)."
                   },
                   toNodeId: {
                     type: "string",
-                    description: "The ID of the target node (required for create_relationship). Existing nodes from context will be a uuid (e.g. 123e4567-e89b-12d3-a456-426614174000), new nodes will be the order integer (e.g. 1)."
+                    description: "The ID of the target node (required for create_relationship and update_relationship). Existing nodes from context will be a uuid (e.g. 123e4567-e89b-12d3-a456-426614174000), new nodes will be the order integer (e.g. 1)."
                   },
                   relationType: {
                     type: "string",
-                    description: "The type of relationship (required for create_relationship)"
+                    description: "The type of relationship (required for create_relationship and update_relationship)"
                   },
                   // For delete_node_with_strategy
-                  nodeId: {
-                    type: "string",
-                    description: "The ID (uuid of the node from context) of the node to delete (required for delete_node_with_strategy)."
-                  },
                   strategy: {
                     type: "string",
                     enum: ["orphan", "cascade", "reconnect"],
@@ -193,7 +194,6 @@ async function executeToolCall(
     const normalizedInput = input.properties || input;
     
     if (tool === 'create_node') {
-      //console.log("NODE TOOL INPUT ============", normalizedInput);
       const node = await createNode({
         type: normalizedInput.type,
         name: normalizedInput.name,
@@ -201,12 +201,21 @@ async function executeToolCall(
         organizationId: organization.id,
         ontologyId: ontology.id
       });
-      //console.log("NODE CREATED WITH TOOL USE", node);
+      return { success: true, data: node };
+    }
+    
+    else if (tool === 'update_node') {
+      const node = await updateNode(normalizedInput.nodeId, {
+        type: normalizedInput.type,
+        name: normalizedInput.name,
+        description: normalizedInput.description,
+        organizationId: organization.id,
+        ontologyId: ontology.id
+      });
       return { success: true, data: node };
     }
     
     else if (tool === 'create_relationship') {
-      //console.log("RELATIONSHIP TOOL INPUT ============", normalizedInput);
       const relationship = await connectNodes(
         normalizedInput.fromNodeId,
         normalizedInput.toNodeId,
@@ -214,17 +223,23 @@ async function executeToolCall(
         organization.id,
         ontology.id
       );  
-      //console.log("RELATIONSHIP CREATED WITH TOOL USE", relationship);
+      return { success: true, data: relationship };
+    }
+
+    else if (tool === 'update_relationship') {
+      const relationship = await updateRelationType(
+        normalizedInput.fromNodeId,
+        normalizedInput.toNodeId,
+        normalizedInput.relationType
+      );
       return { success: true, data: relationship };
     }
 
     else if (tool === 'delete_node_with_strategy') {
-      //console.log("DELETE NODE TOOL INPUT ============", normalizedInput);
       const result = await deleteNodeWithStrategy(
         normalizedInput.nodeId,
         normalizedInput.strategy
       );
-      //console.log("NODE DELETED WITH TOOL USE", result);
       return { success: true, data: result };
     }
     
@@ -370,8 +385,14 @@ async function handleSequentialTools(
           case 'create_node':
             progressMessage = `Created ${operation.params.type.toLowerCase()} "${operation.params.name}"`;
             break;
+          case 'update_node':
+            progressMessage = `Updated node "${operation.params.name}"`;
+            break;
           case 'create_relationship':
             progressMessage = `Created relationship "${operation.params.relationType}" between nodes`;
+            break;
+          case 'update_relationship':
+            progressMessage = `Updated relationship to "${operation.params.relationType}" between nodes`;
             break;
           case 'delete_node_with_strategy':
             progressMessage = `Deleted node using ${operation.params.strategy} strategy`;
@@ -471,12 +492,14 @@ export async function sendMessage(
     1. create_plan: Create a sequential plan of operations
        - Required: operations (array of operations)
        - Each operation requires:
-         * operationType: "create_node", "create_relationship", or "delete_node_with_strategy"
+         * operationType: "create_node", "update_node", "create_relationship", "update_relationship", or "delete_node_with_strategy"
          * order: integer indicating execution order (1-based)
          * params: object containing parameters specific to the operation type
        - Operation-specific parameters:
-         * For create_node: type (${nodeTypes.map(nt => nt.name).join(', ')}), name, description (optional)
+         * For create_node: type (${nodeTypes.map(nt => nt.name).join(', ')}), name, description
+         * For update_node: nodeId, type (${nodeTypes.map(nt => nt.name).join(', ')}), name, description
          * For create_relationship: fromNodeId, toNodeId, relationType
+         * For update_relationship: fromNodeId, toNodeId, relationType
          * For delete_node_with_strategy: nodeId, strategy ("orphan", "cascade", "reconnect")
 				 * fromNodeId and toNodeId must be either a uuid from context or a unique number 
 
