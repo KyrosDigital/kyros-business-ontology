@@ -858,37 +858,28 @@ export async function updateRelationType(
   newType: string
 ) {
   // Find the existing relationship first
-  const [relationship, fromNode, toNode] = await Promise.all([
-    prisma.nodeRelationship.findFirst({
-      where: {
-        fromNodeId,
-        toNodeId,
+  const relationship = await prisma.nodeRelationship.findFirst({
+    where: {
+      fromNodeId,
+      toNodeId,
+    },
+    include: {
+      fromNode: {
+        include: {
+          type: true,
+          ontology: true
+        }
       },
-      include: {
-        fromNode: {
-          include: {
-            ontology: true // Include ontology to get its ID
-          }
-        },
-        toNode: true
+      toNode: {
+        include: {
+          type: true
+        }
       }
-    }),
-    prisma.node.findUnique({
-      where: { id: fromNodeId },
-      include: {
-        type: true
-      }
-    }),
-    prisma.node.findUnique({
-      where: { id: toNodeId },
-      include: {
-        type: true
-      }
-    })
-  ]);
+    }
+  });
 
-  if (!relationship || !fromNode || !toNode) {
-    throw new Error('Relationship or nodes not found');
+  if (!relationship) {
+    throw new Error('Relationship not found');
   }
 
   // Get the organization for the ontology
@@ -907,47 +898,47 @@ export async function updateRelationType(
   // Create pinecone service instance
   const pineconeService = createPineconeService(organization, relationship.fromNode.ontology);
 
-  // Delete the old vector if it exists
-  if (relationship.vectorId) {
-    await pineconeService.deleteVector(relationship.vectorId);
-  }
-
-  // Generate new embedding for updated relationship
-  const relationshipText = `${fromNode.name} ${newType} ${toNode.name}`;
-  const vector = await openAIService.generateEmbedding(relationshipText);
-
-  // Create new vector in Pinecone
-  const vectorId = await pineconeService.upsertRelationshipVector(
-    relationship.id,
-    vector,
-    {
-      id: fromNode.id,
-      type: fromNode.type.name,
-      name: fromNode.name
-    },
-    {
-      id: toNode.id,
-      type: toNode.type.name,
-      name: toNode.name
-    },
-    newType,
-    relationshipText
-  );
-
-  // Update the relationship with new type and vector ID
-  return prisma.nodeRelationship.update({
+  // Update the relationship in the database
+  const updatedRelationship = await prisma.nodeRelationship.update({
     where: {
       id: relationship.id,
     },
     data: {
       relationType: newType,
-      vectorId
     },
     include: {
-      fromNode: true,
-      toNode: true,
+      fromNode: {
+        include: { type: true }
+      },
+      toNode: {
+        include: { type: true }
+      },
     },
   });
+
+  // Generate new embedding for updated relationship
+  const relationshipText = `${relationship.fromNode.name} ${newType} ${relationship.toNode.name}`;
+  const vector = await openAIService.generateEmbedding(relationshipText);
+
+  // Update the vector in Pinecone using updateRelationshipVector
+  await pineconeService.updateRelationshipVector(
+    relationship.id,
+    vector,
+    {
+      id: relationship.fromNode.id,
+      type: relationship.fromNode.type.name,
+      name: relationship.fromNode.name
+    },
+    {
+      id: relationship.toNode.id,
+      type: relationship.toNode.type.name,
+      name: relationship.toNode.name
+    },
+    newType,
+    relationshipText
+  );
+
+  return updatedRelationship;
 }
 
 export async function deleteRelationship(sourceId: string, targetId: string) {
