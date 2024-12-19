@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createNode } from '@/services/ontology';
-import { NodeType } from '@prisma/client';
 
 export async function POST(request: Request) {
   try {
@@ -10,14 +9,6 @@ export async function POST(request: Request) {
     if (!body.type || !body.name || !body.ontologyId || !body.organizationId) {
       return NextResponse.json(
         { error: 'Type, name, organizationId, and ontologyId are required fields' },
-        { status: 400 }
-      );
-    }
-
-    // Validate node type
-    if (!Object.values(NodeType).includes(body.type)) {
-      return NextResponse.json(
-        { error: 'Invalid node type' },
         { status: 400 }
       );
     }
