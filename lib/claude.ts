@@ -21,9 +21,30 @@ async function getAvailableNodeTypes(organizationId: string): Promise<CustomNode
 const createToolSchemas = async (organizationId: string): Promise<Tool[]> => {
   const nodeTypes = await getAvailableNodeTypes(organizationId);
   
+	const description = `
+	Creates a sequential plan of operations to modify the ontology graph. 
+	Each operation in the sequence will be executed in order.
+	create_node: use this when you identify a need to create a new node. 
+	update_node: use this when you identify a need to update an existing node.
+	create_relationship: 
+	- Use this when you identify a need to create a new relationship between two nodes.
+	- In some cases, you may need to create a new node before creating a relationship.
+	- When creating relationships, the fromNodeId and toNodeId must be uuid of an existing node from context data or a the uuid of the new node previously created.
+	- It is not possible to create a relationship between a node that exists and has a UUID, and a node that has a placeholder number.
+	update_relationship: 
+	- use this when you identify a need to update an existing relationship between two nodes. 
+	- A relationshipId is required and should be provided in the context data.
+	- updating a relationship does not mean deleting the existing relationship and creating a new one. 
+	- updating a relationship means changing the relationType or the connection from one node to another.
+	delete_node_with_strategy: 
+	- use this when you identify a need to delete a node.
+	 
+	Return the operations array directly, not nested under properties.
+	`
+
   return [{
     name: 'create_plan',
-    description: "Creates a sequential plan of operations to modify the ontology graph. Each operation in the sequence will be executed in order. When creating relationships, the fromNodeId and toNodeId must be either a uuid from context or a unique number. Return the operations array directly, not nested under properties.",
+    description, 
     input_schema: {
       type: "object",
       properties: {
@@ -177,6 +198,8 @@ function formatContextForPrompt(contexts: RelevantContext[]): string {
       prompt += `${json}\n\n`;
     });
   }
+
+	console.log("PROMPT", prompt)
 
   return prompt;
 }
