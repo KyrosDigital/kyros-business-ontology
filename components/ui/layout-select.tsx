@@ -54,11 +54,11 @@ export const LAYOUT_OPTIONS = {
     animationDuration: 500,
     klay: {
       direction: 'DOWN',
-      spacing: 100,
+      spacing: 50,
       nodeLayering: 'NETWORK_SIMPLEX',
       nodePlacement: 'BRANDES_KOEPF',
       edgeRouting: 'ORTHOGONAL',
-      edgeSpacingFactor: 0.5,
+      edgeSpacingFactor: 0.1,
       inLayerSpacingFactor: 0.5,
       layoutHierarchy: true,
       crossingMinimization: 'LAYER_SWEEP',

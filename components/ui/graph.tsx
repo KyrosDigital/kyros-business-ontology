@@ -52,6 +52,7 @@ export function Graph() {
 
   // Initialize graph only on first load
   useEffect(() => {
+		console.log("RAN INITIALIZE EFFECT")
     if (
       containerRef.current && 
       ontologyData && 
@@ -101,6 +102,7 @@ export function Graph() {
 
   // Handle data updates after initialization
   useEffect(() => {
+		console.log("RAN BATCH UPDATE EFFECT")
     if (
       !ontologyData || 
       !isDataReady || 
