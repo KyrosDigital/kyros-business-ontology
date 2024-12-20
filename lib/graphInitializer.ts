@@ -341,6 +341,7 @@ export function initializeGraph(
 
     const unlockNodes = () => {
       cy.nodes().grabify();
+			cy.nodes().unlock();
       if (container.ehInstance) {
         container.ehInstance.disableDrawMode();
       }
