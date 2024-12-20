@@ -138,7 +138,7 @@ export function Graph() {
             group: 'nodes',
             data: {
               id: node.id,
-              type: node.typeId,
+              typeId: node.typeId,
               name: node.name,
             },
             position: {
@@ -183,15 +183,7 @@ export function Graph() {
         }
       });
     });
-
-    // Apply layout with new data
-    // cy.layout(currentLayout).run();
-
-    cy.viewport({
-      zoom: zoom,
-      pan: pan
-    });
-  }, [ontologyData, isDataReady, currentLayout]); // Add currentLayout back as dependency
+  }, [ontologyData, isDataReady]); // Add currentLayout back as dependency
 
 	// handle layout changes triggered by the layout select component
 	useEffect(() => {
