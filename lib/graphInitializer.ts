@@ -412,8 +412,8 @@ export function initializeGraph(
 
     cy.on('tap', 'edge', (event) => {
       const edge = event.target;
-      const sourceId = edge.source().id();
-      const targetId = edge.target().id();
+      const sourceId = edge.data('source');
+      const targetId = edge.data('target');
       const relationType = edge.data('relationType');
 
       const sourceNode = data.nodes.find(n => n.id === sourceId);
