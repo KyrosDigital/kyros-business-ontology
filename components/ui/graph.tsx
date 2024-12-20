@@ -53,47 +53,47 @@ export function Graph() {
   // Initialize graph only on first load
   useEffect(() => {
 		console.log("RAN INITIALIZE EFFECT")
+		console.log(containerRef.current.__cy)
     if (
       containerRef.current && 
       ontologyData && 
       isDataReady && 
       ontologyData.nodes.length > 0 &&
       containerRef.current.offsetWidth > 0 &&
-      containerRef.current.offsetHeight > 0 &&
-      (!isInitializedRef.current || viewMode === 'graph')
+      containerRef.current.offsetHeight > 0
     ) {
       try {
         // Clean up previous instance if it exists
-        if (containerRef.current.__cy) {
-          if (containerRef.current.ehInstance) {
-            containerRef.current.ehInstance.destroy();
-            delete containerRef.current.ehInstance;
-          }
-          containerRef.current.__cy.destroy();
-          delete containerRef.current.__cy;
-          graphInitializedRef.current = false;
-        }
+        // if (containerRef.current.__cy) {
+        //   if (containerRef.current.ehInstance) {
+        //     containerRef.current.ehInstance.destroy();
+        //     delete containerRef.current.ehInstance;
+        //   }
+        //   containerRef.current.__cy.destroy();
+        //   delete containerRef.current.__cy;
+        //   graphInitializedRef.current = false;
+        // }
 
-        // Initialize new instance with updated data
-        initializeGraph(
-          containerRef.current,
-          containerRef.current.offsetWidth,
-          containerRef.current.offsetHeight,
-          ontologyData,
-          handleClosePanel,
-          setSelectedNodeId,
-          setSelectedNode,
-          setIsPanelOpen,
-          setSelectedRelationship,
-          currentLayout,
-          handleCreateRelationship,
-          nodeTypes
-        );
-
-        if (containerRef.current.__cy) {
-          graphInitializedRef.current = true;
-          isInitializedRef.current = true;
-        }
+				if(!isInitializedRef.current && !containerRef.current.__cy && nodeTypes.length > 0 && isDataReady && ontologyData) {
+					initializeGraph(
+						containerRef.current,
+						containerRef.current.offsetWidth,
+						containerRef.current.offsetHeight,
+						ontologyData,
+						handleClosePanel,
+						setSelectedNodeId,
+						setSelectedNode,
+						setIsPanelOpen,
+						setSelectedRelationship,
+						currentLayout,
+						handleCreateRelationship,
+						nodeTypes
+					);
+				}
+				if (containerRef.current.__cy) {
+					graphInitializedRef.current = true;
+					isInitializedRef.current = true;
+				}
       } catch (error) {
         console.error('Graph initialization error:', error);
       }
@@ -115,15 +115,7 @@ export function Graph() {
 
     const cy = containerRef.current.__cy;
     const zoom = cy.zoom();
-    const pan = cy.pan();
-    
-    // If only the layout changed (no data changes), just apply the new layout
-    const elementsChanged = cy.elements().length !== ontologyData.nodes.length + ontologyData.relationships.length;
-    
-    if (!elementsChanged) {
-      cy.layout(currentLayout).run();
-      return;
-    }
+    const pan = cy.pan(); 
 
     cy.batch(() => {
       // Update nodes
@@ -146,7 +138,7 @@ export function Graph() {
             group: 'nodes',
             data: {
               id: node.id,
-              type: node.type,
+              type: node.typeId,
               name: node.name,
             },
             position: {
@@ -193,15 +185,21 @@ export function Graph() {
     });
 
     // Apply layout with new data
-    if (elementsChanged) {
-      cy.layout(currentLayout).run();
-    }
+    // cy.layout(currentLayout).run();
 
     cy.viewport({
       zoom: zoom,
       pan: pan
     });
   }, [ontologyData, isDataReady, currentLayout]); // Add currentLayout back as dependency
+
+	// handle layout changes triggered by the layout select component
+	useEffect(() => {
+		if(!containerRef.current?.__cy) return; 
+		if(!isInitializedRef.current) return // if the graph is not initialized, don't run the layout
+
+    containerRef.current?.__cy.layout(currentLayout).run();
+  }, [currentLayout]);
 
   // Handle node filtering based on selected type
   useEffect(() => {

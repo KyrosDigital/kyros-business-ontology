@@ -71,6 +71,7 @@ export function initializeGraph(
   onCreateRelationship: (sourceId: string, targetId: string, relationType: string) => Promise<void>,
   nodeTypes: CustomNodeType[]
 ): () => void {
+	console.log("RAN initializeGraph")
   // Validate input data
   if (!container || !data.nodes || !data.relationships) {
     return () => {};
