@@ -195,7 +195,8 @@ export function NodePanel({ isPanelOpen, selectedNode, onClose, onCreateNode, re
   const handleUpdateName = async () => {
     if (!selectedNode) return;
     try {
-      await onNodeUpdate(selectedNode.id, { name: editedName });
+			console.log(selectedNode)
+      onNodeUpdate(selectedNode.id, { name: editedName, type: selectedNode.type.name});
       setIsEditingName(false);
     } catch (error) {
       console.error('Error updating name:', error);
