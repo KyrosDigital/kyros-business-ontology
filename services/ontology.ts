@@ -92,7 +92,6 @@ export async function updateNode(
   nodeId: string, 
   data: Partial<CreateNodeData>
 ) {
-	console.log(data)
   const { organization, ontology } = await getOrgAndOntology(
     data.organizationId!,
     data.ontologyId!
