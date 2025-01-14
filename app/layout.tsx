@@ -61,12 +61,12 @@ export default function RootLayout({
             </SignedIn>
             <SignedOut>
               <div className="absolute top-4 right-4 z-50">
-                <SignInButton>
+                {/* <SignInButton>
                   <Button variant="outline" className="gap-2">
                     <LogIn className="h-4 w-4" />
                     <span>Login</span>
                   </Button>
-                </SignInButton>
+                </SignInButton> */}
               </div>
               {children}
               <Toaster richColors position="top-center" />

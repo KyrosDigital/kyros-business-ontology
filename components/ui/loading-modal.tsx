@@ -10,12 +10,15 @@ export function LoadingModal() {
   const [shouldShow, setShouldShow] = useState(true)
 
   useEffect(() => {
-    // If we're already on the dashboard, hide the modal
-    if (pathname === '/dashboard') {
+		console.log("LoadingModal mounted")
+    // If we're already on the dashboard or viewing an ontology graph, hide the modal
+    if (pathname === '/dashboard' || pathname.includes('ontology-graph')) {
       setShouldShow(false)
       return
     }
 
+		// check to see if the user has an organization prior to routing to the dashboard. 
+		// if not, we need to wait for the organization to be created on the backend.
     const checkOrganization = async () => {
       try {
         // Poll the organization status every 2 seconds
