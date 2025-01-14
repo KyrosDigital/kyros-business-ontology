@@ -103,6 +103,7 @@ export function Graph() {
   // Handle data updates after initialization
   useEffect(() => {
 		console.log("RAN BATCH UPDATE EFFECT")
+		console.log(ontologyData)
     if (
       !ontologyData || 
       !isDataReady || 
@@ -136,11 +137,7 @@ export function Graph() {
 
           cy.add({
             group: 'nodes',
-            data: {
-              id: node.id,
-              typeId: node.typeId,
-              name: node.name,
-            },
+            data: { ...node},
             position: {
               x: center.x + offset.x,
               y: center.y + offset.y

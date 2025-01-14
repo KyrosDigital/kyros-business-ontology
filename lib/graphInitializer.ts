@@ -89,11 +89,7 @@ export function initializeGraph(
   // Transform data for Cytoscape
   const elements = {
     nodes: data.nodes.map(node => ({
-      data: {
-        id: node.id,
-        typeId: node.typeId,
-        name: node.name,
-      }
+      data: {...node}
     })),
     edges: data.relationships.map(rel => ({
       data: {
@@ -351,27 +347,10 @@ export function initializeGraph(
     cy.on('tap', 'node', (event) => {
       const node = event.target;
       const nodeId = node.id();
-      
-      const nodeData = data.nodes.find(n => n.id === nodeId);
+      const nodeData = node.data()
 
       if (nodeData) {
-        const completeNodeData: NodeWithRelations = {
-          ...nodeData,
-          fromRelations: data.relationships
-            .filter(rel => rel.fromNodeId === nodeId)
-            .map(rel => ({
-              toNode: data.nodes.find(n => n.id === rel.toNodeId)!,
-              relationType: rel.relationType
-            })),
-          toRelations: data.relationships
-            .filter(rel => rel.toNodeId === nodeId)
-            .map(rel => ({
-              fromNode: data.nodes.find(n => n.id === rel.fromNodeId)!,
-              relationType: rel.relationType
-            }))
-        };
-
-        setSelectedNode(completeNodeData);
+        setSelectedNode(nodeData);
         setSelectedNodeId(nodeId);
         setIsPanelOpen(true);
         lockNodes();
