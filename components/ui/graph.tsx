@@ -207,6 +207,7 @@ export function Graph() {
         containerRef.current.__cy.destroy();
         delete containerRef.current.__cy;
         graphInitializedRef.current = false;
+				isInitializedRef.current = false;
       }
     };
   }, []); // Empty dependency array ensures cleanup only runs on unmount
