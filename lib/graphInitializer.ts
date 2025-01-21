@@ -105,7 +105,7 @@ export function initializeGraph(
     // Check for circular dependencies and use appropriate layout
     const hasCircular = detectCircularDependencies(data.relationships);
     const safeLayout = hasCircular ? {
-      name: 'circle',
+      ...layout,
       padding: 50,
       animate: false,
       fit: true
