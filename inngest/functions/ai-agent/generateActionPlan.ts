@@ -31,6 +31,46 @@ When analyzing the provided context data:
 - Consider how the context data relates to the user's request
 - Note any missing information that might be needed
 
+CONTEXT DATA STRUCTURE:
+Each context item has one of two possible metadata structures:
+
+For NODE type:
+{
+  "metadata": {
+    "id": "uuid",  // Use this uuid for identifying nodes in relationships
+    "name": "Node Name",
+    "nodeType": "Node Type",  // Type of the node (e.g., "People", "Organization")
+    "ontologyId": "uuid",
+    "type": "NODE"
+  }
+}
+
+For RELATIONSHIP type:
+{
+  "metadata": {
+    "id": "uuid",
+    "fromNodeId": "uuid",  // ID of the source node
+    "fromNodeName": "Source Node Name",
+    "fromNodeType": "Source Node Type",
+    "toNodeId": "uuid",  // ID of the target node
+    "toNodeName": "Target Node Name",
+    "toNodeType": "Target Node Type",
+    "relationType": "Type of Relationship",  // e.g., "owns", "manages"
+    "content": "Relationship Description",
+    "type": "RELATIONSHIP"
+  }
+}
+
+Each item also includes:
+- score: Relevance score from the vector search
+- values: Vector values (if any)
+
+Use this data to:
+1. Identify existing nodes and their relationships
+2. Extract correct node IDs for relationship creation
+3. Understand the current structure before making changes
+4. Reference existing nodes by their exact IDs
+
 AVAILABLE TOOLS:
 1. search_vector_db
    - Purpose: Query the vector database for relevant nodes, relationships, and context

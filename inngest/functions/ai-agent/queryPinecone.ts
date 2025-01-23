@@ -12,15 +12,29 @@ interface QueryPineconeEvent {
   };
 }
 
-interface PineconeResult {
+interface NodeMetadata {
   id: string;
-  metadata: {
-    id: string;
-    name: string;
-    nodeType?: string;
-    ontologyId: string;
-    type: string;
-  };
+  name: string;
+  nodeType: string;
+  ontologyId: string;
+  type: "NODE";
+}
+
+interface RelationshipMetadata {
+  id: string;
+	content: string;
+  fromNodeId: string;
+  fromNodeName: string;
+  fromNodeType: string;
+  toNodeId: string;
+  toNodeName: string;
+  toNodeType: string;
+  relationType: string;
+  type: "RELATIONSHIP";
+}
+
+interface PineconeResult {
+  metadata: NodeMetadata | RelationshipMetadata;
   score: number;
   values: number[];
 }
@@ -34,19 +48,26 @@ export const queryPinecone = inngest.createFunction(
     const pineconeService = new PineconeService(organization, ontology);
     const rawResults = await pineconeService.querySimilar(embedding, 25);
 
-    // Filter out content from metadata
-    const results: PineconeResult[] = rawResults.map(result => ({
-      id: result.id,
-      metadata: {
-        id: result.metadata.id,
-        name: result.metadata.name,
-        nodeType: result.metadata.nodeType,
-        ontologyId: result.metadata.ontologyId,
-        type: result.metadata.type
-      },
-      score: result.score,
-      values: result.values || []
-    }));
+    // Filter and transform metadata based on type
+    const results: PineconeResult[] = rawResults.map(result => {
+      const { metadata } = result;
+      
+      if (metadata.type === "NODE") {
+        // For nodes, exclude the content field
+        const { content, ...nodeMetadata } = metadata;
+        return {
+          metadata: nodeMetadata as NodeMetadata,
+          score: result.score,
+          values: result.values || []
+        };
+      } else {
+        return {
+          metadata: metadata as RelationshipMetadata,
+          score: result.score,
+          values: result.values || []
+        };
+      }
+    });
 
     await step.sendEvent("start-generate-action-plan", {
       name: "ai-agent/generate-plan",

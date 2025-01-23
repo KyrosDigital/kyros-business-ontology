@@ -107,24 +107,58 @@ CURRENT CAPABILITIES:
 AVAILABLE NODE TYPES:
 ${customNodeTypeNames.join(", ")}
 
-NODE ID MAPPING:
-The contextData contains information about existing nodes, including their IDs. When creating relationships:
-- Use the 'id' field from the node's metadata for fromNodeId and toNodeId
-- Do NOT use ontologyId or any other ID field
-- Only create relationships between nodes that exist in the contextData
-- Verify both node IDs exist before calling create_relationship
-- If a needed node doesn't exist yet, create it first with create_node
+CONTEXT DATA STRUCTURE:
+Each context item has one of two possible metadata structures:
 
-Example contextData node structure:
+For NODE type:
 {
-  "id": "node_uuid",
   "metadata": {
-    "id": "actual_node_id",  // Use this ID for relationships
+    "id": "uuid",  // Use this uuid for identifying nodes in relationships
     "name": "Node Name",
-    "nodeType": "Node Type",
-    "type": "NODE" | "RELATIONSHIP"
-  }
+    "nodeType": "Node Type",  // Type of the node (e.g., "People", "Organization")
+    "ontologyId": "uuid",
+    "type": "NODE"
+  },
+  "score": 0.95  // Relevance score
 }
+
+For RELATIONSHIP type:
+{
+  "metadata": {
+    "id": "uuid",
+    "fromNodeId": "uuid",  // ID of the source node
+    "fromNodeName": "Source Node Name",
+    "fromNodeType": "Source Node Type",
+    "toNodeId": "uuid",  // ID of the target node
+    "toNodeName": "Target Node Name",
+    "toNodeType": "Target Node Type",
+    "relationType": "Type of Relationship",  // e.g., "owns", "manages"
+    "content": "Relationship Description",
+    "type": "RELATIONSHIP"
+  },
+  "score": 0.95  // Relevance score
+}
+
+RELATIONSHIP CREATION GUIDELINES:
+1. When creating relationships:
+   - Use the 'id' field from NODE type metadata for fromNodeId and toNodeId
+   - Do NOT use ontologyId or any other ID field
+   - Only create relationships between nodes that exist in the contextData
+   - Verify both node IDs exist before calling create_relationship
+   - If a needed node doesn't exist yet, create it first with create_node
+
+2. Example relationship creation:
+   - Find source node in contextData (type: "NODE")
+   - Use its metadata.id as fromNodeId
+   - Find target node in contextData (type: "NODE")
+   - Use its metadata.id as toNodeId
+   - Specify an appropriate relationType
+
+3. Existing relationships:
+   - Check RELATIONSHIP type records in contextData
+   - Use them to understand existing connections
+   - Avoid creating duplicate relationships
+   - Reference their structure for creating similar relationships
 
 YOUR RESPONSIBILITIES:
 1. For each proposed action:
@@ -151,13 +185,6 @@ EXECUTION GUIDELINES:
 6. Use meaningful relationship types
 7. Double-check node IDs before creating relationships
 8. Skip any operations that aren't create_node or create_relationship
-
-RELATIONSHIP CREATION CHECKLIST:
-1. Identify the source node (from) and target node (to) in the contextData
-2. Extract the correct 'id' from their metadata
-3. Verify both IDs exist
-4. Use these IDs as fromNodeId and toNodeId
-5. Specify a clear relationType
 
 Remember: Only proceed with node and relationship creation operations. All other operations should be noted but skipped.`;
 
