@@ -6,7 +6,7 @@ export const generateEmbedding = inngest.createFunction(
   { id: "generate-embedding" },
   { event: "ai-agent/embedding" },
   async ({ event, step }: { event: any; step: any }) => {
-    const { prompt, organization, ontology } = event.data;
+    const { prompt, organization, ontology, customNodeTypeNames, } = event.data;
 
     const embedding = await openAIService.generateEmbedding(prompt);
 
@@ -16,6 +16,7 @@ export const generateEmbedding = inngest.createFunction(
 				embedding,
 				organization,
 				ontology,
+				customNodeTypeNames,
 			},
 		});
 

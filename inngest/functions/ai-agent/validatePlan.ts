@@ -11,13 +11,14 @@ interface PlanningEvent {
     prompt: string;
     organization: string;
     ontology: string;
+    customNodeTypeNames: string[];
   };
 }
 
 type PlanningResponse = {
   intent: "QUERY" | "MODIFICATION";
   analysis: string;
-  relevantContext: string[];
+  contextDataObservations: string;
   proposedActions: string[];
   requiredTools: string[];
 };
@@ -25,10 +26,10 @@ type PlanningResponse = {
 export const validatePlan = inngest.createFunction(
   { id: "validate-plan" },
   { event: "ai-agent/validate-plan" },
-  async ({ event, step }: { event: PlanningEvent, step: any }) => {
+  async ({ event, step }: { event: PlanningEvent; step: StepTypes }) => {
 
     const validatedPlan = await step.run("validate-planning-response", async () => {
-      const { planningResponse } = event.data;
+      const { planningResponse, contextData, prompt, organization, ontology, customNodeTypeNames } = event.data;
       
       try {
         // Extract JSON from markdown code block if present
@@ -47,8 +48,8 @@ export const validatePlan = inngest.createFunction(
         if (!parsed.analysis || typeof parsed.analysis !== "string") {
           throw new Error("Invalid or missing analysis");
         }
-        if (!Array.isArray(parsed.relevantContext)) {
-          throw new Error("Invalid or missing relevantContext");
+        if (!parsed.contextDataObservations || typeof parsed.contextDataObservations !== "string") {
+          throw new Error("Invalid or missing contextDataObservations");
         }
         if (!Array.isArray(parsed.proposedActions)) {
           throw new Error("Invalid or missing proposedActions");
@@ -82,14 +83,18 @@ export const validatePlan = inngest.createFunction(
       }
     });
 
-    // Send event to execute the plan if validation succeeds
-    // await step.sendEvent("execute-validated-plan", {
-    //   name: "ai-agent/execute-plan",
-    //   data: {
-    //     ...event.data,
-    //     validatedPlan
-    //   },
-    // });
+    // Send event to execute the validated plan
+    await step.sendEvent("start-execute-plan", {
+      name: "ai-agent/execute-plan",
+      data: {
+        validatedPlan,
+        contextData: event.data.contextData,
+        prompt: event.data.prompt,
+        organization: event.data.organization,
+        ontology: event.data.ontology,
+        customNodeTypeNames: event.data.customNodeTypeNames
+      },
+    });
 
     return { success: true, validatedPlan };
   }

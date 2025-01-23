@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import type { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -7,30 +8,57 @@ const openai = new OpenAI({
 // Define the expected vector dimensions for the ada-002 model
 const EMBEDDING_DIMENSIONS = 1536;
 
+interface ChatCompletionOptions {
+  temperature?: number;
+  max_tokens?: number;
+  model?: string;
+  tools?: any[];
+  tool_choice?: "none" | "auto" | { type: "function"; function: { name: string } };
+}
+
+interface ChatCompletionResponse {
+  content: string | null;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  finish_reason?: string;
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: {
+      name: string;
+      arguments: string;
+    };
+  }>;
+}
+
 export class OpenAIService {
   /**
    * Generate chat completion using GPT-4
    */
   async generateChatCompletion(
-    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-    options: {
-      temperature?: number;
-      max_tokens?: number;
-      model?: string;
-    } = {}
-  ) {
+    messages: ChatCompletionMessageParam[],
+    options: ChatCompletionOptions = {}
+  ): Promise<ChatCompletionResponse> {
     try {
       const response = await openai.chat.completions.create({
         model: options.model || 'gpt-4-turbo-preview',
         messages,
         temperature: options.temperature ?? 0.7,
         max_tokens: options.max_tokens,
+        tools: options.tools,
+        tool_choice: options.tool_choice
       });
 
+      const message = response.choices[0].message;
+
       return {
-        content: response.choices[0].message.content,
+        content: message.content,
         usage: response.usage,
         finish_reason: response.choices[0].finish_reason,
+        tool_calls: message.tool_calls
       };
     } catch (error) {
       console.error('Error generating chat completion:', error);
