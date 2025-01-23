@@ -9,6 +9,36 @@ const EMBEDDING_DIMENSIONS = 1536;
 
 export class OpenAIService {
   /**
+   * Generate chat completion using GPT-4
+   */
+  async generateChatCompletion(
+    messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+    options: {
+      temperature?: number;
+      max_tokens?: number;
+      model?: string;
+    } = {}
+  ) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: options.model || 'gpt-4-turbo-preview',
+        messages,
+        temperature: options.temperature ?? 0.7,
+        max_tokens: options.max_tokens,
+      });
+
+      return {
+        content: response.choices[0].message.content,
+        usage: response.usage,
+        finish_reason: response.choices[0].finish_reason,
+      };
+    } catch (error) {
+      console.error('Error generating chat completion:', error);
+      throw new Error('Failed to generate chat completion');
+    }
+  }
+
+  /**
    * Generate embeddings for text content
    */
   async generateEmbedding(text: string): Promise<number[]> {
