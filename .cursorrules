@@ -21,3 +21,10 @@
 - Services are in the /services directory, services interact with prisma. 
 - All prisma interactions should be handled by a service. 
 - Services should be named like the prisma model they interact with, but with a Service suffix. 
+
+### Inngest
+- Inngest is a tool for event-driven architecture. 
+- Inngest is in the /inngest directory, and the client is located at /inngest/inngest-client.ts. 
+- Inngest functions are in the /inngest/functions directory. 
+- Inngest routes are in the /app/api/v1/inngest directory.
+ 
