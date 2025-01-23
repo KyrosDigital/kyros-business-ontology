@@ -5,13 +5,7 @@ export const generateActionPlan = inngest.createFunction(
   { id: "generate-action-plan" },
   { event: "ai-agent/generate-plan" },
   async ({ event, step }: { event: any; step: any }) => {
-    const { prompt, pineconeResults, organization, ontology, customNodeTypeNames } = event.data;
-
-    const contextData = pineconeResults.map(result => ({
-      type: result.metadata.type,
-      content: result.metadata.content,
-      score: result.score,
-    }));
+    const { prompt, pineconeResults: contextData, organization, ontology, customNodeTypeNames } = event.data;
 
     const systemPrompt = `You are an AI agent specialized in working with Ontology-based knowledge systems. Your task is to analyze requests and plan actions within this system.
 

@@ -7,6 +7,7 @@ import { generateActionPlan } from "@/inngest/functions/ai-agent/generateActionP
 import { validatePlan } from "@/inngest/functions/ai-agent/validatePlan";
 import { executePlan } from "@/inngest/functions/ai-agent/executePlan";
 import { createNodeTool } from "@/inngest/functions/ai-agent/tools/create_node";
+import { createRelationshipTool } from "@/inngest/functions/ai-agent/tools/create_relationship";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -17,7 +18,8 @@ export const { GET, POST, PUT } = serve({
 		generateActionPlan,
 		validatePlan,
 		executePlan,
-		createNodeTool
+		createNodeTool,
+		createRelationshipTool
   ],
 });
 
