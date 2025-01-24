@@ -1,7 +1,7 @@
 import { inngest } from "../../inngest-client";
 import { openAIService } from "../../../services/openai";
 import { Organization, Ontology } from "@prisma/client";
-import { executePlanPrompt } from "@/prompts/openai";
+import { executePlanSystemPrompt } from "@/prompts/openai";
 
 interface ExecutePlanEvent {
   data: {
@@ -99,7 +99,7 @@ export const executePlan = inngest.createFunction(
 			}
 		];
 
-    const systemPrompt: string = executePlanPrompt(prompt, plan, customNodeTypeNames)
+    const systemPrompt: string = executePlanSystemPrompt(prompt, plan, customNodeTypeNames)
 
     // Execute the plan
     const executionResults = [];

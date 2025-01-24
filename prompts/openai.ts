@@ -1,5 +1,5 @@
 
-export const generateActionPlanPrompt = (customNodeTypeNames: string[]) => {
+export const generateActionPlanSystemPrompt = (customNodeTypeNames: string[]) => {
 	return `You are an AI agent specialized in working with Ontology-based knowledge systems. Your task is to analyze requests and plan actions within this system.
 
 SYSTEM ARCHITECTURE:
@@ -129,7 +129,7 @@ IMPORTANT:
 Focus solely on information present in the user's prompt and provided context. Ensure all proposed actions map to specific available tools. Do not make assumptions about data not shown.`;
 };
 
-export const executePlanPrompt = (prompt: string, plan: any, customNodeTypeNames: any) => {
+export const executePlanSystemPrompt = (prompt: string, plan: any, customNodeTypeNames: any) => {
 	return `You are an AI agent responsible for executing a planned sequence of operations on an ontology system.
 Your task is to analyze the provided plan and context, then execute the appropriate tools to implement the changes.
 

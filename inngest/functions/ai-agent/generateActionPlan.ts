@@ -1,6 +1,6 @@
 import { inngest } from "../../inngest-client";
 import { openAIService } from "../../../services/openai";
-import { generateActionPlanPrompt } from "@/prompts/openai";
+import { generateActionPlanSystemPrompt } from "@/prompts/openai";
 
 export const generateActionPlan = inngest.createFunction(
   { id: "generate-action-plan" },
@@ -8,7 +8,7 @@ export const generateActionPlan = inngest.createFunction(
   async ({ event, step }: { event: any; step: any }) => {
     const { prompt, pineconeResults: contextData, organization, ontology, customNodeTypeNames } = event.data;
 
-    const systemPrompt: string = generateActionPlanPrompt(customNodeTypeNames)
+    const systemPrompt: string = generateActionPlanSystemPrompt(customNodeTypeNames)
 
     const response = await openAIService.generateChatCompletion([
       { role: "system", content: systemPrompt },
