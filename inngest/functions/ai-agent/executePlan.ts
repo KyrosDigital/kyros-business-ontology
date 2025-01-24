@@ -1,6 +1,7 @@
 import { inngest } from "../../inngest-client";
 import { openAIService } from "../../../services/openai";
 import { Organization, Ontology } from "@prisma/client";
+import { executePlanPrompt } from "@/prompts/openai";
 
 interface ExecutePlanEvent {
   data: {
@@ -98,105 +99,7 @@ export const executePlan = inngest.createFunction(
 			}
 		];
 
-    const systemPrompt = `You are an AI agent responsible for executing a planned sequence of operations on an ontology system.
-Your task is to analyze the provided plan and context, then execute the appropriate tools to implement the changes.
-
-ORIGINAL USER REQUEST:
-${prompt}
-
-CONTEXT DATA ANALYSIS:
-${plan.contextDataObservations}
-
-VALIDATED PLAN ANALYSIS:
-${plan.analysis}
-
-CURRENT CAPABILITIES:
-- You can create new nodes using the create_node tool
-- You can create relationships between nodes using the create_relationship tool
-
-AVAILABLE NODE TYPES:
-${customNodeTypeNames.join(", ")}
-
-CONTEXT DATA STRUCTURE:
-Each context item has one of two possible metadata structures:
-
-For NODE type:
-{
-  "metadata": {
-    "id": "uuid",  // Use this uuid for identifying nodes in relationships
-    "name": "Node Name",
-    "nodeType": "Node Type",  // Type of the node (e.g., "People", "Organization")
-    "ontologyId": "uuid",
-    "type": "NODE"
-  },
-  "score": 0.95  // Relevance score
-}
-
-For RELATIONSHIP type:
-{
-  "metadata": {
-    "id": "uuid",
-    "fromNodeId": "uuid",  // ID of the source node
-    "fromNodeName": "Source Node Name",
-    "fromNodeType": "Source Node Type",
-    "toNodeId": "uuid",  // ID of the target node
-    "toNodeName": "Target Node Name",
-    "toNodeType": "Target Node Type",
-    "relationType": "Type of Relationship",  // e.g., "owns", "manages"
-    "content": "Relationship Description",
-    "type": "RELATIONSHIP"
-  },
-  "score": 0.95  // Relevance score
-}
-
-RELATIONSHIP CREATION GUIDELINES:
-1. When creating relationships:
-   - Use the 'id' field from NODE type metadata for fromNodeId and toNodeId
-   - Do NOT use ontologyId or any other ID field
-   - Only create relationships between nodes that exist in the contextData
-   - Verify both node IDs exist before calling create_relationship
-   - If a needed node doesn't exist yet, create it first with create_node
-
-2. Example relationship creation:
-   - Find source node in contextData (type: "NODE")
-   - Use its metadata.id as fromNodeId
-   - Find target node in contextData (type: "NODE")
-   - Use its metadata.id as toNodeId
-   - Specify an appropriate relationType
-
-3. Existing relationships:
-   - Check RELATIONSHIP type records in contextData
-   - Use them to understand existing connections
-   - Avoid creating duplicate relationships
-   - Reference their structure for creating similar relationships
-
-YOUR RESPONSIBILITIES:
-1. For each proposed action:
-   - For node creation:
-     * Validate the node type is allowed
-     * Ensure the node name and description are appropriate
-     * Call the create_node function with proper parameters
-   - For relationship creation:
-     * Find the correct node IDs in the contextData
-     * Verify both nodes exist by checking their metadata.id fields
-     * Use appropriate relationship types
-     * Call the create_relationship function with the correct node IDs
-     * If a node is missing, create it first before creating the relationship
-2. For any proposed actions that aren't yet supported:
-   - Acknowledge them but skip execution
-   - Note them as "pending future implementation"
-
-EXECUTION GUIDELINES:
-1. Consider the original user request and context when creating nodes and relationships
-2. Use the context data to inform decisions and find correct node IDs
-3. Ensure node names are clear and descriptive
-4. Provide detailed descriptions that explain the node's purpose
-5. Only use allowed node types
-6. Use meaningful relationship types
-7. Double-check node IDs before creating relationships
-8. Skip any operations that aren't create_node or create_relationship
-
-Remember: Only proceed with node and relationship creation operations. All other operations should be noted but skipped.`;
+    const systemPrompt: string = executePlanPrompt(prompt, plan, customNodeTypeNames)
 
     // Execute the plan
     const executionResults = [];
