@@ -27,13 +27,16 @@ export const createNodeTool = inngest.createFunction(
     try {
       // Create the node using the ontology service
       const node = await step.run("create-node", async () => {
-        return createNode({
+        const newNode = await createNode({
           type,
           name,
           description,
           organizationId: organization.id,
           ontologyId: ontology.id
         });
+
+				console.log("newNode", newNode);
+				return newNode;
       });
 
       return {

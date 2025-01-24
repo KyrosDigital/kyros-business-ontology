@@ -138,7 +138,7 @@ Focus solely on information present in the user's prompt and provided context. E
     const response = await openAIService.generateChatCompletion([
       { role: "system", content: systemPrompt },
       { role: "user", content: `User Prompt: ${prompt}\n\nContext Data: ${JSON.stringify(contextData, null, 2)}` },
-    ], { temperature: 0.7, model: "gpt-4-0125-preview" });
+    ], { temperature: 0.7, model: "gpt-4o-2024-08-06" });
 
     const planningResponse = response.content;
 

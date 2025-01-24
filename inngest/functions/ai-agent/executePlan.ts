@@ -25,11 +25,21 @@ interface PlanningResponse {
   requiredTools: string[];
 }
 
+interface NodeCreationResult {
+  id: string;
+  name: string;
+  type: string;
+  success: boolean;
+}
+
 export const executePlan = inngest.createFunction(
   { id: "execute-plan" },
   { event: "ai-agent/execute-plan" },
   async ({ event, step }: { event: ExecutePlanEvent; step: any }) => {
     const { validatedPlan: plan, contextData, prompt, organization, ontology, customNodeTypeNames } = event.data;
+
+    // Track created nodes for relationship creation
+    const createdNodes: Record<string, NodeCreationResult> = {};
 
 		const tools = [
 			{
@@ -205,7 +215,14 @@ ${JSON.stringify(contextData, null, 2)}
 
 Previous Results: ${JSON.stringify(executionResults, null, 2)}
 
-If this is a create_node operation, please use the create_node function to execute it.
+Created Nodes (Use these IDs for relationships):
+${JSON.stringify(createdNodes, null, 2)}
+
+If this is a create_node operation, use the create_node function.
+If this is a create_relationship operation, ensure you use the correct node IDs from either:
+1. Existing nodes in contextData
+2. Recently created nodes listed above
+
 Otherwise, explain why the action cannot be executed.
 ` }
         ], { 
@@ -221,106 +238,106 @@ Otherwise, explain why the action cannot be executed.
         };
       });
 
-      // Then handle any tool calls in a separate step
-      const executionResponse = await step.run(`execute-action-${currentStep}`, async () => {
+      // Analyze tool calls and prepare execution data
+      const toolCallAnalysis = await step.run(`prepare-action-${currentStep}`, async () => {
         let operationAttempted = false;
         let toolCallResult = null;
+        let executionData = null;
 
-        // Handle tool calls if present
-        if (analysisResponse.tool_calls && analysisResponse.tool_calls.length > 0) {
+        if (analysisResponse.tool_calls?.length > 0) {
           for (const toolCall of analysisResponse.tool_calls) {
             try {
               const params = JSON.parse(toolCall.function.arguments);
 
               if (toolCall.function.name === "create_node") {
-                // Validate node type
                 if (!customNodeTypeNames.includes(params.type)) {
                   throw new Error(`Invalid node type "${params.type}". Allowed types are: ${customNodeTypeNames.join(", ")}`);
                 }
 
                 operationAttempted = true;
-                toolCallResult = {
-                  success: true,
-                  params,
-                  toolCall,
-                  operationType: "create_node"
-                };
-
-                return {
-                  shouldExecute: true,
-                  operationType: "create_node",
-                  params,
-                  action,
-                  analysis: analysisResponse.analysis,
-                  operationAttempted,
-                  toolCallResult,
-                  stepNumber: currentStep,
-                  tool_calls: analysisResponse.tool_calls
+                executionData = {
+                  type: "create_node",
+                  params: {
+                    type: params.type,
+                    name: params.name,
+                    description: params.description,
+                  }
                 };
               } else if (toolCall.function.name === "create_relationship") {
-                operationAttempted = true;
-                toolCallResult = {
-                  success: true,
-                  params,
-                  toolCall,
-                  operationType: "create_relationship"
-                };
+                const fromNode = findNodeById(params.fromNodeId, contextData, createdNodes);
+                const toNode = findNodeById(params.toNodeId, contextData, createdNodes);
 
-                return {
-                  shouldExecute: true,
-                  operationType: "create_relationship",
-                  params,
-                  action,
-                  analysis: analysisResponse.analysis,
-                  operationAttempted,
-                  toolCallResult,
-                  stepNumber: currentStep,
-                  tool_calls: analysisResponse.tool_calls
+                if (!fromNode || !toNode) {
+                  throw new Error(
+                    `Unable to find nodes for relationship. ` +
+                    `From Node (${params.fromNodeId}): ${fromNode ? 'Found' : 'Not Found'}. ` +
+                    `To Node (${params.toNodeId}): ${toNode ? 'Found' : 'Not Found'}`
+                  );
+                }
+
+                operationAttempted = true;
+                executionData = {
+                  type: "create_relationship",
+                  params: {
+                    fromNodeId: fromNode.id,
+                    toNodeId: toNode.id,
+                    relationType: params.relationType
+                  }
                 };
               }
+
+              toolCallResult = {
+                success: true,
+                params,
+                toolCall
+              };
             } catch (error) {
               toolCallResult = {
                 success: false,
                 error: error instanceof Error ? error.message : "Unknown error",
                 toolCall
               };
-              console.error("Error executing tool call:", error);
+              console.error("Error analyzing tool call:", error);
             }
           }
         }
 
         return {
-          shouldExecute: false,
-          action,
-          analysis: analysisResponse.analysis,
           operationAttempted,
           toolCallResult,
-          stepNumber: currentStep,
-          tool_calls: analysisResponse.tool_calls
+          executionData
         };
       });
 
-      // Execute the appropriate tool based on the operation type
-      if (executionResponse.shouldExecute) {
-        if (executionResponse.operationType === "create_node") {
-          await step.sendEvent("execute-create-node", {
+      // Execute the prepared action
+      let executionResult;
+      if (toolCallAnalysis.executionData) {
+        if (toolCallAnalysis.executionData.type === "create_node") {
+          const nodeResult = await step.sendEvent("execute-create-node", {
             name: "ai-agent/tools/create-node",
             data: {
-              type: executionResponse.params.type,
-              name: executionResponse.params.name,
-              description: executionResponse.params.description,
+              ...toolCallAnalysis.executionData.params,
               organization,
               ontology,
               customNodeTypeNames
             },
           });
-        } else if (executionResponse.operationType === "create_relationship") {
-          await step.sendEvent("execute-create-relationship", {
+
+          if (nodeResult?.data?.success && nodeResult?.data?.data?.id) {
+            createdNodes[toolCallAnalysis.executionData.params.name] = {
+              id: nodeResult.data.data.id,
+              name: toolCallAnalysis.executionData.params.name,
+              type: toolCallAnalysis.executionData.params.type,
+              success: true
+            };
+          }
+
+          executionResult = nodeResult;
+        } else if (toolCallAnalysis.executionData.type === "create_relationship") {
+          executionResult = await step.sendEvent("execute-create-relationship", {
             name: "ai-agent/tools/create-relationship",
             data: {
-              fromNodeId: executionResponse.params.fromNodeId,
-              toNodeId: executionResponse.params.toNodeId,
-              relationType: executionResponse.params.relationType,
+              ...toolCallAnalysis.executionData.params,
               organization,
               ontology
             },
@@ -328,7 +345,15 @@ Otherwise, explain why the action cannot be executed.
         }
       }
 
-      executionResults.push(executionResponse);
+      executionResults.push({
+        action,
+        analysis: analysisResponse.analysis,
+        toolCallAnalysis,
+        executionResult,
+        stepNumber: currentStep,
+        createdNodes: { ...createdNodes }
+      });
+
       currentStep++;
     }
 
@@ -359,3 +384,39 @@ Summarize what was completed and what remains to be implemented in future versio
     };
   }
 );
+
+// Helper function to find node by ID or name in context or created nodes
+function findNodeById(
+  idOrName: string, 
+  contextData: any[], 
+  createdNodes: Record<string, NodeCreationResult>
+): { id: string; name: string } | null {
+  // First check if it's a name in createdNodes (prioritize newly created nodes)
+  const createdNode = Object.values(createdNodes).find(node => 
+    node.name.toLowerCase() === idOrName.toLowerCase()
+  );
+  if (createdNode) {
+    return { id: createdNode.id, name: createdNode.name };
+  }
+
+  // Then check contextData for existing nodes
+  const contextNode = contextData.find(item => 
+    item.metadata.type === "NODE" && (
+      item.metadata.id === idOrName || 
+      item.metadata.name.toLowerCase() === idOrName.toLowerCase()
+    )
+  );
+  if (contextNode) {
+    return { id: contextNode.metadata.id, name: contextNode.metadata.name };
+  }
+
+  // Finally check if it's an ID in createdNodes
+  const createdNodeById = Object.values(createdNodes).find(node => 
+    node.id === idOrName
+  );
+  if (createdNodeById) {
+    return { id: createdNodeById.id, name: createdNodeById.name };
+  }
+
+  return null;
+}
