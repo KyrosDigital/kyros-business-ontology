@@ -1,3 +1,4 @@
+// Generate Action Plan Prompts
 
 export const generateActionPlanSystemPrompt = (customNodeTypeNames: string[]) => {
 	return `You are an AI agent specialized in working with Ontology-based knowledge systems. Your task is to analyze requests and plan actions within this system.
@@ -129,6 +130,11 @@ IMPORTANT:
 Focus solely on information present in the user's prompt and provided context. Ensure all proposed actions map to specific available tools. Do not make assumptions about data not shown.`;
 };
 
+export const generateActionPlanUserPrompt = (prompt: string, contextData: any) => {
+	return `User Prompt: ${prompt}\n\nContext Data: ${JSON.stringify(contextData, null, 2)}`;
+};
+
+// Execute Plan Prompts
 export const executePlanSystemPrompt = (prompt: string, plan: any, customNodeTypeNames: any) => {
 	return `You are an AI agent responsible for executing a planned sequence of operations on an ontology system.
 Your task is to analyze the provided plan and context, then execute the appropriate tools to implement the changes.
@@ -229,4 +235,39 @@ EXECUTION GUIDELINES:
 8. Skip any operations that aren't create_node or create_relationship
 
 Remember: Only proceed with node and relationship creation operations. All other operations should be noted but skipped.`;
+};
+
+export const analyzeActionUserPrompt = (action: string, contextData: any, executionResults: any, createdNodes: any) => {
+	return `
+		Current Action: ${action}
+
+		Available Context:
+		${JSON.stringify(contextData, null, 2)}
+
+		Previous Results: ${JSON.stringify(executionResults, null, 2)}
+
+		Created Nodes (Use these IDs for relationships):
+		${JSON.stringify(createdNodes, null, 2)}
+
+		If this is a create_node operation, use the create_node function.
+		If this is a create_relationship operation, ensure you use the correct node IDs from either:
+		1. Existing nodes in contextData
+		2. Recently created nodes listed above
+
+		Otherwise, explain why the action cannot be executed.
+	`;
+};
+
+export const generateSummaryUserPrompt = (plan: any, executionResults: any) => {
+	return `
+		Please provide a final summary of the execution:
+
+		Original Plan:
+		${JSON.stringify(plan, null, 2)}
+
+		Execution Results:
+		${JSON.stringify(executionResults, null, 2)}
+
+		Summarize what was completed and what remains to be implemented in future versions.
+	` ;
 };

@@ -1,7 +1,7 @@
 import { inngest } from "../../inngest-client";
 import { openAIService } from "../../../services/openai";
 import { Organization, Ontology } from "@prisma/client";
-import { executePlanSystemPrompt } from "@/prompts/openai";
+import { analyzeActionUserPrompt, executePlanSystemPrompt, generateSummaryUserPrompt } from "@/prompts/openai";
 
 interface ExecutePlanEvent {
   data: {
@@ -110,24 +110,7 @@ export const executePlan = inngest.createFunction(
       const analysisResponse = await step.run(`analyze-action-${currentStep}`, async () => {
         const actionAnalysis = await openAIService.generateChatCompletion([
           { role: "system", content: systemPrompt },
-          { role: "user", content: `
-Current Action: ${action}
-
-Available Context:
-${JSON.stringify(contextData, null, 2)}
-
-Previous Results: ${JSON.stringify(executionResults, null, 2)}
-
-Created Nodes (Use these IDs for relationships):
-${JSON.stringify(createdNodes, null, 2)}
-
-If this is a create_node operation, use the create_node function.
-If this is a create_relationship operation, ensure you use the correct node IDs from either:
-1. Existing nodes in contextData
-2. Recently created nodes listed above
-
-Otherwise, explain why the action cannot be executed.
-` }
+          { role: "user", content: analyzeActionUserPrompt(action, contextData, executionResults, createdNodes) }
         ], { 
           temperature: 0.2,
           model: "gpt-4o-2024-08-06",
@@ -264,17 +247,7 @@ Otherwise, explain why the action cannot be executed.
     const finalSummary = await step.run("generate-summary", async () => {
       const summaryResponse = await openAIService.generateChatCompletion([
         { role: "system", content: systemPrompt },
-        { role: "user", content: `
-Please provide a final summary of the execution:
-
-Original Plan:
-${JSON.stringify(plan, null, 2)}
-
-Execution Results:
-${JSON.stringify(executionResults, null, 2)}
-
-Summarize what was completed and what remains to be implemented in future versions.
-` }
+        { role: "user", content: generateSummaryUserPrompt(plan, executionResults)}
       ], { temperature: 0.2 });
 
       return summaryResponse.content;
