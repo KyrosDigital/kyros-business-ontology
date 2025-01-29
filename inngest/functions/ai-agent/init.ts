@@ -56,7 +56,7 @@ export const aiAgentInit = inngest.createFunction(
       function: generateActionPlan,
       data: {
         ...commonEventData,
-        pineconeResults,
+        contextData:pineconeResults,
       },
     });
 

@@ -23,6 +23,7 @@ export const generateActionPlan = inngest.createFunction(
     const planningResponse = await step.run("generate-action-plan", async () => {
       const systemPrompt: string = generateActionPlanSystemPrompt(customNodeTypeNames);
 
+			console.log(generateActionPlanUserPrompt(prompt, contextData))
       const response = await openAIService.generateChatCompletion([
         { role: "system", content: systemPrompt },
         { role: "user", content: generateActionPlanUserPrompt(prompt, contextData) },

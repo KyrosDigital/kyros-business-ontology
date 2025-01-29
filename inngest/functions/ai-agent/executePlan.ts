@@ -336,9 +336,9 @@ export const executePlan = inngest.createFunction(
             },
           });
 
-          if (nodeResult?.data?.success && nodeResult?.data?.data?.id) {
+          if (nodeResult?.data?.success && nodeResult?.data?.node?.id) {
             createdNodes[toolCallAnalysis.executionData.params.name] = {
-              id: nodeResult.data.data.id,
+              id: nodeResult.data.node.id,
               name: toolCallAnalysis.executionData.params.name,
               type: toolCallAnalysis.executionData.params.type,
               success: true

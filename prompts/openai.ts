@@ -91,6 +91,7 @@ AVAILABLE TOOLS:
 4. create_relationship
    - Purpose: Establish new connections between existing nodes
    - Use when: Need to connect two nodes that should be related
+	 - Note: Nodes must exist before creating a relationship between them. Their ids must be found in the contextData.
 	 - arguments:
 			fromNodeId: string,
 			toNodeId: string,
