@@ -51,12 +51,14 @@ export const aiAgentInit = inngest.createFunction(
       },
     });
 
+		console.log(pineconeResults)
+
     // Generate action plan
     const { planningResponse } = await step.invoke("generate-action-plan", {
       function: generateActionPlan,
       data: {
         ...commonEventData,
-        contextData:pineconeResults,
+        contextData: pineconeResults,
       },
     });
 

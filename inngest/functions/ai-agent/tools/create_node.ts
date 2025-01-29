@@ -41,7 +41,7 @@ export const createNodeTool = inngest.createFunction(
 
       return {
         success: true,
-        data: node
+        node: node
       };
     } catch (error) {
       console.error("Error creating node:", error);

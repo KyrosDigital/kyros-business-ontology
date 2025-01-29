@@ -4,6 +4,7 @@ import { Organization, Ontology } from "@prisma/client";
 import { analyzeActionUserPrompt, executePlanSystemPrompt, generateSummaryUserPrompt } from "@/prompts/openai";
 import { PineconeResult, NodeMetadata, RelationshipMetadata } from "./queryPinecone";
 import { vectorSearch } from "./tools/vector_search";
+import { createNodeTool } from "./tools/create_node";
 
 interface ExecutePlanEvent {
   data: {
@@ -185,6 +186,7 @@ export const executePlan = inngest.createFunction(
       const analysisResponse = await step.run(`analyze-action-${currentStep}`, async () => {
 				const userFeedback = ''
 				const userFeedbackContextData = []
+				console.log("CREATED NODES", createdNodes)
         const actionAnalysis = await openAIService.generateChatCompletion([
           { role: "system", content: systemPrompt },
           { role: "user", content: analyzeActionUserPrompt(
@@ -326,8 +328,8 @@ export const executePlan = inngest.createFunction(
       let executionResult;
       if (toolCallAnalysis.executionData) {
         if (toolCallAnalysis.executionData.type === "create_node") {
-          const nodeResult = await step.sendEvent("execute-create-node", {
-            name: "ai-agent/tools/create-node",
+          const nodeResult = await step.invoke("execute-create-node", {
+            function: createNodeTool,
             data: {
               ...toolCallAnalysis.executionData.params,
               organization,
@@ -336,8 +338,10 @@ export const executePlan = inngest.createFunction(
             },
           });
 
+
+					console.log("===================================", nodeResult)
           if (nodeResult?.data?.success && nodeResult?.data?.node?.id) {
-            createdNodes[toolCallAnalysis.executionData.params.name] = {
+            createdNodes[nodeResult.data.node.name] = {
               id: nodeResult.data.node.id,
               name: toolCallAnalysis.executionData.params.name,
               type: toolCallAnalysis.executionData.params.type,

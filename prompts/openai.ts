@@ -236,7 +236,7 @@ export const analyzeActionUserPrompt = (
 	userFeedback: any, 
 	userFeedbackContextData: PineconeResult[]
 ) => {
-	return `
+	const prompt = `
 Current Action: ${action}
 Original Context Data from Vector DB:
 ${JSON.stringify(contextData, null, 2)}
@@ -268,6 +268,8 @@ If all actions in the plan provided have been completed, use the generate_summar
 
 Otherwise, explain why the action cannot be executed.
 `;
+console.log(prompt)
+return prompt;
 };
 
 export const generateSummaryUserPrompt = (plan: any, executionResults: any) => {
