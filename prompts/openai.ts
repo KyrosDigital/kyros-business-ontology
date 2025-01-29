@@ -122,6 +122,8 @@ Respond with concise JSON:
   "requiredTools": ["Only tools from the AVAILABLE TOOLS list"]
 }
 
+Never include Notes at the end of your response. You should only return the JSON object.
+
 IMPORTANT:
 - Provide thorough observations about the context data, even if it appears irrelevant
 - Document both what is present AND what is notably absent
@@ -268,7 +270,6 @@ If all actions in the plan provided have been completed, use the generate_summar
 
 Otherwise, explain why the action cannot be executed.
 `;
-console.log(prompt)
 return prompt;
 };
 

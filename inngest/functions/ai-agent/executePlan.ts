@@ -186,7 +186,6 @@ export const executePlan = inngest.createFunction(
       const analysisResponse = await step.run(`analyze-action-${currentStep}`, async () => {
 				const userFeedback = ''
 				const userFeedbackContextData = []
-				console.log("CREATED NODES", createdNodes)
         const actionAnalysis = await openAIService.generateChatCompletion([
           { role: "system", content: systemPrompt },
           { role: "user", content: analyzeActionUserPrompt(
@@ -338,8 +337,6 @@ export const executePlan = inngest.createFunction(
             },
           });
 
-
-					console.log("===================================", nodeResult)
           if (nodeResult?.success && nodeResult?.node?.id) {
             createdNodes[toolCallAnalysis.executionData.params.name] = {
               id: nodeResult.node.id,

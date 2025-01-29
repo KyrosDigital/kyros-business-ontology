@@ -35,8 +35,7 @@ export const createNodeTool = inngest.createFunction(
           ontologyId: ontology.id
         });
 
-				console.log("newNode", newNode);
-				return newNode;
+        return newNode;
       });
 
       return {

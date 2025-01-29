@@ -5,7 +5,6 @@ import { generateEmbedding } from "./generateEmbedding";
 import { queryPinecone } from "./queryPinecone";
 import { generateActionPlan } from "./generateActionPlan";
 import { validatePlan } from "./validatePlan";
-import { executePlan } from "./executePlan";
 
 type AIAgentStartEvent = {
   data: {
@@ -50,8 +49,6 @@ export const aiAgentInit = inngest.createFunction(
         embedding,
       },
     });
-
-		console.log(pineconeResults)
 
     // Generate action plan
     const { planningResponse } = await step.invoke("generate-action-plan", {
