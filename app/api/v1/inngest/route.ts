@@ -36,4 +36,15 @@ export const { GET, POST, PUT } = serve({
     }
   }
 }
+
+
+{
+  "data": {
+    "fromNodeId": "7dd40dd8-cc96-4fc1-9c0f-48debea81041",
+    "toNodeId": "5f8de66c-ee58-4a24-a5ff-36c17970a2b2",
+    "relationType": "Owns",
+    "organizationId": "d5751c89-b569-4f9e-abc2-7ad7d7cd89f3",
+    "ontologyId": "56e6fb99-7545-4931-9ddf-b8cb87604ef8"
+  }
+}
 */

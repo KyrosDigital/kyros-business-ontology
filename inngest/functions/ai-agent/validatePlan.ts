@@ -1,16 +1,14 @@
 import { inngest } from "../../inngest-client";
+import { Organization, Ontology } from "@prisma/client";
+import { PineconeResult } from "./queryPinecone";
 
 interface PlanningEvent {
   data: {
     planningResponse: string;
-    contextData: Array<{
-      type: string;
-      content: string;
-      score: number;
-    }>;
+    contextData: PineconeResult[];
     prompt: string;
-    organization: string;
-    ontology: string;
+    organization: Organization;
+    ontology: Ontology;
     customNodeTypeNames: string[];
   };
 }
@@ -26,10 +24,10 @@ type PlanningResponse = {
 export const validatePlan = inngest.createFunction(
   { id: "validate-plan" },
   { event: "ai-agent/validate-plan" },
-  async ({ event, step }: { event: PlanningEvent; step: StepTypes }) => {
+  async ({ event, step }: { event: PlanningEvent; step: any }) => {
 
     const validatedPlan = await step.run("validate-planning-response", async () => {
-      const { planningResponse, contextData, prompt, organization, ontology, customNodeTypeNames } = event.data;
+      const { planningResponse } = event.data;
       
       try {
         // Extract JSON from markdown code block if present
@@ -83,19 +81,6 @@ export const validatePlan = inngest.createFunction(
       }
     });
 
-    // Send event to execute the validated plan
-    await step.sendEvent("start-execute-plan", {
-      name: "ai-agent/execute-plan",
-      data: {
-        validatedPlan,
-        contextData: event.data.contextData,
-        prompt: event.data.prompt,
-        organization: event.data.organization,
-        ontology: event.data.ontology,
-        customNodeTypeNames: event.data.customNodeTypeNames
-      },
-    });
-
-    return { success: true, validatedPlan };
+    return { validatedPlan };
   }
 );

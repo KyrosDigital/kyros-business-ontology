@@ -12,7 +12,7 @@ interface QueryPineconeEvent {
   };
 }
 
-interface NodeMetadata {
+export type NodeMetadata = {
   id: string;
   name: string;
   nodeType: string;
@@ -20,9 +20,9 @@ interface NodeMetadata {
   type: "NODE";
 }
 
-interface RelationshipMetadata {
+export type RelationshipMetadata = {
   id: string;
-	content: string;
+  content: string;
   fromNodeId: string;
   fromNodeName: string;
   fromNodeType: string;
@@ -33,7 +33,7 @@ interface RelationshipMetadata {
   type: "RELATIONSHIP";
 }
 
-interface PineconeResult {
+export type PineconeResult = {
   metadata: NodeMetadata | RelationshipMetadata;
   score: number;
   values: number[];
@@ -43,43 +43,34 @@ export const queryPinecone = inngest.createFunction(
   { id: "query-pinecone" },
   { event: "ai-agent/query-pinecone" },
   async ({ event, step }: { event: QueryPineconeEvent; step: any }) => {
-    const { embedding, organization, ontology, customNodeTypeNames } = event.data;
+    const { embedding, organization, ontology } = event.data;
 
-    const pineconeService = new PineconeService(organization, ontology);
-    const rawResults = await pineconeService.querySimilar(embedding, 25);
+    const results = await step.run("query-pinecone", async () => {
+      const pineconeService = new PineconeService(organization, ontology);
+      const rawResults = await pineconeService.querySimilar(embedding, 25);
 
-    // Filter and transform metadata based on type
-    const results: PineconeResult[] = rawResults.map(result => {
-      const { metadata } = result;
-      
-      if (metadata.type === "NODE") {
-        // For nodes, exclude the content field
-        const { content, ...nodeMetadata } = metadata;
-        return {
-          metadata: nodeMetadata as NodeMetadata,
-          score: result.score,
-          values: result.values || []
-        };
-      } else {
-        return {
-          metadata: metadata as RelationshipMetadata,
-          score: result.score,
-          values: result.values || []
-        };
-      }
+      // Filter and transform metadata based on type
+      return rawResults.map(result => {
+        const { metadata } = result;
+        
+        if (metadata.type === "NODE") {
+          // For nodes, exclude the content field
+          const { content: _content, ...nodeMetadata } = metadata;
+          return {
+            metadata: nodeMetadata as NodeMetadata,
+            score: result.score ?? 0,
+            values: result.values ?? []
+          };
+        } else {
+          return {
+            metadata: metadata as RelationshipMetadata,
+            score: result.score ?? 0,
+            values: result.values ?? []
+          };
+        }
+      });
     });
 
-    await step.sendEvent("start-generate-action-plan", {
-      name: "ai-agent/generate-plan",
-      data: {
-        pineconeResults: results,
-        prompt: event.data.prompt,
-        organization,
-        ontology,
-        customNodeTypeNames,
-      },
-    });
-
-    return { success: true, results };
+    return { results };
   }
 );
