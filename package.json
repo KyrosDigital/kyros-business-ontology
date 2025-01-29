@@ -11,6 +11,7 @@
     "tunnel": "lt --port 3000",
     "stripe-local": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
     "prisma-studio": "npx prisma studio",
+		"inngest-dev": "npx inngest-cli@latest dev",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -40,6 +41,7 @@
     "cytoscape-edgehandles": "^4.0.1",
     "cytoscape-klay": "^3.1.4",
     "d3": "^7.9.0",
+    "inngest": "^3.30.0",
     "json-server": "^1.0.0-beta.3",
     "lucide-react": "^0.456.0",
     "next": "14.2.16",
