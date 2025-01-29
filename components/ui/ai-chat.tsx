@@ -126,47 +126,13 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
         throw new Error('Failed to get response');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader available');
+      const result = await response.json();
 
-      // Add initial "thinking" message
-      setMessages(prev => [...prev, { role: "assistant", content: "Thinking..." }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Decode and parse the chunk
-        const chunk = new TextDecoder().decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim());
-
-        for (const line of lines) {
-          const data = JSON.parse(line);
-
-          if (data.type === 'progress') {
-            // Update the last assistant message with the progress
-            setMessages(prev => [
-              ...prev.slice(0, -1),
-              { role: "assistant", content: data.content }
-            ]);
-
-            // If there's an operation result, refresh the graph
-            if (data.operationResult) {
-              await refreshGraph();
-            }
-          } else if (data.type === 'complete') {
-            // Add final response
-            if (data.response.text) {
-              setMessages(prev => [
-                ...prev.slice(0, -1), // Remove the progress message
-                { role: "assistant", content: data.response.text }
-              ]);
-            }
-          } else if (data.type === 'error') {
-            throw new Error(data.error);
-          }
-        }
-      }
+      // Add a temporary message to show the process has started
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: "I've started processing your request. The graph will update automatically when changes are made." 
+      }]);
     } catch (error) {
       console.error('Failed to get response:', error);
       setMessages(prev => [...prev, { 
@@ -354,6 +320,58 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
       e.target.value = '' // Reset input
     }
   }
+
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+
+    const connectToSSE = () => {
+      eventSource = new EventSource('/api/v1/chat/updates');
+
+      eventSource.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        
+        setMessages(prev => {
+          // Replace the last assistant message if it exists, otherwise add new
+          const newMessages = [...prev];
+          if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
+            newMessages[newMessages.length - 1] = {
+              role: 'assistant',
+              content: data.content
+            };
+          } else {
+            newMessages.push({
+              role: 'assistant',
+              content: data.content
+            });
+          }
+          return newMessages;
+        });
+
+        // If operation result exists, refresh the graph
+        if (data.operationResult) {
+          refreshGraph();
+        }
+
+        // If complete, close the connection
+        if (data.type === 'complete') {
+          eventSource?.close();
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error('SSE Error:', error);
+        eventSource?.close();
+      };
+    };
+
+    if (isOpen) {
+      connectToSSE();
+    }
+
+    return () => {
+      eventSource?.close();
+    };
+  }, [isOpen]);
 
   return (
     <div 

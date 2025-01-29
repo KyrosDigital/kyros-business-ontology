@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { sendMessage } from '@/lib/claude';
 import { prisma } from '@/prisma/prisma-client';
 import { aiUsageService } from '@/services/ai-usage';
+import { inngest } from '@/inngest/inngest-client';
 
 export async function POST(request: Request) {
   try {
@@ -37,68 +37,27 @@ export async function POST(request: Request) {
       );
     }
 
-    const filtersSet = new Set(activeFilters as ('NODE' | 'RELATIONSHIP' | 'NOTE')[]);
-    
-    // Create a new TransformStream for streaming updates
-    const stream = new TransformStream();
-    const writer = stream.writable.getWriter();
-    
-    // Create progress callback
-    const onProgress = async (update: string, operationResult?: any) => {
-      const data = JSON.stringify({ 
-        type: 'progress', 
-        content: update,
-        operationResult 
-      });
-      await writer.write(new TextEncoder().encode(data + '\n'));
-    };
-
-    // Handle the message in the background
-    const responsePromise = sendMessage(
-      message,
-      organization,
-      ontology,
-      previousMessages,
-      filtersSet,
-      onProgress
-    );
-
-    // When the response is ready, increment usage count and send response
-    responsePromise.then(async (response) => {
-      try {
-        // Increment the AI usage count
-        await aiUsageService.incrementCount(organizationId);
-        
-        const finalData = JSON.stringify({ type: 'complete', response });
-        await writer.write(new TextEncoder().encode(finalData + '\n'));
-      } catch (error) {
-        console.error('Error incrementing AI usage:', error);
-        // Still send the response even if tracking fails
-        const finalData = JSON.stringify({ type: 'complete', response });
-        await writer.write(new TextEncoder().encode(finalData + '\n'));
-      } finally {
-        await writer.close();
+    // Trigger the AI Agent init function via Inngest
+    await inngest.send({
+      name: "ai-agent/init",
+      data: {
+        prompt: message,
+        organization,
+        ontology
       }
-    }).catch(async (error) => {
-      const errorData = JSON.stringify({ 
-        type: 'error', 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-      await writer.write(new TextEncoder().encode(errorData + '\n'));
-      await writer.close();
     });
 
-    return new Response(stream.readable, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+    // For now, return a simple acknowledgment
+    // Later we'll implement proper streaming and feedback
+    return NextResponse.json({
+      message: "AI Agent process started",
+      status: "processing"
     });
+
   } catch (error) {
     console.error('Error in chat endpoint:', error);
     return NextResponse.json(
-      { message: 'Failed to get response', error: error instanceof Error ? error.message : 'Unknown error' },
+      { message: 'Failed to start AI Agent', error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
