@@ -412,16 +412,6 @@ export const executePlan = inngest.createFunction(
         createdRelationships: [...createdRelationships]
       });
 
-      await step.sendEvent("notify-progress", {
-        name: "ai-agent/progress",
-        data: {
-          type: "progress",
-          content: `Executing step ${currentStep}: ${plan.proposedActions[currentStep - 1]}`,
-          operationResult: executionResult,
-          timestamp: Date.now()
-        } as AIAgentProgressEvent['data']
-      });
-
       currentStep++;
     }
 
@@ -447,15 +437,6 @@ export const executePlan = inngest.createFunction(
         isFinal: true
       });
     }
-
-    await step.sendEvent("notify-complete", {
-      name: "ai-agent/progress",
-      data: {
-        type: "complete",
-        content: executionResults[executionResults.length - 1].summary?.content || "Process complete",
-        timestamp: Date.now()
-      } as AIAgentProgressEvent['data']
-    });
 
     return {
       success: isComplete,

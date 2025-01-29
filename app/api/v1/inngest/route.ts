@@ -9,6 +9,7 @@ import { executePlan } from "@/inngest/functions/ai-agent/executePlan";
 import { createNodeTool } from "@/inngest/functions/ai-agent/tools/create_node";
 import { createRelationshipTool } from "@/inngest/functions/ai-agent/tools/create_relationship";
 import { vectorSearch } from "@/inngest/functions/ai-agent/tools/vector_search";
+import { notifyUI } from "@/inngest/functions/ai-agent/notify-ui";
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
@@ -21,6 +22,7 @@ export const { GET, POST, PUT } = serve({
 		executePlan,
 		createNodeTool,
 		createRelationshipTool,
-		vectorSearch
+		vectorSearch,
+		notifyUI
   ],
 });

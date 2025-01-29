@@ -11,7 +11,7 @@
     "tunnel": "lt --port 3000",
     "stripe-local": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
     "prisma-studio": "npx prisma studio",
-		"inngest-dev": "npx inngest-cli@latest dev",
+    "inngest-dev": "npx inngest-cli@latest dev",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -58,6 +58,7 @@
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7",
     "ts-node": "^10.9.2",
+    "uuid": "^11.0.5",
     "zod": "^3.24.1"
   },
   "devDependencies": {
@@ -73,6 +74,7 @@
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@types/uuid": "^10.0.0",
     "dotenv": "^16.4.5",
     "dotenv-cli": "^7.4.2",
     "eslint": "^8",

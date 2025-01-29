@@ -10,12 +10,13 @@ export async function POST(request: Request) {
       previousMessages, 
       activeFilters,
       organizationId,
-      ontologyId
+      ontologyId,
+      sessionId
     } = await request.json();
 
-    if (!organizationId || !ontologyId) {
+    if (!organizationId || !ontologyId || !sessionId) {
       return NextResponse.json(
-        { message: 'Missing organization or ontology ID' },
+        { message: 'Missing required fields' },
         { status: 400 }
       );
     }
@@ -43,7 +44,8 @@ export async function POST(request: Request) {
       data: {
         prompt: message,
         organization,
-        ontology
+        ontology,
+        sessionId
       }
     });
 
@@ -51,7 +53,8 @@ export async function POST(request: Request) {
     // Later we'll implement proper streaming and feedback
     return NextResponse.json({
       message: "AI Agent process started",
-      status: "processing"
+      status: "processing",
+      sessionId
     });
 
   } catch (error) {

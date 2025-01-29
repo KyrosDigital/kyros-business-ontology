@@ -12,6 +12,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useGraph } from "@/contexts/GraphContext"
 import { useOrganization } from "@/contexts/OrganizationContext"
+import { v4 as uuidv4 } from 'uuid'
 
 type FilterType = 'NODE' | 'RELATIONSHIP' | 'NOTE';
 
@@ -77,6 +78,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 })
   const [attachment, setAttachment] = useState<FileAttachment | null>(null)
   const [isProcessingFile, setIsProcessingFile] = useState(false)
+  const [sessionId] = useState(() => uuidv4())
 
   const toggleFilter = (filter: FilterType) => {
     const newFilters = new Set(activeFilters);
@@ -115,6 +117,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
           activeFilters: Array.from(activeFilters),
           organizationId: organization.id,
           ontologyId,
+          sessionId,
           attachment: attachment ? {
             name: attachment.name,
             text: attachment.text
@@ -323,55 +326,100 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
 
   useEffect(() => {
     let eventSource: EventSource | null = null;
+    let isConnecting = false;
 
-    const connectToSSE = () => {
-      eventSource = new EventSource('/api/v1/chat/updates');
+    const connectToSSE = async () => {
+      // Prevent multiple connection attempts
+      if (isConnecting) return;
+      isConnecting = true;
 
-      eventSource.onmessage = (event) => {
-        const data = JSON.parse(event.data);
+      // Close existing connection if any
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+
+      try {
+        console.log('Attempting to connect SSE...', sessionId);
+        // Create new EventSource with proper cache busting
+        const timestamp = Date.now();
+        const url = `/api/v1/chat/updates?sessionId=${sessionId}&t=${timestamp}`;
         
-        setMessages(prev => {
-          // Replace the last assistant message if it exists, otherwise add new
-          const newMessages = [...prev];
-          if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
-            newMessages[newMessages.length - 1] = {
-              role: 'assistant',
-              content: data.content
-            };
-          } else {
-            newMessages.push({
-              role: 'assistant',
-              content: data.content
+        eventSource = new EventSource(url, { withCredentials: true });
+
+        // Set up event handlers
+        eventSource.onopen = () => {
+          console.log('SSE Connection opened for session:', sessionId);
+          isConnecting = false;
+        };
+
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log("SSE Message received:", data);
+
+            setMessages(prev => {
+              const newMessages = [...prev];
+              if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
+                newMessages[newMessages.length - 1] = {
+                  role: 'assistant',
+                  content: data.content
+                };
+              } else {
+                newMessages.push({
+                  role: 'assistant',
+                  content: data.content
+                });
+              }
+              return newMessages;
             });
+
+            if (data.operationResult) {
+              refreshGraph();
+            }
+
+            if (data.type === 'complete') {
+              console.log('Closing connection due to complete message');
+              eventSource?.close();
+            }
+          } catch (error) {
+            console.error('Error processing SSE message:', error);
           }
-          return newMessages;
-        });
+        };
 
-        // If operation result exists, refresh the graph
-        if (data.operationResult) {
-          refreshGraph();
-        }
+        eventSource.onerror = (error) => {
+          console.error('SSE Error:', error);
+          isConnecting = false;
+          
+          // Attempt to reconnect after a delay
+          if (eventSource?.readyState === EventSource.CLOSED) {
+            console.log('Connection closed, attempting to reconnect...');
+            setTimeout(() => {
+              connectToSSE();
+            }, 1000);
+          }
+        };
 
-        // If complete, close the connection
-        if (data.type === 'complete') {
-          eventSource?.close();
-        }
-      };
-
-      eventSource.onerror = (error) => {
-        console.error('SSE Error:', error);
-        eventSource?.close();
-      };
+      } catch (error) {
+        console.error('Error setting up SSE connection:', error);
+        isConnecting = false;
+      }
     };
 
-    if (isOpen) {
+    if (isOpen && sessionId) {
+      console.log('Initiating SSE connection...', { isOpen, sessionId });
       connectToSSE();
     }
 
     return () => {
-      eventSource?.close();
+      if (eventSource) {
+        console.log('Cleaning up SSE connection');
+        eventSource.close();
+        eventSource = null;
+      }
+      isConnecting = false;
     };
-  }, [isOpen]);
+  }, [isOpen, sessionId, refreshGraph]);
 
   return (
     <div 

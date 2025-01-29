@@ -11,6 +11,7 @@ type AIAgentStartEvent = {
     prompt: string;
     organization: Organization;
     ontology: Ontology;
+		sessionId: string;
   };
 };
 
@@ -19,7 +20,17 @@ export const aiAgentInit = inngest.createFunction(
   { id: "ai-agent-init" },
   { event: "ai-agent/init" },
   async ({ event, step }: { event: AIAgentStartEvent; step: any }) => {
-    const { prompt, organization, ontology } = event.data;
+    const { prompt, organization, ontology, sessionId } = event.data;
+
+		await step.sendEvent("test-event-feedback", {
+      name: "ai-agent/progress",
+      data: {
+				sessionId: sessionId,
+        type: "complete",
+        content: "Here is a test",
+        timestamp: Date.now()
+      } as AIAgentProgressEvent['data']
+    });
 
     // Get custom node types for the organization
     const customNodeTypes = await step.run("fetch-custom-node-types", async () => {
