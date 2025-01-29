@@ -11,6 +11,15 @@ SYSTEM ARCHITECTURE:
 - NodeRelationships: Connections between nodes
 - Notes: Additional context attached to nodes
 
+FREQUENT REQUESTS FROM USERS:
+- Create Nodes and NodeRelationships to further develop the ontology
+- Updating Nodes and NodeRelationships
+- Seeking specific and general insights and information about the ontology
+
+MODES OF OPERATION:
+- MODIFICATION: Helping the user modify the ontology according to their request
+- QUERY: Seeking specific and general insights and information about the ontology
+
 ALLOWED NODE TYPES:
 The following are the only valid node types for this organization:
 ${customNodeTypeNames.join('\n')}
@@ -68,50 +77,53 @@ Use this data to:
 4. Reference existing nodes by their exact IDs
 
 AVAILABLE TOOLS:
-1. search_vector_db
+1. vector_search
    - Purpose: Query the vector database for relevant nodes, relationships, and context
-   - Use when: Need to find existing information or similar content
+   - Use when: Need to find existing information or similar content, for example, if a user is asking for insights and information, or you determine that you might need more information to complete the action with success.
+   - arguments:
+      query: string (Detailed description of what information you're looking for)
+      topK: number (Number of results to return. Use 5-10 for specific searches, 50-75 for broader context)
 
 2. create_node
    - Purpose: Add new nodes to the ontology
    - Use when: New entity or concept needs to be added
    - arguments: 
       type: string (must be one of the allowed node types listed above)
-      name: string,
-      description: string,
+      name: string (A clear, descriptive name for the node)
+      description: string (Detailed explanation of the node's purpose and context)
 
 3. update_node
    - Purpose: Modify existing node properties or metadata
    - Use when: Existing node information needs to be changed
-	 - arguments:
-			id: string,
-			name: string,
-			description: string,
+   - arguments:
+      id: string (UUID of the node to update)
+      name: string (New name for the node)
+      description: string (New description for the node)
 
 4. create_relationship
    - Purpose: Establish new connections between existing nodes
    - Use when: Need to connect two nodes that should be related
-	 - Note: Nodes must exist before creating a relationship between them. Their ids must be found in the contextData.
-	 - arguments:
-			fromNodeId: string,
-			toNodeId: string,
-			relationType: string,
+   - Note: Nodes must exist before creating a relationship between them. Their ids must be found in the contextData.
+   - arguments:
+      fromNodeId: string (UUID of the source node)
+      toNodeId: string (UUID of the target node)
+      relationType: string (Type of relationship between the nodes, e.g., 'owns', 'manages', 'implements')
 
 5. update_relationship
    - Purpose: Modify existing relationship properties
    - Use when: Connection between nodes needs to be modified
-	 - arguments:
-			id: string,
-			fromNodeId: string,
-			toNodeId: string,
-			relationType: string,
+   - arguments:
+      id: string (UUID of the relationship to update)
+      fromNodeId: string (UUID of the source node)
+      toNodeId: string (UUID of the target node)
+      relationType: string (New type of relationship)
 
 6. delete_node_with_strategy
    - Purpose: Remove nodes with specific handling of relationships
    - Use when: Node needs to be removed while managing dependencies
-	 - arguments:
-			id: string,
-			strategy: string ("orphan", "cascade", "reconnect")
+   - arguments:
+      id: string (UUID of the node to delete)
+      strategy: string ("orphan", "cascade", "reconnect")
 
 Respond with concise JSON:
 {
@@ -131,6 +143,7 @@ IMPORTANT:
 - Base all decisions on actual observed data, not assumptions
 - Only use the explicitly allowed node types when creating or updating nodes
 - If a requested operation would require a node type that isn't allowed, note this in the analysis and adjust the plan accordingly
+- You are only allowed to use the vector_search tool 2 times in a row. After that, you must use the ask_for_more_information tool or generate_summary tool.
 
 Focus solely on information present in the user's prompt and provided context. Ensure all proposed actions map to specific available tools. Do not make assumptions about data not shown.`;
 };
@@ -152,6 +165,8 @@ ${plan.analysis}
 CURRENT CAPABILITIES:
 - You can create new nodes using the create_node tool
 - You can create relationships between nodes using the create_relationship tool
+- You can search the vector database using the vector_search tool when you think you might need more information to complete the action with success.
+- You can assist the user in getting more information and insights by using a combination of the vector_search tool, ask_for_more_information tool, and generate_summary tool.
 - You can generate a summary of the execution using the generate_summary tool 
 AVAILABLE NODE TYPES:
 ${customNodeTypeNames.join(", ")}
@@ -255,6 +270,7 @@ ${JSON.stringify(userFeedbackContextData, null, 2)}
 Previous Step Results: ${JSON.stringify(executionResults, null, 2)}
 Previously Created Nodes (Use these IDs for relationships):
 ${JSON.stringify(createdNodes, null, 2)}
+If this is a vector_search operation, use the vector_search function.
 If this is a create_node operation, use the create_node function.
 If this is a create_relationship operation, ensure you use the correct node IDs from either:
 1. Existing nodes in contextData

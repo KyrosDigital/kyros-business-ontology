@@ -5,6 +5,7 @@ import { analyzeActionUserPrompt, executePlanSystemPrompt, generateSummaryUserPr
 import { PineconeResult, NodeMetadata, RelationshipMetadata } from "./queryPinecone";
 import { vectorSearch } from "./tools/vector_search";
 import { createNodeTool } from "./tools/create_node";
+import { createRelationshipTool } from "./tools/create_relationship";
 
 interface ExecutePlanEvent {
   data: {
@@ -152,7 +153,7 @@ export const executePlan = inngest.createFunction(
 			{
 				type: "function",
 				function: {
-					name: "search_vector_db",
+					name: "vector_search",
 					description: "Search for context in the vector database. Use a larger topK for broader context, smaller for specific searches.",
 					parameters: {
 						type: "object",
@@ -348,8 +349,8 @@ export const executePlan = inngest.createFunction(
 
           executionResult = nodeResult;
         } else if (toolCallAnalysis.executionData.type === "create_relationship") {
-          executionResult = await step.sendEvent("execute-create-relationship", {
-            name: "ai-agent/tools/create-relationship",
+          executionResult = await step.invoke("execute-create-relationship", {
+            function: createRelationshipTool,
             data: {
               ...toolCallAnalysis.executionData.params,
               organization,

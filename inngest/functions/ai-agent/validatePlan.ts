@@ -58,12 +58,14 @@ export const validatePlan = inngest.createFunction(
 
         // Validate tools against available tools list
         const availableTools = [
-          "search_vector_db",
+          "vector_search",
           "create_node",
           "update_node",
           "create_relationship",
           "update_relationship",
-          "delete_node_with_strategy"
+          "delete_node_with_strategy",
+          "ask_for_more_information",
+          "generate_summary"
         ] as const;
 
         const invalidTools = parsed.requiredTools.filter(
