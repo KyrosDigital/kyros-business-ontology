@@ -340,9 +340,9 @@ export const executePlan = inngest.createFunction(
 
 
 					console.log("===================================", nodeResult)
-          if (nodeResult?.data?.success && nodeResult?.data?.node?.id) {
-            createdNodes[nodeResult.data.node.name] = {
-              id: nodeResult.data.node.id,
+          if (nodeResult?.success && nodeResult?.node?.id) {
+            createdNodes[toolCallAnalysis.executionData.params.name] = {
+              id: nodeResult.node.id,
               name: toolCallAnalysis.executionData.params.name,
               type: toolCallAnalysis.executionData.params.type,
               success: true
