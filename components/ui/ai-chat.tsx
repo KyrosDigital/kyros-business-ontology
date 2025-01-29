@@ -91,19 +91,19 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!input.trim() && !attachment) return
-    if (isLoading || !organization?.id || !ontologyId) return
+    e.preventDefault();
+    if (!input.trim() && !attachment) return;
+    if (isLoading || !organization?.id || !ontologyId) return;
 
-    setIsLoading(true)
+    setIsLoading(true);
     const userMessage: ChatMessage = { 
       role: "user", 
       content: attachment 
         ? `I have provided text from a PDF file named "${attachment.name}". When analyzing this text, please look for any Nodes and Relationships that could exist in the text that should be added to the graph. Here is the text content:\n\n${attachment.text}\n\nMy question/prompt: ${input}`
         : input 
-    }
-    setMessages(prev => [...prev, userMessage])
-    setInput("")
+    };
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
 
     try {
       const response = await fetch('/api/v1/chat', {
@@ -145,7 +145,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   const markdownComponents = {
     code({ inline, className, children, ...props }: MarkdownComponentProps) {
@@ -329,27 +329,25 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     let isConnecting = false;
 
     const connectToSSE = async () => {
-      // Prevent multiple connection attempts
-      if (isConnecting) return;
+      if (isConnecting || !sessionId) return;
       isConnecting = true;
 
       // Close existing connection if any
       if (eventSource) {
+        console.log('Closing existing connection');
         eventSource.close();
         eventSource = null;
       }
 
       try {
-        console.log('Attempting to connect SSE...', sessionId);
-        // Create new EventSource with proper cache busting
+        console.log('Creating new SSE connection...', sessionId);
         const timestamp = Date.now();
         const url = `/api/v1/chat/updates?sessionId=${sessionId}&t=${timestamp}`;
         
-        eventSource = new EventSource(url, { withCredentials: true });
+        eventSource = new EventSource(url);
 
-        // Set up event handlers
         eventSource.onopen = () => {
-          console.log('SSE Connection opened for session:', sessionId);
+          console.log('SSE Connection opened');
           isConnecting = false;
         };
 
@@ -358,29 +356,41 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
             const data = JSON.parse(event.data);
             console.log("SSE Message received:", data);
 
-            setMessages(prev => {
-              const newMessages = [...prev];
-              if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
-                newMessages[newMessages.length - 1] = {
-                  role: 'assistant',
-                  content: data.content
-                };
-              } else {
-                newMessages.push({
-                  role: 'assistant',
-                  content: data.content
+            // Handle different message types
+            switch (data.type) {
+              case 'connection':
+                console.log('Connection confirmed');
+                break;
+              
+              case 'progress':
+              case 'complete':
+                setMessages(prev => {
+                  const newMessages = [...prev];
+                  if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
+                    newMessages[newMessages.length - 1] = {
+                      role: 'assistant',
+                      content: data.content
+                    };
+                  } else {
+                    newMessages.push({
+                      role: 'assistant',
+                      content: data.content
+                    });
+                  }
+                  return newMessages;
                 });
-              }
-              return newMessages;
-            });
 
-            if (data.operationResult) {
-              refreshGraph();
-            }
+                if (data.operationResult) {
+                  refreshGraph();
+                }
 
-            if (data.type === 'complete') {
-              console.log('Closing connection due to complete message');
-              eventSource?.close();
+                if (data.type === 'complete') {
+                  console.log('Operation complete');
+                }
+                break;
+
+              default:
+                console.log('Unknown message type:', data.type);
             }
           } catch (error) {
             console.error('Error processing SSE message:', error);
@@ -391,12 +401,9 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
           console.error('SSE Error:', error);
           isConnecting = false;
           
-          // Attempt to reconnect after a delay
           if (eventSource?.readyState === EventSource.CLOSED) {
             console.log('Connection closed, attempting to reconnect...');
-            setTimeout(() => {
-              connectToSSE();
-            }, 1000);
+            setTimeout(connectToSSE, 1000);
           }
         };
 
@@ -406,8 +413,8 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
       }
     };
 
-    if (isOpen && sessionId) {
-      console.log('Initiating SSE connection...', { isOpen, sessionId });
+    if (isOpen) {
+      console.log('Initiating SSE connection...');
       connectToSSE();
     }
 

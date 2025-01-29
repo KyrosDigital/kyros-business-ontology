@@ -22,16 +22,6 @@ export const aiAgentInit = inngest.createFunction(
   async ({ event, step }: { event: AIAgentStartEvent; step: any }) => {
     const { prompt, organization, ontology, sessionId } = event.data;
 
-		await step.sendEvent("test-event-feedback", {
-      name: "ai-agent/progress",
-      data: {
-				sessionId: sessionId,
-        type: "complete",
-        content: "Here is a test",
-        timestamp: Date.now()
-      } as AIAgentProgressEvent['data']
-    });
-
     // Get custom node types for the organization
     const customNodeTypes = await step.run("fetch-custom-node-types", async () => {
       return customNodeTypesService.getByOrganization(organization.id);
@@ -61,6 +51,16 @@ export const aiAgentInit = inngest.createFunction(
       },
     });
 
+		await step.sendEvent("notify-ui-generate-action-plan", {
+      name: "ai-agent/progress",
+      data: {
+				sessionId: sessionId,
+        type: "progress",
+        content: "Creating an action plan...",
+        timestamp: Date.now()
+      } as AIAgentProgressEvent['data']
+    });
+
     // Generate action plan
     const { planningResponse } = await step.invoke("generate-action-plan", {
       function: generateActionPlan,
@@ -68,6 +68,16 @@ export const aiAgentInit = inngest.createFunction(
         ...commonEventData,
         contextData: pineconeResults,
       },
+    });
+
+		await step.sendEvent("notify-ui-validate-action-plan", {
+      name: "ai-agent/progress",
+      data: {
+				sessionId: sessionId,
+        type: "progress",
+        content: "Validating the action plan...",
+        timestamp: Date.now()
+      } as AIAgentProgressEvent['data']
     });
 
     // Validate the plan
@@ -78,6 +88,16 @@ export const aiAgentInit = inngest.createFunction(
         planningResponse,
         contextData: pineconeResults,
       },
+    });
+
+		await step.sendEvent("notify-ui-execute-plan", {
+      name: "ai-agent/progress",
+      data: {
+				sessionId: sessionId,
+        type: "progress",
+        content: "Executing the action plan...",
+        timestamp: Date.now()
+      } as AIAgentProgressEvent['data']
     });
 
     // Execute the validated plan, start AI Agent loop
