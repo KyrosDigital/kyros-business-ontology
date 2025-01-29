@@ -33,6 +33,17 @@ interface NodeCreationResult {
   success: boolean;
 }
 
+// Add new interface for relationship tracking
+interface RelationshipCreationResult {
+  id: string;
+  fromNodeId: string;
+  fromNodeName: string;
+  toNodeId: string;
+  toNodeName: string;
+  relationType: string;
+  success: boolean;
+}
+
 interface ExecutionResult {
   action?: string;
   analysis: string;
@@ -52,6 +63,7 @@ interface ExecutionResult {
   executionResult?: any;
   stepNumber: number;
   createdNodes?: Record<string, NodeCreationResult>;
+  createdRelationships?: RelationshipCreationResult[];  // Add this
   summary?: {
     content: string;
     success: boolean;
@@ -68,6 +80,9 @@ export const executePlan = inngest.createFunction(
 
     // Track created nodes for relationship creation
     const createdNodes: Record<string, NodeCreationResult> = {};
+    
+    // Track created relationships to avoid duplicates
+    const createdRelationships: RelationshipCreationResult[] = [];
     
     // Track the most recent search results
     let searchedContextData: PineconeResult[] = [];
@@ -182,7 +197,7 @@ export const executePlan = inngest.createFunction(
     let currentStep = 1;
     const executionResults: ExecutionResult[] = [];
 
-    while (!isComplete && currentStep <= 10) { // Add safety limit of 10 steps
+    while (!isComplete && currentStep <= 100) { // Add safety limit of 10 steps
       // First analyze the next action
       const analysisResponse = await step.run(`analyze-action-${currentStep}`, async () => {
 				const userFeedback = ''
@@ -193,7 +208,8 @@ export const executePlan = inngest.createFunction(
             plan.proposedActions[currentStep - 1], 
             contextData, 
             executionResults, 
-            createdNodes, 
+            createdNodes,
+						createdRelationships, 
             searchedContextData,
             userFeedback, 
             userFeedbackContextData
@@ -287,7 +303,7 @@ export const executePlan = inngest.createFunction(
                     relationType: params.relationType
                   }
                 };
-              } else if (toolCall.function.name === "search_vector_db") {
+              } else if (toolCall.function.name === "vector_search") {
                 operationAttempted = true;
                 executionData = {
                   type: "vector_search",
@@ -349,7 +365,7 @@ export const executePlan = inngest.createFunction(
 
           executionResult = nodeResult;
         } else if (toolCallAnalysis.executionData.type === "create_relationship") {
-          executionResult = await step.invoke("execute-create-relationship", {
+          const relationshipResult = await step.invoke("execute-create-relationship", {
             function: createRelationshipTool,
             data: {
               ...toolCallAnalysis.executionData.params,
@@ -357,6 +373,20 @@ export const executePlan = inngest.createFunction(
               ontology
             },
           });
+
+          if (relationshipResult?.success && relationshipResult?.relationship?.id) {
+            createdRelationships.push({
+              id: relationshipResult.relationship.id,
+              fromNodeId: relationshipResult.relationship.fromNodeId,
+              fromNodeName: relationshipResult.relationship.fromNode.name,
+              toNodeId: relationshipResult.relationship.toNodeId,
+              toNodeName: relationshipResult.relationship.toNode.name,
+              relationType: relationshipResult.relationship.relationType,
+              success: true
+            });
+          }
+
+          executionResult = relationshipResult;
         } else if (toolCallAnalysis.executionData.type === "vector_search") {
           const searchResult = await step.invoke("vector-search", {
             function: vectorSearch,
@@ -377,7 +407,8 @@ export const executePlan = inngest.createFunction(
         toolCallAnalysis,
         executionResult,
         stepNumber: currentStep,
-        createdNodes: { ...createdNodes }
+        createdNodes: { ...createdNodes },
+        createdRelationships: [...createdRelationships]
       });
 
       currentStep++;

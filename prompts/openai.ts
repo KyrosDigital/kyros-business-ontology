@@ -1,5 +1,16 @@
 import { PineconeResult } from "../inngest/functions/ai-agent/queryPinecone";
 
+// Add interface for relationship tracking
+interface RelationshipCreationResult {
+	id: string;
+	fromNodeId: string;
+	fromNodeName: string;
+	toNodeId: string;
+	toNodeName: string;
+	relationType: string;
+	success: boolean;
+}
+
 // Generate Action Plan Prompts
 
 export const generateActionPlanSystemPrompt = (customNodeTypeNames: string[]) => {
@@ -248,28 +259,29 @@ export const analyzeActionUserPrompt = (
 	action: string, 
 	contextData: PineconeResult[], 
 	executionResults: any, 
-	createdNodes: any, 
+	createdNodes: any,
 	searchedContextData: PineconeResult[],
 	userFeedback: any, 
-	userFeedbackContextData: PineconeResult[]
+	userFeedbackContextData: PineconeResult[],
+	createdRelationships: RelationshipCreationResult[]
 ) => {
 	const prompt = `
 Current Action: ${action}
+Previous Step Results: ${JSON.stringify(executionResults, null, 2)}
 Original Context Data from Vector DB:
 ${JSON.stringify(contextData, null, 2)}
 Additional Context Data from Vector Search:
 ${JSON.stringify(searchedContextData, null, 2)}
-Feedback provided from end User: 
-${userFeedback}
-
-
-Additional Context Data related to Feedback from end User:
-
-
-${JSON.stringify(userFeedbackContextData, null, 2)}
-Previous Step Results: ${JSON.stringify(executionResults, null, 2)}
 Previously Created Nodes (Use these IDs for relationships):
 ${JSON.stringify(createdNodes, null, 2)}
+Previously Created Relationships (Avoid creating duplicates):
+${JSON.stringify(createdRelationships, null, 2)}
+Feedback provided from end User: 
+${userFeedback}
+Additional Context Data related to Feedback from end User:
+${JSON.stringify(userFeedbackContextData, null, 2)}
+
+
 If this is a vector_search operation, use the vector_search function.
 If this is a create_node operation, use the create_node function.
 If this is a create_relationship operation, ensure you use the correct node IDs from either:

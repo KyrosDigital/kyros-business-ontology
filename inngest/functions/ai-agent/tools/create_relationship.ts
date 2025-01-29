@@ -32,7 +32,7 @@ export const createRelationshipTool = inngest.createFunction(
 
       return {
         success: true,
-        data: relationship
+        relationship
       };
     } catch (error) {
       console.error("Error creating relationship:", error);
