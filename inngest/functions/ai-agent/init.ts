@@ -71,8 +71,8 @@ export const aiAgentInit = inngest.createFunction(
     });
 
     // Execute the validated plan, start AI Agent loop
-    await step.invoke("execute-plan", {
-      function: executePlan,
+    await step.sendEvent("start-execute-plan", {
+      name: "ai-agent/execute-plan",
       data: {
         ...commonEventData,
         validatedPlan,

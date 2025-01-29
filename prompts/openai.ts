@@ -1,3 +1,5 @@
+import { PineconeResult } from "../inngest/functions/ai-agent/queryPinecone";
+
 // Generate Action Plan Prompts
 
 export const generateActionPlanSystemPrompt = (customNodeTypeNames: string[]) => {
@@ -138,26 +140,20 @@ export const generateActionPlanUserPrompt = (prompt: string, contextData: any) =
 export const executePlanSystemPrompt = (prompt: string, plan: any, customNodeTypeNames: any) => {
 	return `You are an AI agent responsible for executing a planned sequence of operations on an ontology system.
 Your task is to analyze the provided plan and context, then execute the appropriate tools to implement the changes.
-
 ORIGINAL USER REQUEST:
 ${prompt}
-
 CONTEXT DATA ANALYSIS:
 ${plan.contextDataObservations}
-
 VALIDATED PLAN ANALYSIS:
 ${plan.analysis}
-
 CURRENT CAPABILITIES:
 - You can create new nodes using the create_node tool
 - You can create relationships between nodes using the create_relationship tool
-
+- You can generate a summary of the execution using the generate_summary tool 
 AVAILABLE NODE TYPES:
 ${customNodeTypeNames.join(", ")}
-
 CONTEXT DATA STRUCTURE:
 Each context item has one of two possible metadata structures:
-
 For NODE type:
 {
   "metadata": {
@@ -169,7 +165,6 @@ For NODE type:
   },
   "score": 0.95  // Relevance score
 }
-
 For RELATIONSHIP type:
 {
   "metadata": {
@@ -186,7 +181,6 @@ For RELATIONSHIP type:
   },
   "score": 0.95  // Relevance score
 }
-
 RELATIONSHIP CREATION GUIDELINES:
 1. When creating relationships:
    - Use the 'id' field from NODE type metadata for fromNodeId and toNodeId
@@ -194,20 +188,17 @@ RELATIONSHIP CREATION GUIDELINES:
    - Only create relationships between nodes that exist in the contextData
    - Verify both node IDs exist before calling create_relationship
    - If a needed node doesn't exist yet, create it first with create_node
-
 2. Example relationship creation:
    - Find source node in contextData (type: "NODE")
    - Use its metadata.id as fromNodeId
    - Find target node in contextData (type: "NODE")
    - Use its metadata.id as toNodeId
    - Specify an appropriate relationType
-
 3. Existing relationships:
    - Check RELATIONSHIP type records in contextData
    - Use them to understand existing connections
    - Avoid creating duplicate relationships
    - Reference their structure for creating similar relationships
-
 YOUR RESPONSIBILITIES:
 1. For each proposed action:
    - For node creation:
@@ -223,7 +214,6 @@ YOUR RESPONSIBILITIES:
 2. For any proposed actions that aren't yet supported:
    - Acknowledge them but skip execution
    - Note them as "pending future implementation"
-
 EXECUTION GUIDELINES:
 1. Consider the original user request and context when creating nodes and relationships
 2. Use the context data to inform decisions and find correct node IDs
@@ -233,29 +223,44 @@ EXECUTION GUIDELINES:
 6. Use meaningful relationship types
 7. Double-check node IDs before creating relationships
 8. Skip any operations that aren't create_node or create_relationship
-
 Remember: Only proceed with node and relationship creation operations. All other operations should be noted but skipped.`;
 };
 
-export const analyzeActionUserPrompt = (action: string, contextData: any, executionResults: any, createdNodes: any) => {
+export const analyzeActionUserPrompt = (action: string, contextData: PineconeResult[], executionResults: any, createdNodes: any, narrowContextData: PineconeResult[], wideContextData: PineconeResult[], userFeedback: any, userFeedbackContextData: PineconeResult[]) => {
 	return `
-		Current Action: ${action}
+Current Action: ${action}
+Original Context Data from Vector DB:
+${JSON.stringify(contextData, null, 2)}
+Additional Context Data from your Narrow Search
+${JSON.stringify(narrowContextData, null, 2)}
+Additional Context Data from your Wide Search
+${JSON.stringify(wideContextData, null, 2)}
+Feedback provided from end User: 
+${userFeedback}
 
-		Available Context:
-		${JSON.stringify(contextData, null, 2)}
 
-		Previous Results: ${JSON.stringify(executionResults, null, 2)}
+Additional Context Data related to Feedback from end User:
 
-		Created Nodes (Use these IDs for relationships):
-		${JSON.stringify(createdNodes, null, 2)}
 
-		If this is a create_node operation, use the create_node function.
-		If this is a create_relationship operation, ensure you use the correct node IDs from either:
-		1. Existing nodes in contextData
-		2. Recently created nodes listed above
+${JSON.stringify(userFeedbackContextData, null, 2)}
+Previous Step Results: ${JSON.stringify(executionResults, null, 2)}
+Previously Created Nodes (Use these IDs for relationships):
+${JSON.stringify(createdNodes, null, 2)}
+If this is a create_node operation, use the create_node function.
+If this is a create_relationship operation, ensure you use the correct node IDs from either:
+1. Existing nodes in contextData
+2. Recently created nodes listed above
 
-		Otherwise, explain why the action cannot be executed.
-	`;
+If you are not sure you have all the required information, and need specific information about a Node or NodeRelationship in order to complete the action with success, craft a query that can be used in the pinecone vector search, use the narrow_search function to find the information you need. 
+
+If you are not sure you have all the required information, and need a larger body of information about Nodes and Node Relationships in order to complete the action with success,  craft a query that can be used in the pinecone vector search, use the wide_search function to find the information you need..
+
+If you have already performed two rounds of searching, as reflected in Previous Step Results, and cannot find the information you need, it most likely doesn't exist. Based on that, if you still need more information to complete the action with success, use the ask_for_more_information function. 
+
+If all actions in the plan provided have been completed, use the generate_summary function to produce a summary to the user on everything that was accomplished. 
+
+Otherwise, explain why the action cannot be executed.
+`;
 };
 
 export const generateSummaryUserPrompt = (plan: any, executionResults: any) => {

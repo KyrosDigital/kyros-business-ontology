@@ -2,15 +2,13 @@ import { inngest } from "../../inngest-client";
 import { openAIService } from "../../../services/openai";
 import { Organization, Ontology } from "@prisma/client";
 import { analyzeActionUserPrompt, executePlanSystemPrompt, generateSummaryUserPrompt } from "@/prompts/openai";
+import { PineconeResult, NodeMetadata, RelationshipMetadata } from "./queryPinecone";
+import { vectorSearch } from "./tools/vector_search";
 
 interface ExecutePlanEvent {
   data: {
     validatedPlan: PlanningResponse;
-    contextData: Array<{
-      type: string;
-      content: string;
-      score: number;
-    }>;
+    contextData: PineconeResult[];
     prompt: string;
     organization: Organization;
     ontology: Ontology;
@@ -31,6 +29,33 @@ interface NodeCreationResult {
   name: string;
   type: string;
   success: boolean;
+}
+
+interface ExecutionResult {
+  action?: string;
+  analysis: string;
+  toolCallAnalysis?: {
+    operationAttempted: boolean;
+    toolCallResult: {
+      success: boolean;
+      params: any;
+      toolCall: any;
+      error?: string;
+    } | null;
+    executionData: {
+      type: "create_node" | "create_relationship" | "vector_search";
+      params: any;
+    } | null;
+  };
+  executionResult?: any;
+  stepNumber: number;
+  createdNodes?: Record<string, NodeCreationResult>;
+  summary?: {
+    content: string;
+    success: boolean;
+    reason: string;
+  };
+  isFinal?: boolean;
 }
 
 export const executePlan = inngest.createFunction(
@@ -96,21 +121,78 @@ export const executePlan = inngest.createFunction(
 					},
 					strict: true
 				}
+			},
+			{
+				type: "function",
+				function: {
+					name: "generate_summary",
+					description: "Generate a final summary when the mission is complete. Call this when all necessary actions have been taken.",
+					parameters: {
+						type: "object",
+						properties: {
+							success: {
+								type: "boolean",
+								description: "Whether the mission was successful"
+							},
+							reason: {
+								type: "string",
+								description: "Explanation of why the mission is complete or why it failed"
+							}
+						},
+						required: ["success", "reason"],
+						additionalProperties: false
+					},
+					strict: true
+				}
+			},
+			{
+				type: "function",
+				function: {
+					name: "search_vector_db",
+					description: "Search for context in the vector database. Use a larger topK for broader context, smaller for specific searches.",
+					parameters: {
+						type: "object",
+						properties: {
+							query: {
+								type: "string",
+								description: "Detailed description of what information you're looking for"
+							},
+							topK: {
+								type: "number",
+								description: "Number of results to return. Use 5-10 for specific searches, 50-75 for broader context",
+								minimum: 5,
+								maximum: 75
+							}
+						},
+						required: ["query", "topK"],
+						additionalProperties: false
+					},
+					strict: true
+				}
 			}
 		];
 
     const systemPrompt: string = executePlanSystemPrompt(prompt, plan, customNodeTypeNames)
 
     // Execute the plan
-    const executionResults = [];
+    let isComplete = false;
     let currentStep = 1;
+    const executionResults: ExecutionResult[] = [];
 
-    for (const action of plan.proposedActions) {
-      // First analyze the action
+    while (!isComplete && currentStep <= 10) { // Add safety limit of 10 steps
+      // First analyze the next action
       const analysisResponse = await step.run(`analyze-action-${currentStep}`, async () => {
         const actionAnalysis = await openAIService.generateChatCompletion([
           { role: "system", content: systemPrompt },
-          { role: "user", content: analyzeActionUserPrompt(action, contextData, executionResults, createdNodes) }
+          { role: "user", content: analyzeActionUserPrompt(
+            plan.proposedActions[currentStep - 1], 
+            contextData, 
+            executionResults, 
+            createdNodes, 
+            searchedContextData,
+            userFeedback, 
+            userFeedbackContextData
+          ) }
         ], { 
           temperature: 0.2,
           model: "gpt-4o-2024-08-06",
@@ -123,6 +205,36 @@ export const executePlan = inngest.createFunction(
           tool_calls: actionAnalysis.tool_calls
         };
       });
+
+      // Check if the AI wants to generate summary (mission complete)
+      if (analysisResponse.tool_calls?.some(call => call.function.name === "generate_summary")) {
+        const summaryCall = analysisResponse.tool_calls.find(call => call.function.name === "generate_summary");
+        const summaryParams = JSON.parse(summaryCall!.function.arguments);
+        
+        // Generate final summary
+        const finalSummary = await step.run("generate-summary", async () => {
+          const summaryResponse = await openAIService.generateChatCompletion([
+            { role: "system", content: systemPrompt },
+            { role: "user", content: generateSummaryUserPrompt(plan, executionResults)}
+          ], { temperature: 0.2 });
+
+          return {
+            content: summaryResponse.content,
+            success: summaryParams.success,
+            reason: summaryParams.reason
+          };
+        });
+
+        executionResults.push({
+          analysis: analysisResponse.analysis,
+          summary: finalSummary,
+          stepNumber: currentStep,
+          isFinal: true
+        });
+
+        isComplete = true;
+        continue;
+      }
 
       // Analyze tool calls and prepare execution data
       const toolCallAnalysis = await step.run(`prepare-action-${currentStep}`, async () => {
@@ -168,6 +280,18 @@ export const executePlan = inngest.createFunction(
                     fromNodeId: fromNode.id,
                     toNodeId: toNode.id,
                     relationType: params.relationType
+                  }
+                };
+              } else if (toolCall.function.name === "search_vector_db") {
+                operationAttempted = true;
+                executionData = {
+                  type: "vector_search",
+                  params: {
+                    searchQuery: params.query,
+                    topK: params.topK,
+                    organization,
+                    ontology,
+                    customNodeTypeNames
                   }
                 };
               }
@@ -228,11 +352,18 @@ export const executePlan = inngest.createFunction(
               ontology
             },
           });
+        } else if (toolCallAnalysis.executionData.type === "vector_search") {
+          executionResult = await step.invoke("vector-search", {
+            function: vectorSearch,
+            data: {
+              ...toolCallAnalysis.executionData.params
+            },
+          });
         }
       }
 
       executionResults.push({
-        action,
+        action: plan.proposedActions[currentStep - 1],
         analysis: analysisResponse.analysis,
         toolCallAnalysis,
         executionResult,
@@ -243,20 +374,33 @@ export const executePlan = inngest.createFunction(
       currentStep++;
     }
 
-    // Get final summary from AI
-    const finalSummary = await step.run("generate-summary", async () => {
-      const summaryResponse = await openAIService.generateChatCompletion([
-        { role: "system", content: systemPrompt },
-        { role: "user", content: generateSummaryUserPrompt(plan, executionResults)}
-      ], { temperature: 0.2 });
+    // If we hit the safety limit without completion
+    if (!isComplete) {
+      const timeoutSummary = await step.run("generate-timeout-summary", async () => {
+        const summaryResponse = await openAIService.generateChatCompletion([
+          { role: "system", content: systemPrompt },
+          { role: "user", content: "The execution has reached the maximum number of steps. Please provide a summary of what was accomplished and what remains to be done." }
+        ], { temperature: 0.2 });
 
-      return summaryResponse.content;
-    });
+        return {
+          content: summaryResponse.content,
+          success: false,
+          reason: "Execution reached maximum step limit"
+        };
+      });
+
+      executionResults.push({
+        analysis: "Execution timeout",
+        summary: timeoutSummary,
+        stepNumber: currentStep,
+        isFinal: true
+      });
+    }
 
     return {
-      success: true,
+      success: isComplete,
       executionResults,
-      summary: finalSummary
+      summary: executionResults[executionResults.length - 1].summary
     };
   }
 );
@@ -264,7 +408,7 @@ export const executePlan = inngest.createFunction(
 // Helper function to find node by ID or name in context or created nodes
 function findNodeById(
   idOrName: string, 
-  contextData: any[], 
+  contextData: PineconeResult[], 
   createdNodes: Record<string, NodeCreationResult>
 ): { id: string; name: string } | null {
   // First check if it's a name in createdNodes (prioritize newly created nodes)
