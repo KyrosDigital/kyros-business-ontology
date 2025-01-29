@@ -66,6 +66,9 @@ export const executePlan = inngest.createFunction(
 
     // Track created nodes for relationship creation
     const createdNodes: Record<string, NodeCreationResult> = {};
+    
+    // Track the most recent search results
+    let searchedContextData: PineconeResult[] = [];
 
 		const tools = [
 			{
@@ -160,8 +163,6 @@ export const executePlan = inngest.createFunction(
 							topK: {
 								type: "number",
 								description: "Number of results to return. Use 5-10 for specific searches, 50-75 for broader context",
-								minimum: 5,
-								maximum: 75
 							}
 						},
 						required: ["query", "topK"],
@@ -182,6 +183,8 @@ export const executePlan = inngest.createFunction(
     while (!isComplete && currentStep <= 10) { // Add safety limit of 10 steps
       // First analyze the next action
       const analysisResponse = await step.run(`analyze-action-${currentStep}`, async () => {
+				const userFeedback = ''
+				const userFeedbackContextData = []
         const actionAnalysis = await openAIService.generateChatCompletion([
           { role: "system", content: systemPrompt },
           { role: "user", content: analyzeActionUserPrompt(
@@ -353,12 +356,16 @@ export const executePlan = inngest.createFunction(
             },
           });
         } else if (toolCallAnalysis.executionData.type === "vector_search") {
-          executionResult = await step.invoke("vector-search", {
+          const searchResult = await step.invoke("vector-search", {
             function: vectorSearch,
             data: {
               ...toolCallAnalysis.executionData.params
             },
           });
+          
+          // Update the searchedContextData with the latest results
+          searchedContextData = searchResult.results;
+          executionResult = searchResult;
         }
       }
 

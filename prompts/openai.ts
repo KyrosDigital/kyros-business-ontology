@@ -226,15 +226,21 @@ EXECUTION GUIDELINES:
 Remember: Only proceed with node and relationship creation operations. All other operations should be noted but skipped.`;
 };
 
-export const analyzeActionUserPrompt = (action: string, contextData: PineconeResult[], executionResults: any, createdNodes: any, narrowContextData: PineconeResult[], wideContextData: PineconeResult[], userFeedback: any, userFeedbackContextData: PineconeResult[]) => {
+export const analyzeActionUserPrompt = (
+	action: string, 
+	contextData: PineconeResult[], 
+	executionResults: any, 
+	createdNodes: any, 
+	searchedContextData: PineconeResult[],
+	userFeedback: any, 
+	userFeedbackContextData: PineconeResult[]
+) => {
 	return `
 Current Action: ${action}
 Original Context Data from Vector DB:
 ${JSON.stringify(contextData, null, 2)}
-Additional Context Data from your Narrow Search
-${JSON.stringify(narrowContextData, null, 2)}
-Additional Context Data from your Wide Search
-${JSON.stringify(wideContextData, null, 2)}
+Additional Context Data from Vector Search:
+${JSON.stringify(searchedContextData, null, 2)}
 Feedback provided from end User: 
 ${userFeedback}
 
@@ -251,9 +257,9 @@ If this is a create_relationship operation, ensure you use the correct node IDs 
 1. Existing nodes in contextData
 2. Recently created nodes listed above
 
-If you are not sure you have all the required information, and need specific information about a Node or NodeRelationship in order to complete the action with success, craft a query that can be used in the pinecone vector search, use the narrow_search function to find the information you need. 
+If you are not sure you have all the required information, and need specific information about a Node or NodeRelationship in order to complete the action with success, craft a query that can be used in the pinecone vector search, use the search_vector_db function with a smaller topK (5-10). 
 
-If you are not sure you have all the required information, and need a larger body of information about Nodes and Node Relationships in order to complete the action with success,  craft a query that can be used in the pinecone vector search, use the wide_search function to find the information you need..
+If you are not sure you have all the required information, and need a larger body of information about Nodes and Node Relationships in order to complete the action with success, craft a query that can be used in the pinecone vector search, use the search_vector_db function with a larger topK (50-75).
 
 If you have already performed two rounds of searching, as reflected in Previous Step Results, and cannot find the information you need, it most likely doesn't exist. Based on that, if you still need more information to complete the action with success, use the ask_for_more_information function. 
 
