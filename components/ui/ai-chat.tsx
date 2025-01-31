@@ -15,8 +15,6 @@ import { useOrganization } from "@/contexts/OrganizationContext"
 import { useUser } from "@/contexts/UserContext"
 import Ably from 'ably'
 
-type FilterType = 'NODE' | 'RELATIONSHIP' | 'NOTE';
-
 interface ChatMessage {
   role: "user" | "assistant" | "progress"
   content: string
@@ -91,9 +89,6 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [activeFilters, setActiveFilters] = useState<Set<FilterType>>(
-    new Set(['NODE', 'RELATIONSHIP', 'NOTE'] as FilterType[])
-  )
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState<Position>({ x: 27, y: 21.5 })
   const [isDragging, setIsDragging] = useState(false)
@@ -105,16 +100,6 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 })
   const [attachment, setAttachment] = useState<FileAttachment | null>(null)
   const [isProcessingFile, setIsProcessingFile] = useState(false)
-
-  const toggleFilter = (filter: FilterType) => {
-    const newFilters = new Set(activeFilters);
-    if (newFilters.has(filter)) {
-      newFilters.delete(filter);
-    } else {
-      newFilters.add(filter);
-    }
-    setActiveFilters(newFilters);
-  };
 
   useEffect(() => {
     if (!user?.clerkId || !isOpen) return;
@@ -467,7 +452,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
         >
           <div className="flex flex-col space-y-2 w-full">
             <div className="flex justify-between items-center">
-              <span className="text-lg font-bold">AI Assistant</span>
+              <span className="text-lg font-bold">AI Agent</span>
               <Button
                 variant="ghost"
                 size="icon"
@@ -475,19 +460,6 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
               >
                 <X className="h-4 w-4" />
               </Button>
-            </div>
-            <div className="flex gap-2">
-              {(['NODE', 'RELATIONSHIP', 'NOTE'] as FilterType[]).map((filter) => (
-                <Button
-                  key={filter}
-                  variant={activeFilters.has(filter) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleFilter(filter)}
-                  className="text-xs"
-                >
-                  {filter}
-                </Button>
-              ))}
             </div>
           </div>
         </CardHeader>
