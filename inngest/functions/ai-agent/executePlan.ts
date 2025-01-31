@@ -246,6 +246,17 @@ export const executePlan = inngest.createFunction(
           };
         });
 
+        // Send the final summary to the user via ai-chat
+        await step.sendEvent("notify-summary", {
+          name: "ui/notify",
+          data: {
+            userId,
+            channelType: "ai-chat",
+            type: "message",
+            message: summaryParams.reason
+          }
+        });
+
         executionResults.push({
           analysis: analysisResponse.analysis,
           summary: finalSummary,

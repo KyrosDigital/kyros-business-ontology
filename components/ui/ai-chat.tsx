@@ -156,11 +156,17 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
             return newMessages;
           });
         } else {
-          // For regular messages, just append
-          setMessages(prev => [...prev, {
-            role: 'assistant',
-            content
-          }]);
+          // For regular messages, remove any progress messages and append the new message
+          setMessages(prev => {
+            // Filter out progress messages
+            const messagesWithoutProgress = prev.filter(msg => msg.role !== 'progress');
+            
+            // Add the new message
+            return [...messagesWithoutProgress, {
+              role: 'assistant',
+              content
+            }];
+          });
         }
       } catch (error) {
         console.error('Error handling Ably message:', error);
@@ -193,11 +199,6 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     setInput("")
 
     try {
-      // Add initial AI message
-      setMessages(prev => [...prev, { 
-        role: "assistant", 
-        content: "I'm processing your request. You'll see updates appear in the graph as I work on it." 
-      }]);
 
       const response = await fetch('/api/v1/chat', {
         method: 'POST',
