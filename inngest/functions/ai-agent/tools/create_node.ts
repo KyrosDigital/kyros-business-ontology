@@ -41,7 +41,7 @@ export const createNodeTool = inngest.createFunction(
       await step.sendEvent("notify-ui-update", {
         name: "ui/notify",
         data: {
-          type: "node-created",
+          type: "graph-update",
           message: `Created new ${type} node: "${name}"${description ? ` - ${description}` : ''}`,
           timestamp: new Date().toISOString(),
           data: node

@@ -26,6 +26,7 @@ export function Graph() {
     setSelectedRelationship,
     handleCreateRelationship,
     viewMode,
+    setOntologyData,
   } = useGraph();
 
   const handleZoomIn = () => {
@@ -212,16 +213,55 @@ export function Graph() {
     };
   }, []); // Empty dependency array ensures cleanup only runs on unmount
 
-  // Add SSE effect
+  // Update SSE effect to handle graph updates
   useEffect(() => {
     const eventSource = new EventSource('/api/v1/notify-ui');
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        console.log('Received SSE update:', data);
+        console.log(data);
+
+        // Handle graph update notifications
+        if (data.type === 'graph-update' && data.data) {
+          setOntologyData(prevData => {
+            if (!prevData) return prevData;
+
+            // Handle single node update
+            if ('typeId' in data.data) { // This is a node
+              const updatedNodes = [...prevData.nodes];
+              const index = updatedNodes.findIndex(n => n.id === data.data.id);
+              if (index === -1) {
+                updatedNodes.push(data.data);
+              } else {
+                updatedNodes[index] = data.data;
+              }
+              return {
+                ...prevData,
+                nodes: updatedNodes
+              };
+            }
+
+            // Handle single relationship update
+            if ('fromNodeId' in data.data) { // This is a relationship
+              const updatedRelationships = [...prevData.relationships];
+              const index = updatedRelationships.findIndex(r => r.id === data.data.id);
+              if (index === -1) {
+                updatedRelationships.push(data.data);
+              } else {
+                updatedRelationships[index] = data.data;
+              }
+              return {
+                ...prevData,
+                relationships: updatedRelationships
+              };
+            }
+
+            return prevData;
+          });
+        }
       } catch (error) {
-        console.error('Error parsing SSE data:', error);
+        console.error('Error handling SSE update:', error);
       }
     };
 
@@ -233,7 +273,7 @@ export function Graph() {
     return () => {
       eventSource.close();
     };
-  }, []);
+  }, []); // Empty dependency array since we want this to run once on mount
 
   return (
     <>
