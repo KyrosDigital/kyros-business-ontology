@@ -34,8 +34,17 @@ export const createNodeTool = inngest.createFunction(
           organizationId: organization.id,
           ontologyId: ontology.id
         });
-
         return newNode;
+      });
+
+      // Send notification about the node creation after step.run
+      await step.sendEvent("notify-ui-update", {
+        name: "ui/notify",
+        data: {
+          type: "node-created",
+          content: `Created new ${type} node: "${name}"${description ? ` - ${description}` : ''}`,
+          timestamp: new Date().toISOString()
+        }
       });
 
       return {
@@ -44,6 +53,17 @@ export const createNodeTool = inngest.createFunction(
       };
     } catch (error) {
       console.error("Error creating node:", error);
+      
+      // Send error notification
+      await step.sendEvent("notify-ui-error", {
+        name: "ui/notify",
+        data: {
+          type: "error",
+          content: `Failed to create node: ${error instanceof Error ? error.message : "Unknown error"}`,
+          timestamp: new Date().toISOString()
+        }
+      });
+
       throw new Error(`Failed to create node: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
