@@ -372,6 +372,7 @@ export const executePlan = inngest.createFunction(
           const relationshipResult = await step.invoke("execute-create-relationship", {
             function: createRelationshipTool,
             data: {
+							userId,
               ...toolCallAnalysis.executionData.params,
               organization,
               ontology
