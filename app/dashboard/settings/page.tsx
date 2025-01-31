@@ -6,16 +6,34 @@ import { useOrganization } from "@/contexts/OrganizationContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { CreditCard, Zap } from "lucide-react";
+import { CreditCard, Eye, EyeOff, Key, Zap, Copy } from "lucide-react";
 import { DashboardNav } from "@/components/ui/dashboard-nav";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export default function SettingsPage() {
   const { user } = useUser();
   const { subscription } = useSubscription();
   const { organization } = useOrganization();
+  const [showApiKey, setShowApiKey] = useState(false);
+
+  // Get the first API key from the user's API keys
+  const defaultApiKey = user?.apiKeys?.[0];
 
   const handleManageBilling = () => {
     window.open('https://billing.stripe.com/p/login/test_9AQbKM5Muai4cDu288', '_blank');
+  };
+
+  const handleCopyApiKey = async () => {
+    if (defaultApiKey?.key) {
+      await navigator.clipboard.writeText(defaultApiKey.key);
+      toast.success('API key copied to clipboard');
+    }
+  };
+
+  const maskApiKey = (key: string) => {
+    if (!key) return '';
+    return `${key.slice(0, 8)}${'•'.repeat(key.length - 16)}${key.slice(-8)}`;
   };
 
   return (
@@ -36,6 +54,60 @@ export default function SettingsPage() {
           <h1 className="text-3xl font-bold mb-8">Settings</h1>
 
           <div className="space-y-6">
+            {/* API Key Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Key className="h-5 w-5" />
+                  API Key
+                </CardTitle>
+                <CardDescription>
+                  Your API key for accessing the API
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {defaultApiKey ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 p-2 bg-muted rounded-md font-mono text-sm">
+                          {showApiKey ? defaultApiKey.key : maskApiKey(defaultApiKey.key)}
+                        </code>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          title={showApiKey ? "Hide API key" : "Show API key"}
+                        >
+                          {showApiKey ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={handleCopyApiKey}
+                          title="Copy API key"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Created: {new Date(defaultApiKey.createdAt).toLocaleDateString()}
+                        {defaultApiKey.expiresAt && (
+                          <> · Expires: {new Date(defaultApiKey.expiresAt).toLocaleDateString()}</>
+                        )}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No API key available</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Subscription Section */}
             <Card>
               <CardHeader>

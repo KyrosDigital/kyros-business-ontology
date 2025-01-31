@@ -191,7 +191,8 @@ export class UserService {
     return this.prisma.user.findUnique({
       where: { clerkId },
       include: {
-        organization: true
+        organization: true,
+				apiKeys: true
       }
     });
   }
