@@ -212,19 +212,19 @@ export function Graph() {
     });
 
     // Subscribe to graph updates channel
-    const channel = ablyClientRef.current.channels.get(`graph-updates:${user.clerkId}`);
+    const channel = ablyClientRef.current.channels.get(`graph-update:${user.clerkId}`);
 
     // Handle incoming messages
     channel.subscribe('message', (message) => {
       try {
-        const { type, data } = message.data;
+        const { channelType, type, data } = message.data;
 
-        if (type === 'graph-update' && data) {
+        if (channelType === 'graph-update') {
           setOntologyData(prevData => {
             if (!prevData) return prevData;
 
-            // Handle single node update
-            if ('typeId' in data) { // This is a node
+            // Handle node update
+            if (type === 'node' && data) {
               const updatedNodes = [...prevData.nodes];
               const index = updatedNodes.findIndex(n => n.id === data.id);
               if (index === -1) {
@@ -238,8 +238,8 @@ export function Graph() {
               };
             }
 
-            // Handle single relationship update
-            if ('fromNodeId' in data) { // This is a relationship
+            // Handle relationship update
+            if (type === 'relationship' && data) {
               const updatedRelationships = [...prevData.relationships];
               const index = updatedRelationships.findIndex(r => r.id === data.id);
               if (index === -1) {
