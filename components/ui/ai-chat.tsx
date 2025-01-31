@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { X, Paperclip } from "lucide-react"
+import { X, Paperclip, Loader2 } from "lucide-react"
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -18,7 +18,7 @@ import Ably from 'ably'
 type FilterType = 'NODE' | 'RELATIONSHIP' | 'NOTE';
 
 interface ChatMessage {
-  role: "user" | "assistant"
+  role: "user" | "assistant" | "progress"
   content: string
 }
 
@@ -49,15 +49,39 @@ interface AiChatProps {
   onClose: () => void;
 }
 
-const LoadingDots = () => {
+// New component for progress messages
+const ProgressMessage = ({ message }: { message: string }) => {
+  const [isVisible, setIsVisible] = useState(false);
+  const [previousMessage, setPreviousMessage] = useState(message);
+
+  useEffect(() => {
+    if (message !== previousMessage) {
+      // Start fade out
+      setIsVisible(false);
+      
+      // After fade out, update message and start fade in
+      const timer = setTimeout(() => {
+        setPreviousMessage(message);
+        setIsVisible(true);
+      }, 300); // Match the animation duration
+
+      return () => clearTimeout(timer);
+    } else {
+      setIsVisible(true);
+    }
+  }, [message, previousMessage]);
+
   return (
-    <div className="flex space-x-2 p-2">
-      <div className="w-2 h-2 bg-secondary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-      <div className="w-2 h-2 bg-secondary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-      <div className="w-2 h-2 bg-secondary rounded-full animate-bounce"></div>
+    <div 
+      className={`flex items-center gap-2 p-3 text-muted-foreground text-sm ${
+        isVisible ? 'fade-enter' : 'fade-exit'
+      }`}
+    >
+      <Loader2 className="h-3 w-3 animate-spin" />
+      <span>{previousMessage}</span>
     </div>
-  )
-}
+  );
+};
 
 export function AiChat({ isOpen, onClose }: AiChatProps) {
   const { ontologyId, refreshGraph } = useGraph();
@@ -109,7 +133,30 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
       try {
         const { type, message: content } = message.data;
 
-        if (type === 'ai-chat') {
+        if (type === 'progress') {
+          // For progress messages, replace the last progress message if it exists
+          setMessages(prev => {
+            const newMessages = [...prev];
+            const lastMessageIndex = newMessages.length - 1;
+            
+            // If the last message was a progress message, replace it
+            if (lastMessageIndex >= 0 && newMessages[lastMessageIndex].role === 'progress') {
+              newMessages[lastMessageIndex] = {
+                role: 'progress',
+                content
+              };
+            } else {
+              // Otherwise add new progress message
+              newMessages.push({
+                role: 'progress',
+                content
+              });
+            }
+            
+            return newMessages;
+          });
+        } else {
+          // For regular messages, just append
           setMessages(prev => [...prev, {
             role: 'assistant',
             content
@@ -448,20 +495,28 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
             {messages.map((msg, index) => (
               <div
                 key={index}
-                className={`p-4 ${msg.role === 'user' ? 'bg-muted' : 'bg-background'}`}
+                className={`mb-4 ${
+                  msg.role === 'user' 
+                    ? 'bg-muted' 
+                    : msg.role === 'progress' 
+                      ? 'bg-transparent' 
+                      : 'bg-background'
+                }`}
               >
-                <div className="font-semibold mb-2">
-                  {msg.role === 'user' ? 'You' : 'AI Assistant'}
-                </div>
-                {msg.content === "loading" ? (
-                  <LoadingDots />
+                {msg.role === 'progress' ? (
+                  <ProgressMessage message={msg.content} />
                 ) : (
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={markdownComponents}
-                  >
-                    {msg.content}
-                  </ReactMarkdown>
+                  <>
+                    <div className="font-semibold mb-2">
+                      {msg.role === 'user' ? 'You' : 'AI Assistant'}
+                    </div>
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={markdownComponents}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
+                  </>
                 )}
               </div>
             ))}
