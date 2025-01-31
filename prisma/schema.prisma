@@ -32,6 +32,9 @@ model Organization {
   // Add this line
   customNodeTypes CustomNodeType[]
   
+  // Add this line
+  apiKeys     ApiKey[]
+  
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
@@ -45,6 +48,9 @@ model User {
   name           String
   organization   Organization? @relation(fields: [organizationId], references: [id])
   organizationId String?
+  
+  // Add this line
+  apiKeys        ApiKey[]
   
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
@@ -253,4 +259,23 @@ model AIPromptUsage {
   updatedAt       DateTime  @updatedAt
 
   @@map("ai_prompt_usage")
+}
+
+model ApiKey {
+  id              String       @id @default(uuid())
+  key             String       @unique
+  name            String       // A friendly name for the API key
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  organizationId  String
+  user            User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  clerkId         String      // Store the clerk ID for convenience
+  lastUsedAt      DateTime?
+  expiresAt       DateTime?
+  isEnabled       Boolean      @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("api_keys")
 }

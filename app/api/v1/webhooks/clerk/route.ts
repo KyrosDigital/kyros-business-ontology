@@ -5,6 +5,7 @@ import { clerkService } from '@/services/clerk';
 import { PineconeService } from '@/services/pinecone';
 import { prisma } from '@/prisma/prisma-client';
 import { aiUsageService } from '@/services/ai-usage';
+import { apiKeyService } from '@/services/api-keys';
 
 async function handleFirstTimeUser(userData: {
   clerkId: string;
@@ -76,6 +77,18 @@ async function handleFirstTimeUser(userData: {
 
       // Update user with the new organization ID
       await userService.updateUserOrganization(user.id, dbOrganization.id);
+
+      // After organization is created and user is updated, create an API key
+      if (dbOrganization) {
+        console.log('Creating initial API key for user...');
+        await apiKeyService.create({
+          name: 'Default API Key',
+          organizationId: dbOrganization.id,
+          userId: user.id,
+          clerkId: user.clerkId,
+          expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+        });
+      }
 
       return { user, organization: dbOrganization, clerkOrg };
       
