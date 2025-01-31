@@ -41,7 +41,8 @@ export const aiAgentInit = inngest.createFunction(
       name: "ui/notify",
       data: {
         userId,
-        type: "ai-chat",
+        channelType: "ai-chat",
+        type: "progress",
         message: "Inspecting your ontology data to understand the current context..."
       }
     });
@@ -66,7 +67,8 @@ export const aiAgentInit = inngest.createFunction(
       name: "ui/notify",
       data: {
         userId,
-        type: "ai-chat",
+        channelType: "ai-chat",
+        type: "progress",
         message: "Analyzing your request and planning necessary actions..."
       }
     });
@@ -85,7 +87,8 @@ export const aiAgentInit = inngest.createFunction(
       name: "ui/notify",
       data: {
         userId,
-        type: "ai-chat",
+        channelType: "ai-chat",
+        type: "progress",
         message: "Validating the planned actions to ensure they're safe and appropriate..."
       }
     });
@@ -105,7 +108,8 @@ export const aiAgentInit = inngest.createFunction(
       name: "ui/notify",
       data: {
         userId,
-        type: "ai-chat",
+        channelType: "ai-chat",
+        type: "progress",
         message: "Starting to execute the planned changes to your graph..."
       }
     });

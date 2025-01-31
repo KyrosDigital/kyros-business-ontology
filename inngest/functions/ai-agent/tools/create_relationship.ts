@@ -36,7 +36,8 @@ export const createRelationshipTool = inngest.createFunction(
         name: "ui/notify",
         data: {
           userId,
-          type: "ai-chat",
+          channelType: "ai-chat",
+          type: "progress",
           message: `Creating relationship "${relationType}" from "${relationship.fromNode.name}" to "${relationship.toNode.name}"...`
         }
       });
@@ -46,7 +47,8 @@ export const createRelationshipTool = inngest.createFunction(
         name: "ui/notify",
         data: {
           userId,
-          type: "graph-update",
+          channelType: "graph-update",
+          type: "relationship",
           message: `Created new relationship: "${relationType}" between nodes`,
           data: relationship
         }
@@ -64,7 +66,8 @@ export const createRelationshipTool = inngest.createFunction(
         name: "ui/notify",
         data: {
           userId,
-          type: "ai-chat",
+          channelType: "ai-chat",
+          type: "error",
           message: `Failed to create relationship: ${error instanceof Error ? error.message : "Unknown error"}`,
           data: null
         }

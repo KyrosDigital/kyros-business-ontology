@@ -31,7 +31,8 @@ export const createNodeTool = inngest.createFunction(
         name: "ui/notify",
         data: {
           userId,
-          type: "ai-chat",
+          channelType: "ai-chat",
+          type: "progress",
           message: `Creating ${type.toLowerCase()} "${name}"...`
         }
       });
@@ -53,7 +54,8 @@ export const createNodeTool = inngest.createFunction(
         name: "ui/notify",
         data: {
           userId,
-          type: "graph-update",
+          channelType: "graph-update",
+          type: "node",
           message: `Created new ${type} node: "${name}"${description ? ` - ${description}` : ''}`,
           data: node
         }
@@ -71,7 +73,8 @@ export const createNodeTool = inngest.createFunction(
         name: "ui/notify",
         data: {
           userId,
-          type: "ai-chat",
+          channelType: "ai-chat",
+          type: "error",
           message: `Failed to create node: ${error instanceof Error ? error.message : "Unknown error"}`,
           data: null
         }
