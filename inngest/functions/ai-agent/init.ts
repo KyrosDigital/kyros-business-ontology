@@ -36,6 +36,16 @@ export const aiAgentInit = inngest.createFunction(
       customNodeTypeNames,
     };
 		
+    // Notify user that ontology inspection has started
+    await step.sendEvent("notify-inspection-start", {
+      name: "ui/notify",
+      data: {
+        userId,
+        type: "ai-chat",
+        message: "Inspecting your ontology data to understand the current context..."
+      }
+    });
+
     // Generate embedding
     const { embedding } = await step.invoke("generate-embedding", {
       function: generateEmbedding,

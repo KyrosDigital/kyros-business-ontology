@@ -31,7 +31,17 @@ export const createRelationshipTool = inngest.createFunction(
         );
       });
 
-      // Send notification about the relationship creation
+      // Notify user about relationship creation
+      await step.sendEvent("notify-relationship-creation", {
+        name: "ui/notify",
+        data: {
+          userId,
+          type: "ai-chat",
+          message: `Creating relationship "${relationType}" from "${relationship.fromNode.name}" to "${relationship.toNode.name}"...`
+        }
+      });
+
+      // Send graph update notification
       await step.sendEvent("notify-ui-update", {
         name: "ui/notify",
         data: {

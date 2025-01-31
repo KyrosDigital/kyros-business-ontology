@@ -26,6 +26,16 @@ export const createNodeTool = inngest.createFunction(
     }
 
     try {
+      // Notify user about node creation
+      await step.sendEvent("notify-node-creation", {
+        name: "ui/notify",
+        data: {
+          userId,
+          type: "ai-chat",
+          message: `Creating ${type.toLowerCase()} "${name}"...`
+        }
+      });
+
       // Create the node using the ontology service
       const node = await step.run("create-node", async () => {
         const newNode = await createNode({
@@ -38,7 +48,7 @@ export const createNodeTool = inngest.createFunction(
         return newNode;
       });
 
-      // Send notification about the node creation after step.run
+      // Send graph update notification
       await step.sendEvent("notify-ui-update", {
         name: "ui/notify",
         data: {
