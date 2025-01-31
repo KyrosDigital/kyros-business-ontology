@@ -6,12 +6,16 @@ import { Download } from "lucide-react";
 import { initializeGraph } from '@/lib/graphInitializer';
 import { useGraph } from '@/contexts/GraphContext';
 import { useCustomNodeTypes } from '@/contexts/CustomNodeTypeContext';
+import { useUser } from '@/contexts/UserContext';
+import Ably from 'ably';
 
 export function Graph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphInitializedRef = useRef(false);
   const isInitializedRef = useRef(false);
+  const ablyClientRef = useRef<Ably.Realtime | null>(null);
   const { nodeTypes } = useCustomNodeTypes();
+  const { user } = useUser();
   
   const {
     ontologyData,
@@ -197,6 +201,76 @@ export function Graph() {
     containerRef.current.filterByNodeType(selectedType);
   }, [selectedType]);
 
+  // Add Ably subscription effect
+  useEffect(() => {
+    if (!user?.clerkId) return;
+
+    // Initialize Ably client
+    ablyClientRef.current = new Ably.Realtime({
+      key: process.env.NEXT_PUBLIC_ABLY_API_KEY!,
+      clientId: user.clerkId
+    });
+
+    // Subscribe to graph updates channel
+    const channel = ablyClientRef.current.channels.get(`graph-updates:${user.clerkId}`);
+
+    // Handle incoming messages
+    channel.subscribe('message', (message) => {
+      try {
+        const { type, data } = message.data;
+
+        if (type === 'graph-update' && data) {
+          setOntologyData(prevData => {
+            if (!prevData) return prevData;
+
+            // Handle single node update
+            if ('typeId' in data) { // This is a node
+              const updatedNodes = [...prevData.nodes];
+              const index = updatedNodes.findIndex(n => n.id === data.id);
+              if (index === -1) {
+                updatedNodes.push(data);
+              } else {
+                updatedNodes[index] = data;
+              }
+              return {
+                ...prevData,
+                nodes: updatedNodes
+              };
+            }
+
+            // Handle single relationship update
+            if ('fromNodeId' in data) { // This is a relationship
+              const updatedRelationships = [...prevData.relationships];
+              const index = updatedRelationships.findIndex(r => r.id === data.id);
+              if (index === -1) {
+                updatedRelationships.push(data);
+              } else {
+                updatedRelationships[index] = data;
+              }
+              return {
+                ...prevData,
+                relationships: updatedRelationships
+              };
+            }
+
+            return prevData;
+          });
+        }
+      } catch (error) {
+        console.error('Error handling Ably message:', error);
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      if (ablyClientRef.current) {
+        channel.unsubscribe();
+        ablyClientRef.current.close();
+        ablyClientRef.current = null;
+      }
+    };
+  }, [user?.clerkId, setOntologyData]);
+
   // Cleanup only on component unmount
   useEffect(() => {
     return () => {
@@ -212,68 +286,6 @@ export function Graph() {
       }
     };
   }, []); // Empty dependency array ensures cleanup only runs on unmount
-
-  // Update SSE effect to handle graph updates
-  useEffect(() => {
-    const eventSource = new EventSource('/api/v1/notify-ui');
-
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log(data);
-
-        // Handle graph update notifications
-        if (data.type === 'graph-update' && data.data) {
-          setOntologyData(prevData => {
-            if (!prevData) return prevData;
-
-            // Handle single node update
-            if ('typeId' in data.data) { // This is a node
-              const updatedNodes = [...prevData.nodes];
-              const index = updatedNodes.findIndex(n => n.id === data.data.id);
-              if (index === -1) {
-                updatedNodes.push(data.data);
-              } else {
-                updatedNodes[index] = data.data;
-              }
-              return {
-                ...prevData,
-                nodes: updatedNodes
-              };
-            }
-
-            // Handle single relationship update
-            if ('fromNodeId' in data.data) { // This is a relationship
-              const updatedRelationships = [...prevData.relationships];
-              const index = updatedRelationships.findIndex(r => r.id === data.data.id);
-              if (index === -1) {
-                updatedRelationships.push(data.data);
-              } else {
-                updatedRelationships[index] = data.data;
-              }
-              return {
-                ...prevData,
-                relationships: updatedRelationships
-              };
-            }
-
-            return prevData;
-          });
-        }
-      } catch (error) {
-        console.error('Error handling SSE update:', error);
-      }
-    };
-
-    eventSource.onerror = (error) => {
-      console.error('SSE Error:', error);
-      eventSource.close();
-    };
-
-    return () => {
-      eventSource.close();
-    };
-  }, []); // Empty dependency array since we want this to run once on mount
 
   return (
     <>

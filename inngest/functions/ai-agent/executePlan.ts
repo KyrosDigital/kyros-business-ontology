@@ -76,7 +76,7 @@ export const executePlan = inngest.createFunction(
   { id: "execute-plan" },
   { event: "ai-agent/execute-plan" },
   async ({ event, step }: { event: ExecutePlanEvent; step: any }) => {
-    const { validatedPlan: plan, contextData, prompt, organization, ontology, customNodeTypeNames } = event.data;
+    const { validatedPlan: plan, contextData, prompt, organization, ontology, customNodeTypeNames, userId } = event.data;
 
     // Track created nodes for relationship creation
     const createdNodes: Record<string, NodeCreationResult> = {};
@@ -276,6 +276,7 @@ export const executePlan = inngest.createFunction(
                 operationAttempted = true;
                 executionData = {
                   type: "create_node",
+									userId,
                   params: {
                     type: params.type,
                     name: params.name,
@@ -297,6 +298,7 @@ export const executePlan = inngest.createFunction(
                 operationAttempted = true;
                 executionData = {
                   type: "create_relationship",
+									userId,
                   params: {
                     fromNodeId: fromNode.id,
                     toNodeId: toNode.id,
@@ -307,6 +309,7 @@ export const executePlan = inngest.createFunction(
                 operationAttempted = true;
                 executionData = {
                   type: "vector_search",
+									userId,
                   params: {
                     searchQuery: params.query,
                     topK: params.topK,
@@ -347,6 +350,7 @@ export const executePlan = inngest.createFunction(
           const nodeResult = await step.invoke("execute-create-node", {
             function: createNodeTool,
             data: {
+							userId,
               ...toolCallAnalysis.executionData.params,
               organization,
               ontology,
@@ -391,7 +395,8 @@ export const executePlan = inngest.createFunction(
           const searchResult = await step.invoke("vector-search", {
             function: vectorSearch,
             data: {
-              ...toolCallAnalysis.executionData.params
+              ...toolCallAnalysis.executionData.params,
+							userId
             },
           });
           

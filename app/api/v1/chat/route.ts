@@ -2,9 +2,13 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/prisma/prisma-client';
 import { aiUsageService } from '@/services/ai-usage';
 import { inngest } from '@/inngest/inngest-client';
+import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: Request) {
   try {
+
+		const { userId }: { userId: string | null } = await auth()
+
     const { 
       message, 
       organizationId,
@@ -47,7 +51,8 @@ export async function POST(request: Request) {
       data: {
         prompt,
         organization,
-        ontology
+        ontology,
+				userId
       },
     });
 

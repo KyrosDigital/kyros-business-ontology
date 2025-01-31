@@ -11,6 +11,7 @@ type AIAgentStartEvent = {
     prompt: string;
     organization: Organization;
     ontology: Ontology;
+    userId: string;
   };
 };
 
@@ -19,7 +20,7 @@ export const aiAgentInit = inngest.createFunction(
   { id: "ai-agent-init" },
   { event: "ai-agent/init" },
   async ({ event, step }: { event: AIAgentStartEvent; step: any }) => {
-    const { prompt, organization, ontology } = event.data;
+    const { prompt, organization, ontology, userId } = event.data;
 
     // Get custom node types for the organization
     const customNodeTypes = await step.run("fetch-custom-node-types", async () => {
@@ -74,11 +75,12 @@ export const aiAgentInit = inngest.createFunction(
       name: "ai-agent/execute-plan",
       data: {
         ...commonEventData,
+        userId,
         validatedPlan,
         contextData: pineconeResults,
       },
     });
 	
-    return { success: true, embedding, pineconeResults, planningResponse, validatedPlan };
+    return { success: true, embedding, pineconeResults, planningResponse, validatedPlan, userId };
   }
 );

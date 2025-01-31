@@ -68,6 +68,13 @@ export const validatePlan = inngest.createFunction(
           "generate_summary"
         ] as const;
 
+        // First validate that all tools are strings
+        const nonStringTools = parsed.requiredTools.filter(tool => typeof tool !== 'string');
+        if (nonStringTools.length > 0) {
+          throw new Error(`Invalid tool format. Expected strings but got: ${JSON.stringify(nonStringTools)}`);
+        }
+
+        // Then validate against available tools
         const invalidTools = parsed.requiredTools.filter(
           tool => !availableTools.includes(tool as typeof availableTools[number])
         );
@@ -78,8 +85,16 @@ export const validatePlan = inngest.createFunction(
 
         return parsed;
       } catch (error) {
-        console.error("Planning response validation failed:", error);
-        throw new Error(`Invalid planning response format: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        // Log the full planning response for debugging
+        console.error("Full planning response:", planningResponse);
+        console.error("Validation error details:", error);
+        
+        // Throw a more detailed error
+        if (error instanceof Error) {
+          throw new Error(`Planning response validation failed: ${error.message}\nFull response: ${planningResponse}`);
+        } else {
+          throw new Error(`Unknown validation error occurred\nFull response: ${planningResponse}`);
+        }
       }
     });
 

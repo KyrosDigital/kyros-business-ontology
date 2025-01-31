@@ -11,7 +11,7 @@
     "tunnel": "lt --port 3000",
     "stripe-local": "stripe listen --forward-to localhost:3000/api/webhooks/stripe",
     "prisma-studio": "npx prisma studio",
-		"inngest-dev": "npx inngest-cli@latest dev",
+    "inngest-dev": "npx inngest-cli@latest dev",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
@@ -34,6 +34,7 @@
     "@radix-ui/react-slot": "^1.1.1",
     "@radix-ui/react-switch": "^1.1.1",
     "@shadcn/ui": "^0.0.4",
+    "ably": "^2.6.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "cytoscape": "^3.30.3",

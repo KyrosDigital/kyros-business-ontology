@@ -10,6 +10,7 @@ interface CreateNodeEvent {
     organization: Organization;
     ontology: Ontology;
     customNodeTypeNames: string[];
+    userId: string;
   };
 }
 
@@ -17,7 +18,7 @@ export const createNodeTool = inngest.createFunction(
   { id: "create-node" },
   { event: "ai-agent/tools/create-node" },
   async ({ event, step }: { event: CreateNodeEvent; step: any }) => {
-    const { type, name, description, organization, ontology, customNodeTypeNames } = event.data;
+    const { type, name, description, organization, ontology, customNodeTypeNames, userId } = event.data;
 
     // Validate node type is allowed
     if (!customNodeTypeNames.includes(type)) {
@@ -41,9 +42,9 @@ export const createNodeTool = inngest.createFunction(
       await step.sendEvent("notify-ui-update", {
         name: "ui/notify",
         data: {
+          userId,
           type: "graph-update",
           message: `Created new ${type} node: "${name}"${description ? ` - ${description}` : ''}`,
-          timestamp: new Date().toISOString(),
           data: node
         }
       });
@@ -59,9 +60,9 @@ export const createNodeTool = inngest.createFunction(
       await step.sendEvent("notify-ui-error", {
         name: "ui/notify",
         data: {
-          type: "error",
+          userId,
+          type: "ai-chat",
           message: `Failed to create node: ${error instanceof Error ? error.message : "Unknown error"}`,
-          timestamp: new Date().toISOString(),
           data: null
         }
       });
