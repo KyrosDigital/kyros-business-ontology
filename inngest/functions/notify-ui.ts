@@ -6,9 +6,10 @@ export const notifyUI = inngest.createFunction(
   async ({ event, step }) => {
     const message = {
       type: event.data.type,
-      content: event.data.content,
-      timestamp: new Date().toISOString()
-    };
+      message: event.data.message,
+      timestamp: new Date().toISOString(),
+      data: event.data.data
+    };	
 
     // Send POST request to notify-ui endpoint
     await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/v1/notify-ui`, {
@@ -28,6 +29,8 @@ export type NotifyUIEvent = {
   name: "ui/notify";
   data: {
     type: string;
-    content: string;
+    message: string;
+    timestamp: string;
+    data: any;
   };
 };

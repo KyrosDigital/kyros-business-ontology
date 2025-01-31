@@ -42,8 +42,9 @@ export const createNodeTool = inngest.createFunction(
         name: "ui/notify",
         data: {
           type: "node-created",
-          content: `Created new ${type} node: "${name}"${description ? ` - ${description}` : ''}`,
-          timestamp: new Date().toISOString()
+          message: `Created new ${type} node: "${name}"${description ? ` - ${description}` : ''}`,
+          timestamp: new Date().toISOString(),
+          data: node
         }
       });
 
@@ -59,8 +60,9 @@ export const createNodeTool = inngest.createFunction(
         name: "ui/notify",
         data: {
           type: "error",
-          content: `Failed to create node: ${error instanceof Error ? error.message : "Unknown error"}`,
-          timestamp: new Date().toISOString()
+          message: `Failed to create node: ${error instanceof Error ? error.message : "Unknown error"}`,
+          timestamp: new Date().toISOString(),
+          data: null
         }
       });
 
