@@ -52,7 +52,8 @@ export async function POST(request: Request) {
         prompt,
         organization,
         ontology,
-				userId
+				userId,
+				source: 'in-app'
       },
     });
 

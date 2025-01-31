@@ -2,7 +2,7 @@ import { inngest } from "../../inngest-client";
 import { openAIService } from "../../../services/openai";
 import { Organization, Ontology } from "@prisma/client";
 import { analyzeActionUserPrompt, executePlanSystemPrompt, generateSummaryUserPrompt } from "@/prompts/openai";
-import { PineconeResult, NodeMetadata, RelationshipMetadata } from "./queryPinecone";
+import { PineconeResult, } from "./queryPinecone";
 import { vectorSearch } from "./tools/vector_search";
 import { createNodeTool } from "./tools/create_node";
 import { createRelationshipTool } from "./tools/create_relationship";
@@ -16,6 +16,8 @@ interface ExecutePlanEvent {
     organization: Organization;
     ontology: Ontology;
     customNodeTypeNames: string[];
+    userId: string;
+    source: string;
   };
 }
 
@@ -77,7 +79,8 @@ export const executePlan = inngest.createFunction(
   { id: "execute-plan" },
   { event: "ai-agent/execute-plan" },
   async ({ event, step }: { event: ExecutePlanEvent; step: any }) => {
-    const { validatedPlan: plan, contextData, prompt, organization, ontology, customNodeTypeNames, userId } = event.data;
+    const { validatedPlan: plan, contextData, prompt, organization, ontology, customNodeTypeNames, userId, source } = event.data;
+    const isInAppRequest = source === 'in-app';
 
     // Track created nodes for relationship creation
     const createdNodes: Record<string, NodeCreationResult> = {};
@@ -271,16 +274,18 @@ export const executePlan = inngest.createFunction(
           };
         });
 
-        // Send the final summary to the user via ai-chat
-        await step.sendEvent("notify-summary", {
-          name: "ui/notify",
-          data: {
-            userId,
-            channelType: "ai-chat",
-            type: "message",
-            message: summaryParams.reason
-          }
-        });
+        // Only send UI notifications for in-app requests
+        if (isInAppRequest) {
+          await step.sendEvent("notify-summary", {
+            name: "ui/notify",
+            data: {
+              userId,
+              channelType: "ai-chat",
+              type: "message",
+              message: summaryParams.reason
+            }
+          });
+        }
 
         executionResults.push({
           analysis: analysisResponse.analysis,
@@ -298,16 +303,18 @@ export const executePlan = inngest.createFunction(
         const insightsCall = analysisResponse.tool_calls.find(call => call.function.name === "provide_insights");
         const params = JSON.parse(insightsCall!.function.arguments);
         
-        // Send progress message for insights
-        await step.sendEvent("notify-insights-progress", {
-          name: "ui/notify",
-          data: {
-            userId,
-            channelType: "ai-chat",
-            type: "progress",
-            message: `Preparing ${params.analysisType} analysis...`
-          }
-        });
+        // Only send UI notifications for in-app requests
+        if (isInAppRequest) {
+          await step.sendEvent("notify-insights-progress", {
+            name: "ui/notify",
+            data: {
+              userId,
+              channelType: "ai-chat",
+              type: "progress",
+              message: `Preparing ${params.analysisType} analysis...`
+            }
+          });
+        }
       }
 
       // Then run the toolCallAnalysis
@@ -324,17 +331,21 @@ export const executePlan = inngest.createFunction(
                 const params = JSON.parse(toolCall.function.arguments);
 
                 if (toolCall.function.name === "provide_insights") {
-                  operationAttempted = true;
-                  executionData = {
-                    type: "provide_insights",
-                    params: {
-                      insights: params.insights,
-                      analysisType: params.analysisType,
-                      organization,
-                      ontology,
-                      userId
-                    }
-                  };
+                  // Only attempt provide_insights for in-app requests
+                  if (isInAppRequest) {
+                    operationAttempted = true;
+                    executionData = {
+                      type: "provide_insights",
+                      params: {
+                        insights: params.insights,
+                        analysisType: params.analysisType,
+                        organization,
+                        ontology,
+                        userId,
+                        source
+                      }
+                    };
+                  }
                 } else if (toolCall.function.name === "create_node") {
                   if (!customNodeTypeNames.includes(params.type)) {
                     throw new Error(`Invalid node type "${params.type}". Allowed types are: ${customNodeTypeNames.join(", ")}`);
@@ -343,11 +354,12 @@ export const executePlan = inngest.createFunction(
                   operationAttempted = true;
                   executionData = {
                     type: "create_node",
-										userId,
+                    userId,
                     params: {
                       type: params.type,
                       name: params.name,
                       description: params.description,
+                      source,
                     }
                   };
                 } else if (toolCall.function.name === "create_relationship") {
@@ -365,24 +377,26 @@ export const executePlan = inngest.createFunction(
                   operationAttempted = true;
                   executionData = {
                     type: "create_relationship",
-										userId,
+                    userId,
                     params: {
                       fromNodeId: fromNode.id,
                       toNodeId: toNode.id,
-                      relationType: params.relationType
+                      relationType: params.relationType,
+                      source,
                     }
                   };
                 } else if (toolCall.function.name === "vector_search") {
                   operationAttempted = true;
                   executionData = {
                     type: "vector_search",
-										userId,
+                    userId,
                     params: {
                       searchQuery: params.query,
                       topK: params.topK,
                       organization,
                       ontology,
-                      customNodeTypeNames
+                      customNodeTypeNames,
+                      source,
                     }
                   };
                 }
@@ -418,7 +432,7 @@ export const executePlan = inngest.createFunction(
           const nodeResult = await step.invoke("execute-create-node", {
             function: createNodeTool,
             data: {
-							userId,
+              userId,
               ...toolCallAnalysis.executionData.params,
               organization,
               ontology,
@@ -440,7 +454,7 @@ export const executePlan = inngest.createFunction(
           const relationshipResult = await step.invoke("execute-create-relationship", {
             function: createRelationshipTool,
             data: {
-							userId,
+              userId,
               ...toolCallAnalysis.executionData.params,
               organization,
               ontology
@@ -465,7 +479,7 @@ export const executePlan = inngest.createFunction(
             function: vectorSearch,
             data: {
               ...toolCallAnalysis.executionData.params,
-							userId
+              userId
             },
           });
           
@@ -473,29 +487,36 @@ export const executePlan = inngest.createFunction(
           searchedContextData = searchResult.results;
           executionResult = searchResult;
         } else if (toolCallAnalysis.executionData.type === "provide_insights") {
-          const insightsResult = await step.invoke("provide-insights", {
-            function: provideInsights,
-            data: {
-              ...toolCallAnalysis.executionData.params
-            },
-          });
-
-          executionResult = insightsResult;
-
-          // If this was a QUERY intent, complete after providing insights
-          if (plan.intent === "QUERY") {
-            executionResults.push({
-              action: plan.proposedActions[currentStep - 1],
-              analysis: analysisResponse.analysis,
-              toolCallAnalysis,
-              executionResult,
-              stepNumber: currentStep,
-              createdNodes: { ...createdNodes },
-              createdRelationships: [...createdRelationships],
-              isFinal: true
+          // Double-check that this is an in-app request before executing
+          if (isInAppRequest) {
+            const insightsResult = await step.invoke("provide-insights", {
+              function: provideInsights,
+              data: {
+                ...toolCallAnalysis.executionData.params
+              },
             });
-            isComplete = true;
-            continue;
+
+            executionResult = insightsResult;
+
+            // If this was a QUERY intent, complete after providing insights
+            if (plan.intent === "QUERY") {
+              executionResults.push({
+                action: plan.proposedActions[currentStep - 1],
+                analysis: analysisResponse.analysis,
+                toolCallAnalysis,
+                executionResult,
+                stepNumber: currentStep,
+                createdNodes: { ...createdNodes },
+                createdRelationships: [...createdRelationships],
+                isFinal: true
+              });
+              isComplete = true;
+              continue;
+            }
+          } else {
+            // Skip provide_insights for non-in-app requests
+            console.log("Skipping provide_insights for non-in-app request");
+            executionResult = { skipped: true, reason: "provide_insights only available for in-app requests" };
           }
         }
       }

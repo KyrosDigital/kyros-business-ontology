@@ -12,6 +12,7 @@ type AIAgentStartEvent = {
     organization: Organization;
     ontology: Ontology;
     userId: string;
+    source: string;
   };
 };
 
@@ -20,7 +21,8 @@ export const aiAgentInit = inngest.createFunction(
   { id: "ai-agent-init" },
   { event: "ai-agent/init" },
   async ({ event, step }: { event: AIAgentStartEvent; step: any }) => {
-    const { prompt, organization, ontology, userId } = event.data;
+    const { prompt, organization, ontology, userId, source } = event.data;
+    const isInAppRequest = source === 'in-app';
 
     // Get custom node types for the organization
     const customNodeTypes = await step.run("fetch-custom-node-types", async () => {
@@ -36,16 +38,18 @@ export const aiAgentInit = inngest.createFunction(
       customNodeTypeNames,
     };
 		
-    // Notify user that ontology inspection has started
-    await step.sendEvent("notify-inspection-start", {
-      name: "ui/notify",
-      data: {
-        userId,
-        channelType: "ai-chat",
-        type: "progress",
-        message: "Inspecting your ontology data to understand the current context..."
-      }
-    });
+    // Only send UI notifications for in-app requests
+    if (isInAppRequest) {
+      await step.sendEvent("notify-inspection-start", {
+        name: "ui/notify",
+        data: {
+          userId,
+          channelType: "ai-chat",
+          type: "progress",
+          message: "Inspecting your ontology data to understand the current context..."
+        }
+      });
+    }
 
     // Generate embedding
     const { embedding } = await step.invoke("generate-embedding", {
@@ -62,16 +66,18 @@ export const aiAgentInit = inngest.createFunction(
       },
     });
 
-    // Notify user that planning has started
-    await step.sendEvent("notify-planning-start", {
-      name: "ui/notify",
-      data: {
-        userId,
-        channelType: "ai-chat",
-        type: "progress",
-        message: "Analyzing your request and planning necessary actions..."
-      }
-    });
+    // Only send UI notifications for in-app requests
+    if (isInAppRequest) {
+      await step.sendEvent("notify-planning-start", {
+        name: "ui/notify",
+        data: {
+          userId,
+          channelType: "ai-chat",
+          type: "progress",
+          message: "Analyzing your request and planning necessary actions..."
+        }
+      });
+    }
 
     // Generate action plan
     const { planningResponse } = await step.invoke("generate-action-plan", {
@@ -82,16 +88,18 @@ export const aiAgentInit = inngest.createFunction(
       },
     });
 
-    // Notify user that validation has started
-    await step.sendEvent("notify-validation-start", {
-      name: "ui/notify",
-      data: {
-        userId,
-        channelType: "ai-chat",
-        type: "progress",
-        message: "Validating the planned actions to ensure they're safe and appropriate..."
-      }
-    });
+    // Only send UI notifications for in-app requests
+    if (isInAppRequest) {
+      await step.sendEvent("notify-validation-start", {
+        name: "ui/notify",
+        data: {
+          userId,
+          channelType: "ai-chat",
+          type: "progress",
+          message: "Validating the planned actions to ensure they're safe and appropriate..."
+        }
+      });
+    }
 
     // Validate the plan
     const { validatedPlan } = await step.invoke("validate-plan", {
@@ -103,16 +111,18 @@ export const aiAgentInit = inngest.createFunction(
       },
     });
 
-    // Notify user that execution is starting
-    await step.sendEvent("notify-execution-start", {
-      name: "ui/notify",
-      data: {
-        userId,
-        channelType: "ai-chat",
-        type: "progress",
-        message: "Starting to execute the plan..."
-      }
-    });
+    // Only send UI notifications for in-app requests
+    if (isInAppRequest) {
+      await step.sendEvent("notify-execution-start", {
+        name: "ui/notify",
+        data: {
+          userId,
+          channelType: "ai-chat",
+          type: "progress",
+          message: "Starting to execute the plan..."
+        }
+      });
+    }
 
     // Execute the validated plan, start AI Agent loop
     await step.sendEvent("start-execute-plan", {
@@ -122,6 +132,7 @@ export const aiAgentInit = inngest.createFunction(
         userId,
         validatedPlan,
         contextData: pineconeResults,
+        source,
       },
     });
 	

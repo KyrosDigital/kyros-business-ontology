@@ -12,6 +12,7 @@ interface VectorSearchEvent {
     ontology: Ontology;
     customNodeTypeNames: string[];
     userId: string;
+    source: string;
   };
 }
 
@@ -19,19 +20,22 @@ export const vectorSearch = inngest.createFunction(
   { id: "vector-search" },
   { event: "ai-agent/tools/vector-search" },
   async ({ event, step }: { event: VectorSearchEvent; step: any }) => {
-    const { searchQuery, topK, organization, ontology, customNodeTypeNames, userId } = event.data;
+    const { searchQuery, topK, organization, ontology, customNodeTypeNames, userId, source } = event.data;
+    const isInAppRequest = source === 'in-app';
 
     try {
-      // Notify user about vector search
-      await step.sendEvent("notify-vector-search", {
-        name: "ui/notify",
-        data: {
-          userId,
-          channelType: "ai-chat",
-          type: "progress",
-          message: "I'm searching for more context in your knowledge graph..."
-        }
-      });
+      // Only send UI notifications for in-app requests
+      if (isInAppRequest) {
+        await step.sendEvent("notify-vector-search", {
+          name: "ui/notify",
+          data: {
+            userId,
+            channelType: "ai-chat",
+            type: "progress",
+            message: "I'm searching for more context in your knowledge graph..."
+          }
+        });
+      }
 
       // Generate embedding for the search query
       const { embedding } = await step.invoke("generate-embedding", {
@@ -65,17 +69,19 @@ export const vectorSearch = inngest.createFunction(
     } catch (error) {
       console.error("Error in vector search:", error);
       
-      // Send error notification
-      await step.sendEvent("notify-vector-search-error", {
-        name: "ui/notify",
-        data: {
-          userId,
-          channelType: "ai-chat",
-          type: "error",
-          message: `Failed to search knowledge graph: ${error instanceof Error ? error.message : "Unknown error"}`,
-          data: null
-        }
-      });
+      // Only send UI notifications for in-app requests
+      if (isInAppRequest) {
+        await step.sendEvent("notify-vector-search-error", {
+          name: "ui/notify",
+          data: {
+            userId,
+            channelType: "ai-chat",
+            type: "error",
+            message: `Failed to search knowledge graph: ${error instanceof Error ? error.message : "Unknown error"}`,
+            data: null
+          }
+        });
+      }
 
       throw error;
     }
