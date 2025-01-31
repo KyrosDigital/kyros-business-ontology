@@ -110,7 +110,7 @@ export const aiAgentInit = inngest.createFunction(
         userId,
         channelType: "ai-chat",
         type: "progress",
-        message: "Starting to execute the planned changes to your graph..."
+        message: "Starting to execute the plan..."
       }
     });
 

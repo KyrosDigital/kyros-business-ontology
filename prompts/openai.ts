@@ -136,6 +136,10 @@ AVAILABLE TOOLS:
       id: string (UUID of the node to delete)
       strategy: string ("orphan", "cascade", "reconnect")
 
+7. provide_insights
+   - Purpose: Provide accurate, detailed insights and information about the ontology
+   - Use when: intent is QUERY and user is asking for insights and information about the ontology
+
 Respond with concise JSON:
 {
   "intent": "QUERY | MODIFICATION",
@@ -164,7 +168,7 @@ export const generateActionPlanUserPrompt = (prompt: string, contextData: any) =
 };
 
 // Execute Plan Prompts
-export const executePlanSystemPrompt = (prompt: string, plan: any, customNodeTypeNames: any) => {
+export const executePlanSystemPrompt = (prompt: string, plan: PlanningResponse, customNodeTypeNames: string[]) => {
 	return `You are an AI agent responsible for executing a planned sequence of operations on an ontology system.
 Your task is to analyze the provided plan and context, then execute the appropriate tools to implement the changes.
 ORIGINAL USER REQUEST:
@@ -177,7 +181,7 @@ CURRENT CAPABILITIES:
 - You can create new nodes using the create_node tool
 - You can create relationships between nodes using the create_relationship tool
 - You can search the vector database using the vector_search tool when you think you might need more information to complete the action with success.
-- You can assist the user in getting more information and insights by using a combination of the vector_search tool, ask_for_more_information tool, and generate_summary tool.
+- You can assist the users intent to get more information and insights by using a combination of the vector_search tool, ask_for_more_information tool, provide_insights tool.
 - You can generate a summary of the execution using the generate_summary tool 
 AVAILABLE NODE TYPES:
 ${customNodeTypeNames.join(", ")}
@@ -249,10 +253,16 @@ EXECUTION GUIDELINES:
 3. Ensure node names are clear and descriptive
 4. Provide detailed descriptions that explain the node's purpose
 5. Only use allowed node types
-6. Use meaningful relationship types
+6. Use meaningful relationship types if generating, or use the relationship type the user provided
 7. Double-check node IDs before creating relationships
-8. Skip any operations that aren't create_node or create_relationship
-Remember: Only proceed with node and relationship creation operations. All other operations should be noted but skipped.`;
+
+Tool Usage Guidelines:
+- Use provide_insights for QUERY intents to give detailed analysis and information
+- Use generate_summary only for MODIFICATION intents to summarize changes made to the graph
+- For QUERY intents, the execution will complete after providing insights
+- For MODIFICATION intents, use generate_summary to explain what changes were made
+
+`;
 };
 
 export const analyzeActionUserPrompt = (
@@ -287,10 +297,11 @@ If this is a create_node operation, use the create_node function.
 If this is a create_relationship operation, ensure you use the correct node IDs from either:
 1. Existing nodes in contextData
 2. Recently created nodes listed above
+If the mode was QUERY, use the provide_insights function.
 
-If you are not sure you have all the required information, and need specific information about a Node or NodeRelationship in order to complete the action with success, craft a query that can be used in the pinecone vector search, use the search_vector_db function with a smaller topK (5-10). 
+If you are not sure you have all the required information, and need specific information about a Node or NodeRelationship in order to complete the action with success, craft a highly detailed query that can be used in the pinecone vector search, use the vector_search function with a smaller topK (5-10). 
 
-If you are not sure you have all the required information, and need a larger body of information about Nodes and Node Relationships in order to complete the action with success, craft a query that can be used in the pinecone vector search, use the search_vector_db function with a larger topK (50-75).
+If you are not sure you have all the required information, and need a larger body of information about Nodes and Node Relationships in order to complete the action with success, craft a query that can be used in the pinecone vector search, use the vector_search function with a larger topK (50-75).
 
 If you have already performed two rounds of searching, as reflected in Previous Step Results, and cannot find the information you need, it most likely doesn't exist. Based on that, if you still need more information to complete the action with success, use the ask_for_more_information function. 
 

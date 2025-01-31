@@ -6,6 +6,7 @@ import { PineconeResult, NodeMetadata, RelationshipMetadata } from "./queryPinec
 import { vectorSearch } from "./tools/vector_search";
 import { createNodeTool } from "./tools/create_node";
 import { createRelationshipTool } from "./tools/create_relationship";
+import { provideInsights } from "./tools/provide_insights";
 
 interface ExecutePlanEvent {
   data: {
@@ -56,7 +57,7 @@ interface ExecutionResult {
       error?: string;
     } | null;
     executionData: {
-      type: "create_node" | "create_relationship" | "vector_search";
+      type: "create_node" | "create_relationship" | "vector_search" | "provide_insights";
       params: any;
     } | null;
   };
@@ -187,6 +188,30 @@ export const executePlan = inngest.createFunction(
 					},
 					strict: true
 				}
+			},
+			{
+				type: "function",
+				function: {
+					name: "provide_insights",
+					description: "Provide detailed insights and analysis about the requested information based on all available information.",
+					parameters: {
+						type: "object",
+						properties: {
+							insights: {
+								type: "string",
+								description: "The detailed insights and analysis to share with the user"
+							},
+							analysisType: {
+								type: "string",
+								enum: ["relationships", "patterns", "gaps", "recommendations"],
+								description: "The type of analysis performed"
+							}
+						},
+						required: ["insights", "analysisType"],
+						additionalProperties: false
+					},
+					strict: true
+				}
 			}
 		];
 
@@ -268,81 +293,113 @@ export const executePlan = inngest.createFunction(
         continue;
       }
 
-      // Analyze tool calls and prepare execution data
-      const toolCallAnalysis = await step.run(`prepare-action-${currentStep}`, async () => {
+      // If it's a provide_insights tool, send progress notification first
+      if (analysisResponse.tool_calls?.some(call => call.function.name === "provide_insights")) {
+        const insightsCall = analysisResponse.tool_calls.find(call => call.function.name === "provide_insights");
+        const params = JSON.parse(insightsCall!.function.arguments);
+        
+        // Send progress message for insights
+        await step.sendEvent("notify-insights-progress", {
+          name: "ui/notify",
+          data: {
+            userId,
+            channelType: "ai-chat",
+            type: "progress",
+            message: `Preparing ${params.analysisType} analysis...`
+          }
+        });
+      }
+
+      // Then run the toolCallAnalysis
+      let toolCallAnalysis;
+      toolCallAnalysis = await step.run(`prepare-action-${currentStep}`, async () => {
         let operationAttempted = false;
         let toolCallResult = null;
         let executionData = null;
 
-        if (analysisResponse.tool_calls?.length > 0) {
+        if (analysisResponse.tool_calls) {
           for (const toolCall of analysisResponse.tool_calls) {
-            try {
-              const params = JSON.parse(toolCall.function.arguments);
+            if (toolCall.type === "function") {
+              try {
+                const params = JSON.parse(toolCall.function.arguments);
 
-              if (toolCall.function.name === "create_node") {
-                if (!customNodeTypeNames.includes(params.type)) {
-                  throw new Error(`Invalid node type "${params.type}". Allowed types are: ${customNodeTypeNames.join(", ")}`);
+                if (toolCall.function.name === "provide_insights") {
+                  operationAttempted = true;
+                  executionData = {
+                    type: "provide_insights",
+                    params: {
+                      insights: params.insights,
+                      analysisType: params.analysisType,
+                      organization,
+                      ontology,
+                      userId
+                    }
+                  };
+                } else if (toolCall.function.name === "create_node") {
+                  if (!customNodeTypeNames.includes(params.type)) {
+                    throw new Error(`Invalid node type "${params.type}". Allowed types are: ${customNodeTypeNames.join(", ")}`);
+                  }
+
+                  operationAttempted = true;
+                  executionData = {
+                    type: "create_node",
+										userId,
+                    params: {
+                      type: params.type,
+                      name: params.name,
+                      description: params.description,
+                    }
+                  };
+                } else if (toolCall.function.name === "create_relationship") {
+                  const fromNode = findNodeById(params.fromNodeId, contextData, createdNodes);
+                  const toNode = findNodeById(params.toNodeId, contextData, createdNodes);
+
+                  if (!fromNode || !toNode) {
+                    throw new Error(
+                      `Unable to find nodes for relationship. ` +
+                      `From Node (${params.fromNodeId}): ${fromNode ? 'Found' : 'Not Found'}. ` +
+                      `To Node (${params.toNodeId}): ${toNode ? 'Found' : 'Not Found'}`
+                    );
+                  }
+
+                  operationAttempted = true;
+                  executionData = {
+                    type: "create_relationship",
+										userId,
+                    params: {
+                      fromNodeId: fromNode.id,
+                      toNodeId: toNode.id,
+                      relationType: params.relationType
+                    }
+                  };
+                } else if (toolCall.function.name === "vector_search") {
+                  operationAttempted = true;
+                  executionData = {
+                    type: "vector_search",
+										userId,
+                    params: {
+                      searchQuery: params.query,
+                      topK: params.topK,
+                      organization,
+                      ontology,
+                      customNodeTypeNames
+                    }
+                  };
                 }
 
-                operationAttempted = true;
-                executionData = {
-                  type: "create_node",
-									userId,
-                  params: {
-                    type: params.type,
-                    name: params.name,
-                    description: params.description,
-                  }
+                toolCallResult = {
+                  success: true,
+                  params,
+                  toolCall
                 };
-              } else if (toolCall.function.name === "create_relationship") {
-                const fromNode = findNodeById(params.fromNodeId, contextData, createdNodes);
-                const toNode = findNodeById(params.toNodeId, contextData, createdNodes);
-
-                if (!fromNode || !toNode) {
-                  throw new Error(
-                    `Unable to find nodes for relationship. ` +
-                    `From Node (${params.fromNodeId}): ${fromNode ? 'Found' : 'Not Found'}. ` +
-                    `To Node (${params.toNodeId}): ${toNode ? 'Found' : 'Not Found'}`
-                  );
-                }
-
-                operationAttempted = true;
-                executionData = {
-                  type: "create_relationship",
-									userId,
-                  params: {
-                    fromNodeId: fromNode.id,
-                    toNodeId: toNode.id,
-                    relationType: params.relationType
-                  }
+              } catch (error) {
+                toolCallResult = {
+                  success: false,
+                  error: error instanceof Error ? error.message : "Unknown error",
+                  toolCall
                 };
-              } else if (toolCall.function.name === "vector_search") {
-                operationAttempted = true;
-                executionData = {
-                  type: "vector_search",
-									userId,
-                  params: {
-                    searchQuery: params.query,
-                    topK: params.topK,
-                    organization,
-                    ontology,
-                    customNodeTypeNames
-                  }
-                };
+                console.error("Error analyzing tool call:", error);
               }
-
-              toolCallResult = {
-                success: true,
-                params,
-                toolCall
-              };
-            } catch (error) {
-              toolCallResult = {
-                success: false,
-                error: error instanceof Error ? error.message : "Unknown error",
-                toolCall
-              };
-              console.error("Error analyzing tool call:", error);
             }
           }
         }
@@ -415,6 +472,31 @@ export const executePlan = inngest.createFunction(
           // Update the searchedContextData with the latest results
           searchedContextData = searchResult.results;
           executionResult = searchResult;
+        } else if (toolCallAnalysis.executionData.type === "provide_insights") {
+          const insightsResult = await step.invoke("provide-insights", {
+            function: provideInsights,
+            data: {
+              ...toolCallAnalysis.executionData.params
+            },
+          });
+
+          executionResult = insightsResult;
+
+          // If this was a QUERY intent, complete after providing insights
+          if (plan.intent === "QUERY") {
+            executionResults.push({
+              action: plan.proposedActions[currentStep - 1],
+              analysis: analysisResponse.analysis,
+              toolCallAnalysis,
+              executionResult,
+              stepNumber: currentStep,
+              createdNodes: { ...createdNodes },
+              createdRelationships: [...createdRelationships],
+              isFinal: true
+            });
+            isComplete = true;
+            continue;
+          }
         }
       }
 

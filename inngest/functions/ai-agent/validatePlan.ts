@@ -65,7 +65,8 @@ export const validatePlan = inngest.createFunction(
           "update_relationship",
           "delete_node_with_strategy",
           "ask_for_more_information",
-          "generate_summary"
+          "generate_summary",
+          "provide_insights"
         ] as const;
 
         // First validate that all tools are strings
