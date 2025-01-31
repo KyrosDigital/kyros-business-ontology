@@ -12,7 +12,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useGraph } from "@/contexts/GraphContext"
 import { useOrganization } from "@/contexts/OrganizationContext"
-import { v4 as uuidv4 } from 'uuid'
+import { useUser } from "@/contexts/UserContext"
 
 type FilterType = 'NODE' | 'RELATIONSHIP' | 'NOTE';
 
@@ -61,6 +61,7 @@ const LoadingDots = () => {
 export function AiChat({ isOpen, onClose }: AiChatProps) {
   const { ontologyId, refreshGraph } = useGraph();
   const { organization } = useOrganization();
+  const { user } = useUser();
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -78,7 +79,6 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
   const [resizeStart, setResizeStart] = useState({ x: 0, y: 0 })
   const [attachment, setAttachment] = useState<FileAttachment | null>(null)
   const [isProcessingFile, setIsProcessingFile] = useState(false)
-  const [sessionId] = useState(() => uuidv4())
 
   const toggleFilter = (filter: FilterType) => {
     const newFilters = new Set(activeFilters);
@@ -117,7 +117,6 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
           activeFilters: Array.from(activeFilters),
           organizationId: organization.id,
           ontologyId,
-          sessionId,
           attachment: attachment ? {
             name: attachment.name,
             text: attachment.text
@@ -329,7 +328,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     let isConnecting = false;
 
     const connectToSSE = async () => {
-      if (isConnecting || !sessionId) return;
+      if (isConnecting || !user?.id) return;
       isConnecting = true;
 
       // Close existing connection if any
@@ -340,9 +339,9 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
       }
 
       try {
-        console.log('Creating new SSE connection...', sessionId);
+        console.log('Creating new SSE connection...', user.id);
         const timestamp = Date.now();
-        const url = `/api/v1/chat/updates?sessionId=${sessionId}&t=${timestamp}`;
+        const url = `/api/v1/chat/updates?userId=${user.clerkId}&t=${timestamp}`;
         
         eventSource = new EventSource(url);
 
@@ -364,6 +363,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
               
               case 'progress':
               case 'complete':
+                console.log('Updating messages with:', data.content);
                 setMessages(prev => {
                   const newMessages = [...prev];
                   if (newMessages.length > 0 && newMessages[newMessages.length - 1].role === 'assistant') {
@@ -381,6 +381,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
                 });
 
                 if (data.operationResult) {
+                  console.log('Refreshing graph due to operation result');
                   refreshGraph();
                 }
 
@@ -413,7 +414,8 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
       }
     };
 
-    if (isOpen) {
+    // Connect as soon as we have a user ID
+    if (user?.id) {
       console.log('Initiating SSE connection...');
       connectToSSE();
     }
@@ -426,7 +428,7 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
       }
       isConnecting = false;
     };
-  }, [isOpen, sessionId, refreshGraph]);
+  }, [user?.id, refreshGraph]);
 
   return (
     <div 

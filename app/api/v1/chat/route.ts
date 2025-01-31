@@ -2,19 +2,29 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/prisma/prisma-client';
 import { aiUsageService } from '@/services/ai-usage';
 import { inngest } from '@/inngest/inngest-client';
+import { auth } from '@clerk/nextjs/server';
 
 export async function POST(request: Request) {
   try {
+    const { userId }: { userId: string | null } = await auth();
+
+    if (!userId) {
+      return NextResponse.json(
+        { message: 'Unauthorized' },
+        { status: 401 }
+      );
+    }
+
     const { 
       message, 
       previousMessages, 
       activeFilters,
       organizationId,
       ontologyId,
-      sessionId
+      attachment
     } = await request.json();
 
-    if (!organizationId || !ontologyId || !sessionId) {
+    if (!organizationId || !ontologyId) {
       return NextResponse.json(
         { message: 'Missing required fields' },
         { status: 400 }
@@ -45,16 +55,16 @@ export async function POST(request: Request) {
         prompt: message,
         organization,
         ontology,
-        sessionId
+        userId,
+        attachment
       }
     });
 
     // For now, return a simple acknowledgment
-    // Later we'll implement proper streaming and feedback
     return NextResponse.json({
       message: "AI Agent process started",
       status: "processing",
-      sessionId
+      userId
     });
 
   } catch (error) {
