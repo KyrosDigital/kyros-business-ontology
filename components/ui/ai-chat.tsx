@@ -104,6 +104,12 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     setInput("")
 
     try {
+      // Add initial AI message
+      setMessages(prev => [...prev, { 
+        role: "assistant", 
+        content: "I'm processing your request. You'll see updates appear in the graph as I work on it." 
+      }]);
+
       const response = await fetch('/api/v1/chat', {
         method: 'POST',
         headers: {
@@ -111,8 +117,6 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
         },
         body: JSON.stringify({
           message: userMessage.content,
-          previousMessages: messages,
-          activeFilters: Array.from(activeFilters),
           organizationId: organization.id,
           ontologyId,
           attachment: attachment ? {
@@ -123,58 +127,24 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to get response');
+        throw new Error('Failed to process request');
       }
 
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader available');
-
-      // Add initial "thinking" message
-      setMessages(prev => [...prev, { role: "assistant", content: "Thinking..." }]);
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        // Decode and parse the chunk
-        const chunk = new TextDecoder().decode(value);
-        const lines = chunk.split('\n').filter(line => line.trim());
-
-        for (const line of lines) {
-          const data = JSON.parse(line);
-
-          if (data.type === 'progress') {
-            // Update the last assistant message with the progress
-            setMessages(prev => [
-              ...prev.slice(0, -1),
-              { role: "assistant", content: data.content }
-            ]);
-
-            // If there's an operation result, refresh the graph
-            if (data.operationResult) {
-              await refreshGraph();
-            }
-          } else if (data.type === 'complete') {
-            // Add final response
-            if (data.response.text) {
-              setMessages(prev => [
-                ...prev.slice(0, -1), // Remove the progress message
-                { role: "assistant", content: data.response.text }
-              ]);
-            }
-          } else if (data.type === 'error') {
-            throw new Error(data.error);
-          }
-        }
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to process request');
       }
+
     } catch (error) {
-      console.error('Failed to get response:', error);
+      console.error('Failed to process request:', error);
       setMessages(prev => [...prev, { 
         role: "assistant", 
         content: "I'm sorry, I encountered an error. Please try again." 
       }]);
     } finally {
       setIsLoading(false);
+      setAttachment(null); // Clear attachment after sending
     }
   }
 

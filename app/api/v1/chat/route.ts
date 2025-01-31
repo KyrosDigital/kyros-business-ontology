@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
-import { sendMessage } from '@/lib/claude';
 import { prisma } from '@/prisma/prisma-client';
 import { aiUsageService } from '@/services/ai-usage';
+import { inngest } from '@/inngest/inngest-client';
 
 export async function POST(request: Request) {
   try {
     const { 
       message, 
-      previousMessages, 
-      activeFilters,
       organizationId,
-      ontologyId
+      ontologyId,
+      attachment
     } = await request.json();
 
     if (!organizationId || !ontologyId) {
@@ -37,68 +36,33 @@ export async function POST(request: Request) {
       );
     }
 
-    const filtersSet = new Set(activeFilters as ('NODE' | 'RELATIONSHIP' | 'NOTE')[]);
-    
-    // Create a new TransformStream for streaming updates
-    const stream = new TransformStream();
-    const writer = stream.writable.getWriter();
-    
-    // Create progress callback
-    const onProgress = async (update: string, operationResult?: any) => {
-      const data = JSON.stringify({ 
-        type: 'progress', 
-        content: update,
-        operationResult 
-      });
-      await writer.write(new TextEncoder().encode(data + '\n'));
-    };
+    // Format the prompt including any context from previous messages
+    const prompt = attachment 
+      ? `Context from PDF "${attachment.name}": ${attachment.text}\n\nUser request: ${message}`
+      : message;
 
-    // Handle the message in the background
-    const responsePromise = sendMessage(
-      message,
-      organization,
-      ontology,
-      previousMessages,
-      filtersSet,
-      onProgress
-    );
-
-    // When the response is ready, increment usage count and send response
-    responsePromise.then(async (response) => {
-      try {
-        // Increment the AI usage count
-        await aiUsageService.incrementCount(organizationId);
-        
-        const finalData = JSON.stringify({ type: 'complete', response });
-        await writer.write(new TextEncoder().encode(finalData + '\n'));
-      } catch (error) {
-        console.error('Error incrementing AI usage:', error);
-        // Still send the response even if tracking fails
-        const finalData = JSON.stringify({ type: 'complete', response });
-        await writer.write(new TextEncoder().encode(finalData + '\n'));
-      } finally {
-        await writer.close();
-      }
-    }).catch(async (error) => {
-      const errorData = JSON.stringify({ 
-        type: 'error', 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-      await writer.write(new TextEncoder().encode(errorData + '\n'));
-      await writer.close();
-    });
-
-    return new Response(stream.readable, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
+    // Trigger the AI Agent via Inngest
+    await inngest.send({
+      name: "ai-agent/init",
+      data: {
+        prompt,
+        organization,
+        ontology
       },
     });
+
+    // Increment the AI usage count
+    await aiUsageService.incrementCount(organizationId);
+
+    return NextResponse.json({ 
+      success: true, 
+      message: "Request is being processed. You'll see updates appear in the graph as I work on it."
+    });
+
   } catch (error) {
     console.error('Error in chat endpoint:', error);
     return NextResponse.json(
-      { message: 'Failed to get response', error: error instanceof Error ? error.message : 'Unknown error' },
+      { success: false, message: 'Failed to process request', error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
