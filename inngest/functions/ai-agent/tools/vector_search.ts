@@ -11,6 +11,7 @@ interface VectorSearchEvent {
     organization: Organization;
     ontology: Ontology;
     customNodeTypeNames: string[];
+    userId: string;
   };
 }
 
@@ -18,37 +19,65 @@ export const vectorSearch = inngest.createFunction(
   { id: "vector-search" },
   { event: "ai-agent/tools/vector-search" },
   async ({ event, step }: { event: VectorSearchEvent; step: any }) => {
-    const { searchQuery, topK, organization, ontology, customNodeTypeNames } = event.data;
+    const { searchQuery, topK, organization, ontology, customNodeTypeNames, userId } = event.data;
 
-    // Generate embedding for the search query
-    const { embedding } = await step.invoke("generate-embedding", {
-      function: generateEmbedding,
-      data: {
-        prompt: searchQuery,
-        organization,
-        ontology,
-        customNodeTypeNames
-      },
-    });
+    try {
+      // Notify user about vector search
+      await step.sendEvent("notify-vector-search", {
+        name: "ui/notify",
+        data: {
+          userId,
+          channelType: "ai-chat",
+          type: "progress",
+          message: "I'm searching for more context in your knowledge graph..."
+        }
+      });
 
-    // Query Pinecone with the specified limit
-    const { results } = await step.invoke("query-pinecone", {
-      function: queryPinecone,
-      data: {
-        embedding,
-        prompt: searchQuery,
-        organization,
-        ontology,
-        customNodeTypeNames,
-        topK, // Pass through the topK parameter
-      },
-    });
+      // Generate embedding for the search query
+      const { embedding } = await step.invoke("generate-embedding", {
+        function: generateEmbedding,
+        data: {
+          prompt: searchQuery,
+          organization,
+          ontology,
+          customNodeTypeNames
+        },
+      });
 
-    // Return the search results
-    return { 
-      results,
-      searchQuery,
-      topK
-    };
+      // Query Pinecone with the specified limit
+      const { results } = await step.invoke("query-pinecone", {
+        function: queryPinecone,
+        data: {
+          embedding,
+          prompt: searchQuery,
+          organization,
+          ontology,
+          customNodeTypeNames,
+          topK, // Pass through the topK parameter
+        },
+      });
+
+      return { 
+        results,
+        searchQuery,
+        topK
+      };
+    } catch (error) {
+      console.error("Error in vector search:", error);
+      
+      // Send error notification
+      await step.sendEvent("notify-vector-search-error", {
+        name: "ui/notify",
+        data: {
+          userId,
+          channelType: "ai-chat",
+          type: "error",
+          message: `Failed to search knowledge graph: ${error instanceof Error ? error.message : "Unknown error"}`,
+          data: null
+        }
+      });
+
+      throw error;
+    }
   }
 ); 
