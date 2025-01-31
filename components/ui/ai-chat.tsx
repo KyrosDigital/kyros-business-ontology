@@ -12,6 +12,8 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { useGraph } from "@/contexts/GraphContext"
 import { useOrganization } from "@/contexts/OrganizationContext"
+import { useUser } from "@/contexts/UserContext"
+import Ably from 'ably'
 
 type FilterType = 'NODE' | 'RELATIONSHIP' | 'NOTE';
 
@@ -60,6 +62,8 @@ const LoadingDots = () => {
 export function AiChat({ isOpen, onClose }: AiChatProps) {
   const { ontologyId, refreshGraph } = useGraph();
   const { organization } = useOrganization();
+  const { user } = useUser();
+  const ablyClientRef = useRef<Ably.Realtime | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -88,10 +92,48 @@ export function AiChat({ isOpen, onClose }: AiChatProps) {
     setActiveFilters(newFilters);
   };
 
+  useEffect(() => {
+    if (!user?.clerkId || !isOpen) return;
+
+    // Initialize Ably client
+    ablyClientRef.current = new Ably.Realtime({
+      key: process.env.NEXT_PUBLIC_ABLY_API_KEY!,
+      clientId: user.clerkId
+    });
+
+    // Subscribe to AI chat updates channel
+    const channel = ablyClientRef.current.channels.get(`ai-chat:${user.clerkId}`);
+
+    // Handle incoming messages
+    channel.subscribe('message', (message) => {
+      try {
+        const { type, message: content } = message.data;
+
+        if (type === 'ai-chat') {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content
+          }]);
+        }
+      } catch (error) {
+        console.error('Error handling Ably message:', error);
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      if (ablyClientRef.current) {
+        channel.unsubscribe();
+        ablyClientRef.current.close();
+        ablyClientRef.current = null;
+      }
+    };
+  }, [user?.clerkId, isOpen]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim() && !attachment) return
-    if (isLoading || !organization?.id || !ontologyId) return
+    if (isLoading || !organization?.id || !ontologyId || !user?.clerkId) return
 
     setIsLoading(true)
     const userMessage: ChatMessage = { 

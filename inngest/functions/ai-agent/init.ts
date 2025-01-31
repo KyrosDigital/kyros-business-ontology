@@ -51,6 +51,16 @@ export const aiAgentInit = inngest.createFunction(
       },
     });
 
+    // Notify user that planning has started
+    await step.sendEvent("notify-planning-start", {
+      name: "ui/notify",
+      data: {
+        userId,
+        type: "ai-chat",
+        message: "Analyzing your request and planning necessary actions..."
+      }
+    });
+
     // Generate action plan
     const { planningResponse } = await step.invoke("generate-action-plan", {
       function: generateActionPlan,
@@ -58,6 +68,16 @@ export const aiAgentInit = inngest.createFunction(
         ...commonEventData,
         contextData: pineconeResults,
       },
+    });
+
+    // Notify user that validation has started
+    await step.sendEvent("notify-validation-start", {
+      name: "ui/notify",
+      data: {
+        userId,
+        type: "ai-chat",
+        message: "Validating the planned actions to ensure they're safe and appropriate..."
+      }
     });
 
     // Validate the plan
@@ -68,6 +88,16 @@ export const aiAgentInit = inngest.createFunction(
         planningResponse,
         contextData: pineconeResults,
       },
+    });
+
+    // Notify user that execution is starting
+    await step.sendEvent("notify-execution-start", {
+      name: "ui/notify",
+      data: {
+        userId,
+        type: "ai-chat",
+        message: "Starting to execute the planned changes to your graph..."
+      }
     });
 
     // Execute the validated plan, start AI Agent loop
