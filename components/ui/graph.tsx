@@ -212,6 +212,29 @@ export function Graph() {
     };
   }, []); // Empty dependency array ensures cleanup only runs on unmount
 
+  // Add SSE effect
+  useEffect(() => {
+    const eventSource = new EventSource('/api/v1/notify-ui');
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('Received SSE update:', data);
+      } catch (error) {
+        console.error('Error parsing SSE data:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE Error:', error);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, []);
+
   return (
     <>
       <div className="absolute bottom-4 left-4 z-10">

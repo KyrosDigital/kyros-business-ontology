@@ -4,7 +4,8 @@ const publicRoutes = createRouteMatcher([
 		"/",
 		"/api/v1/webhooks/clerk",
 		"/api/v1/webhooks/stripe",
-		"/api/v1/inngest"
+		"/api/v1/inngest",
+		"/api/v1/notify-ui"
 	])
 
 export default clerkMiddleware(async (auth, req) => {
