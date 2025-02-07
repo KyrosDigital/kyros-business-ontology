@@ -113,16 +113,36 @@ const pricingPlans = [
 export default function LandingPage() {
   return (
     <div className="flex flex-col min-h-screen">
+      {/* Add Lapel Logo */}
+      <div className="fixed top-4 left-4 z-50">
+        <img 
+          src="/Auldrin-name-logo.png" 
+          alt="Auldrin Logo" 
+          className="h-12 w-auto"
+          width={48}
+          height={48}
+        />
+      </div>
+
       {/* Hero Section */}
       <section className="relative py-20 px-4 bg-gradient-to-b from-background to-secondary/20">
         <div className="max-w-6xl mx-auto text-center">
+          <div className="mb-8">
+            <img 
+              src="/Auldrin-logo-white-black.png" 
+              alt="Logo" 
+              className="h-32 mx-auto"
+              width={128}
+              height={128}
+            />
+          </div>
           <h1 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Transform Your Knowledge into
+					Unveiling, Organizing, and Elevating
             <br />
-            Visual Intelligence
+						Business Critical Knowledge
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
-            Harness the power of AI to create, visualize, and explore complex knowledge graphs with unprecedented ease.
+            Auldrin AI helps your business gain total visibility into how your organization is structured, how it operates, and how it can be improved.
           </p>
           <div className="flex gap-4 justify-center">
             <AuthButtons />
